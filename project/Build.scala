@@ -3,26 +3,65 @@ import Keys._
 
 object AkkaTracingBuild extends Build {
 
-  val buildSettings = Defaults.defaultSettings ++
-    Seq (
-      organization := "akka-tracing",
-      version := "0.1.0-SNAPSHOT",
-      externalResolvers := Resolver.withDefaultResolvers(Seq(
-        "Typesafe releases" at "http://repo.typesafe.com/typesafe/releases/"
-      )),
-      scalaVersion := "2.10.3",
-      scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:postfixOps")
-    )
+  type Settings = Def.Setting[_]
+
+  lazy val commonSettings = Seq (
+    organization := "com.github.levkhomich.akka.tracing",
+    version := "0.1.0-SNAPSHOT",
+    scalaVersion := "2.10.3",
+    homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
+    licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+  )
+
+  lazy val compilationSettings: Seq[Settings] = Seq(
+    scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
+    scalacOptions in Test ++= Seq("-Yrangepos")
+  )
+
+  lazy val publicationSettings: Seq[Settings] = Seq(
+    publishMavenStyle := true,
+    publishTo <<= version { v =>
+      val nexus = "https://oss.sonatype.org/"
+      if (v.trim.endsWith("-SNAPSHOT"))
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      else
+        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+    },
+    publishArtifact in Test := false,
+    pomIncludeRepository := { _ => false },
+    pomExtra :=
+      <inceptionYear>2014</inceptionYear>
+        <scm>
+          <url>https://github.com/levkhomich/akka-tracing.git</url>
+          <connection>scm:git:git@github.com:levkhomich/akka-tracing.git</connection>
+          <tag>HEAD</tag>
+        </scm>
+        <issueManagement>
+          <system>github</system>
+          <url>https://github.com/levkhomich/akka-tracing/issues</url>
+        </issueManagement>
+        <developers>
+          <developer>
+            <name>Lev Khomich</name>
+            <email>levkhomich@gmail.com</email>
+            <url>http://github.com/levkhomich</url>
+          </developer>
+        </developers>
+  )
 
   lazy val core = Project(
     id = "akka-tracing-core",
     base = file("core"),
-    settings = Defaults.defaultSettings ++ buildSettings ++ Seq(
-      libraryDependencies ++=
-        Dependencies.thrift ++
-        Dependencies.akka ++
-        Dependencies.test
-    )
+    settings =
+      Defaults.defaultSettings ++
+      commonSettings ++
+      compilationSettings ++
+      publicationSettings ++ Seq(
+        libraryDependencies ++=
+          Dependencies.thrift ++
+          Dependencies.akka ++
+          Dependencies.test
+      )
   )
 }
 
