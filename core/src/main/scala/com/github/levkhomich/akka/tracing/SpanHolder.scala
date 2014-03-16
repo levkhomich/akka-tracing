@@ -18,7 +18,8 @@ package com.github.levkhomich.akka.tracing
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.util.{ArrayList, Queue, UUID}
+import java.util
+import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue}
 import java.util.concurrent.atomic.AtomicLong
 import javax.xml.bind.DatatypeConverter
@@ -40,7 +41,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
   private[this] val sendJobs = new ConcurrentHashMap[UUID, Cancellable]()
   private[this] val serviceNames = new ConcurrentHashMap[Long, String]()
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
-  private[this] val sendQueue: Queue[thrift.Span] = new ConcurrentLinkedQueue[thrift.Span]()
+  private[this] val sendQueue: util.Queue[thrift.Span] = new ConcurrentLinkedQueue[thrift.Span]()
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
 
@@ -93,7 +94,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
     sendJobs.putIfAbsent(id, scheduler.scheduleOnce(30.seconds) {
       enqueue(id, cancelJob = false)
     })
-    val spanInt = new thrift.Span(span.traceId, null, span.id, new ArrayList(), new ArrayList())
+    val spanInt = new thrift.Span(span.traceId, null, span.id, new util.ArrayList(), new util.ArrayList())
     span.parentId.foreach(spanInt.set_parent_id)
     spanInt
   }
@@ -109,7 +110,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
 
   private def send(): thrift.ResultCode = {
     var next = sendQueue.poll()
-    val list = new ArrayList[thrift.LogEntry]()
+    val list = new util.ArrayList[thrift.LogEntry]()
     while (next != null) {
       list.add(spanToLogEntry(next))
       next = sendQueue.poll()
