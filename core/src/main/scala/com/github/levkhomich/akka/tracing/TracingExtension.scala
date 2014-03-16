@@ -51,8 +51,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
           throw e
       }
     } else
-      new SpanHolder(null, system.scheduler, 1)
-      //throw new IllegalStateException("Tracing host not configured")
+      throw new IllegalStateException("Tracing host not configured")
   }
 
   private[this] def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,

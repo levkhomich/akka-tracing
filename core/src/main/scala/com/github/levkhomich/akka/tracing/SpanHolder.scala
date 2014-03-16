@@ -32,7 +32,7 @@ import org.apache.thrift.transport.TMemoryBuffer
 
 case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
-private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Scheduler, sampleRate: Int) {
+private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Scheduler, var sampleRate: Int) {
 
   private[this] val counter = new AtomicLong(0)
 
@@ -44,7 +44,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
 
-  scheduler.schedule(3.seconds, 2.seconds) {
+  scheduler.schedule(0.seconds, 2.seconds) {
     val result = send()
     if (result != thrift.ResultCode.OK) {
       throw new RuntimeException
