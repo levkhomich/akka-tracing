@@ -26,7 +26,7 @@ import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 
 import org.apache.thrift.transport.{TFramedTransport, TServerSocket}
-import org.apache.thrift.server.TSimpleServer
+import org.apache.thrift.server.{TServer, TSimpleServer}
 import org.apache.thrift.server.TServer.Args
 import org.specs2.mutable.Specification
 
@@ -39,7 +39,7 @@ class TracingSpecification extends Specification {
 
   sequential
 
-  startCollector()
+  val collector = startCollector()
 
   val system = ActorSystem("TestSystem", ConfigFactory.empty())
   val trace = TracingExtension(system)
@@ -62,13 +62,14 @@ class TracingSpecification extends Specification {
       trace.holder.sampleRate = 5
       traceMessages(500)
 
-      Thread.sleep(2000)
+      Thread.sleep(3000)
 
       results.size() must beEqualTo(132)
     }
 
-    "corretly shutdown actor system" in {
+    "corretly shutdown" in {
       system.shutdown()
+      collector.stop()
       system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
     }
 
@@ -89,24 +90,25 @@ class TracingSpecification extends Specification {
 //    }
   }
 
-  def startCollector(): Unit = {
-    new Thread(new Runnable() {
+  def startCollector(): TServer = {
+    val handler = new thrift.Scribe.Iface {
+      override def Log(messages: util.List[thrift.LogEntry]): thrift.ResultCode = {
+        results.addAll(messages)
+        thrift.ResultCode.OK
+      }
+    }
+    val processor = new thrift.Scribe.Processor(handler)
+    val transport = new TServerSocket(9410)
+    val server = new TSimpleServer(
+      new Args(transport).processor(processor).transportFactory(new TFramedTransport.Factory)
+    )
+    val collectorThread = new Thread(new Runnable() {
       override def run(): Unit = {
-        val handler = new thrift.Scribe.Iface {
-          override def Log(messages: util.List[thrift.LogEntry]): thrift.ResultCode = {
-            results.addAll(messages)
-            thrift.ResultCode.OK
-          }
-        }
-        val processor = new thrift.Scribe.Processor(handler)
-        val transport = new TServerSocket(9410)
-        val server = new TSimpleServer(
-          new Args(transport).processor(processor).transportFactory(new TFramedTransport.Factory)
-        )
         server.serve()
       }
     }).start()
-    Thread.sleep(1000)
+    Thread.sleep(500)
+    server
   }
 
 
