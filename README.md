@@ -4,6 +4,10 @@ Akka Tracing
 A tracing for Akka cluster deployments made easy. Library includes Akka extension which allow traces
 to be collected and sent to Scribe collector and viewed using [Zipkin](http://twitter.github.io/zipkin/).
 
+[![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
+[![Coverage Status](https://coveralls.io/repos/levkhomich/akka-tracing/badge.png?branch=master)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
+
+
 Building
 --------
 

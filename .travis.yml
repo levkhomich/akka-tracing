@@ -1,0 +1,11 @@
+language: scala
+
+script: "sbt clean scoverage:test coveralls"
+
+scala:
+  - 2.10.2
+  - 2.10.3-RC3
+
+jdk:
+  - oraclejdk7
+  - openjdk7

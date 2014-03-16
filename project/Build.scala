@@ -16,7 +16,7 @@ object AkkaTracingBuild extends Build {
   lazy val compilationSettings: Seq[Settings] = Seq(
     scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
     scalacOptions in Test ++= Seq("-Yrangepos")
-  )
+  ) ++ ScoverageSbtPlugin.instrumentSettings ++ CoverallsPlugin.coverallsSettings
 
   lazy val publicationSettings: Seq[Settings] = Seq(
     publishMavenStyle := true,
@@ -31,22 +31,22 @@ object AkkaTracingBuild extends Build {
     pomIncludeRepository := { _ => false },
     pomExtra :=
       <inceptionYear>2014</inceptionYear>
-        <scm>
-          <url>https://github.com/levkhomich/akka-tracing.git</url>
-          <connection>scm:git:git@github.com:levkhomich/akka-tracing.git</connection>
-          <tag>HEAD</tag>
-        </scm>
-        <issueManagement>
-          <system>github</system>
-          <url>https://github.com/levkhomich/akka-tracing/issues</url>
-        </issueManagement>
-        <developers>
-          <developer>
-            <name>Lev Khomich</name>
-            <email>levkhomich@gmail.com</email>
-            <url>http://github.com/levkhomich</url>
-          </developer>
-        </developers>
+      <scm>
+        <url>https://github.com/levkhomich/akka-tracing.git</url>
+        <connection>scm:git:git@github.com:levkhomich/akka-tracing.git</connection>
+        <tag>HEAD</tag>
+      </scm>
+      <issueManagement>
+        <system>github</system>
+        <url>https://github.com/levkhomich/akka-tracing/issues</url>
+      </issueManagement>
+      <developers>
+        <developer>
+          <name>Lev Khomich</name>
+          <email>levkhomich@gmail.com</email>
+          <url>http://github.com/levkhomich</url>
+        </developer>
+      </developers>
   )
 
   lazy val core = Project(
