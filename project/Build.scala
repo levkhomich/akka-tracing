@@ -20,9 +20,9 @@ object AkkaTracingBuild extends Build {
 
   lazy val publicationSettings: Seq[Settings] = Seq(
     publishMavenStyle := true,
-    publishTo <<= version { v =>
+    publishTo := {
       val nexus = "https://oss.sonatype.org/"
-      if (v.trim.endsWith("-SNAPSHOT"))
+      if (version.value.trim.endsWith("SNAPSHOT"))
         Some("snapshots" at nexus + "content/repositories/snapshots")
       else
         Some("releases"  at nexus + "service/local/staging/deploy/maven2")
@@ -57,10 +57,13 @@ object AkkaTracingBuild extends Build {
       commonSettings ++
       compilationSettings ++
       publicationSettings ++ Seq(
-        libraryDependencies ++=
-          Dependencies.thrift ++
-          Dependencies.akka ++
-          Dependencies.test
+        name := "Akka Tracing: Core",
+        libraryDependencies <<= libraryDependencies { deps =>
+          deps.filter(_.name != "scalac-scoverage-plugin") ++
+            Dependencies.thrift ++
+            Dependencies.akka ++
+            Dependencies.test
+        }
       )
   )
 }
