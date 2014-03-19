@@ -1,0 +1,175 @@
+body {
+    padding-top: 80px;
+    color: #545454;
+}
+
+.navbar-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: 20px;
+    margin-bottom: -90px;
+}
+.navbar-wrapper .navbar {
+
+}
+
+.navbar .navbar-inner {
+    border: 0;
+    -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    -moz-box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+.navbar .brand {
+    padding: 14px 20px 16px;
+    text-shadow: 0 -1px 0 rgba(0,0,0,.5);
+}
+
+.navbar .nav > li > a {
+    padding: 15px 20px;
+}
+
+.navbar .btn-navbar {
+    margin-top: 10px;
+}
+
+#footer {
+    padding: 0 20px 0px 20px;
+    margin-top: 40px;
+    background-color: #f5f5f5;
+    -webkit-box-shadow: 0 2px 5px rgba(0,0,0,.15);
+    -moz-box-shadow: 0 2px 5px rgba(0,0,0,.15);
+    box-shadow: 0 2px 5px rgba(0,0,0,.15);
+}
+
+@media (max-width: 767px) {
+    #footer {
+        margin-left: -20px;
+        margin-right: -20px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+}
+
+.muted {
+    font-size: 12px;
+}
+.muted a {
+    color: #999999;
+}
+.muted span {
+    display: none;
+}
+
+.container {
+    width: auto;
+    max-width: 800px;
+}
+.container .credit {
+    margin: 20px 0;
+}
+
+#github-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    border: 0;
+    z-index: 11;
+}
+
+@media (max-width: 1200px) {
+    #github-badge {
+        display: none;
+    }
+}
+
+pre {
+    padding: 0;
+}
+
+#go-home span {
+    background: transparent url(../images/home-icon.png) 4px 50% no-repeat;
+}
+
+#view-on-github span {
+    background: transparent url(../images/octocat-icon.png) 4px 50% no-repeat;
+}
+
+#view-demo span {
+    background: transparent url(../images/demo-icon.png) 4px 50% no-repeat;
+}
+
+#view-docs span {
+    background: transparent url(../images/docs-icon.png) 4px 50% no-repeat;
+}
+
+pre .coffeescript .javascript, pre .javascript .xml, pre .tex .formula, pre .xml .javascript, pre .xml .vbscript, pre .xml .css, pre .xml .cdata {
+    opacity: 1;
+}
+
+.sidenav {
+    width: 200px;
+    margin: 30px 0 0;
+    padding: 0;
+    background-color: #fff;
+    -webkit-border-radius: 6px;
+    -moz-border-radius: 6px;
+    border-radius: 6px;
+    -webkit-box-shadow: 0 1px 4px rgba(0,0,0,.065);
+    -moz-box-shadow: 0 1px 4px rgba(0,0,0,.065);
+    box-shadow: 0 1px 4px rgba(0,0,0,.065);
+}
+.sidenav > li > a {
+    display: block;
+    width: 190px \9;
+    margin: 0 0 -1px;
+    padding: 8px 14px;
+    border: 1px solid #e5e5e5;
+}
+.sidenav > li:first-child > a {
+    -webkit-border-radius: 6px 6px 0 0;
+    -moz-border-radius: 6px 6px 0 0;
+    border-radius: 6px 6px 0 0;
+}
+.sidenav > li:last-child > a {
+    -webkit-border-radius: 0 0 6px 6px;
+    -moz-border-radius: 0 0 6px 6px;
+    border-radius: 0 0 6px 6px;
+}
+.sidenav > .active > a {
+    position: relative;
+    z-index: 2;
+    padding: 9px 15px;
+    border: 0;
+    text-shadow: 0 1px 0 rgba(0,0,0,.15);
+    -webkit-box-shadow: inset 1px 0 0 rgba(0,0,0,.1), inset -1px 0 0 rgba(0,0,0,.1);
+    -moz-box-shadow: inset 1px 0 0 rgba(0,0,0,.1), inset -1px 0 0 rgba(0,0,0,.1);
+    box-shadow: inset 1px 0 0 rgba(0,0,0,.1), inset -1px 0 0 rgba(0,0,0,.1);
+}
+/* Chevrons */
+.sidenav .icon-chevron-right {
+    float: right;
+    margin-top: 2px;
+    margin-right: -6px;
+    opacity: .25;
+}
+.sidenav > li > a:hover {
+    background-color: #f5f5f5;
+}
+.sidenav a:hover .icon-chevron-right {
+    opacity: .5;
+}
+.sidenav .active .icon-chevron-right,
+.sidenav .active a:hover .icon-chevron-right {
+    background-image: url(../img/glyphicons-halflings-white.png);
+    opacity: 1;
+}
+.sidenav.affix {
+    top: 40px;
+}
+
+
+
