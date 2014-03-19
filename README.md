@@ -33,7 +33,7 @@ Examples
 --------
 
 See `examples` dir:
-- (Trace hierarchy and timeout handling)[https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main/scala/org/example/TraceHierarchy.scala]
+- [Trace hierarchy and timeout handling](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main/scala/org/example/TraceHierarchy.scala)
 
 
 Documentation
