@@ -76,10 +76,6 @@ object Dependencies {
 
   object Compile {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"    % Versions.Akka
-    val akkaCluster  = "com.typesafe.akka" %% "akka-cluster"  % Versions.Akka
-    val akkaContrib  = "com.typesafe.akka" %% "akka-contrib"  % Versions.Akka
-    val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"    % Versions.Akka
-
     val config       = "com.typesafe"      %  "config"        % "1.0.2"
     val libThrift    = "org.apache.thrift" %  "libthrift"     % "0.9.1"
     val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12" % "1.5.2")
@@ -88,10 +84,9 @@ object Dependencies {
 
   object Test {
     val specs        = "org.specs2"        %% "specs2"        % "2.2.3"       % "test"
-    val akkaTestkit  = "com.typesafe.akka" %% "akka-testkit"  % Versions.Akka % "test"
   }
 
-  val akka   = Seq(Compile.akkaActor, Compile.akkaCluster, Compile.akkaContrib, Compile.config)
+  val akka   = Seq(Compile.akkaActor, Compile.config)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
-  val test   = Seq(Test.specs, Test.akkaTestkit)
+  val test   = Seq(Test.specs)
 }
