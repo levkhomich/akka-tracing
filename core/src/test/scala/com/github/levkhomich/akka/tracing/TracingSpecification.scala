@@ -50,7 +50,7 @@ class TracingSpecification extends Specification {
       def traceMessages(count: Int): Unit =
         for (_ <- 1 to count) {
           val msg = StringMessage(UUID.randomUUID().toString)
-          trace.recordServerReceive(msg)
+          trace.sample(msg)
           trace.recordRPCName(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
           trace.recordServerSend(msg)
         }

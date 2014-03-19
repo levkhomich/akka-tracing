@@ -91,11 +91,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     holder.setServiceName(ts, service)
   }
 
-  def recordServerReceive(ts: TracingSupport): Unit =
+  def recordRPCName(ts: TracingSupport, service: String): Unit = 
+    recordRPCName(ts, service, ts.getClass.getSimpleName)
+
+  def sample(ts: TracingSupport): Unit =
     if (holder.sample(ts))
       addAnnotation(ts, thrift.zipkinConstants.SERVER_RECV)
 
-  def recordServerSend(ts: TracingSupport): Unit =
+  private[tracing] def recordServerSend(ts: TracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   def recordClientSend(ts: TracingSupport): Unit =

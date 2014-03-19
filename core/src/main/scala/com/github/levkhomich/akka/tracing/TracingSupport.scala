@@ -23,7 +23,7 @@ trait TracingSupport extends Serializable {
   private[tracing] val msgId = UUID.randomUUID()
   private[tracing] var span: Option[Span] = None
 
-  def childOf(ts: TracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+  def asChildOf(ts: TracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
     span = tracer.createChildSpan(ts)
     this
   }
@@ -31,7 +31,7 @@ trait TracingSupport extends Serializable {
 }
 
 class ResponseTracingSupport[T](val msg: T) extends AnyVal {
-  def responseTo(request: TracingSupport)(implicit trace: TracingExtensionImpl): T = {
+  def asResponseTo(request: TracingSupport)(implicit trace: TracingExtensionImpl): T = {
     trace.record(request, "response: " + msg)
     trace.recordServerSend(request)
     msg
