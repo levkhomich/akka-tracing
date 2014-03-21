@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import akka.actor._
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TSocket, TFramedTransport}
+import java.io.{PrintWriter, StringWriter}
 
 
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
@@ -107,13 +108,22 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def recordClientReceive(ts: TracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
-  private[this] def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
+  def recordException(ts: TracingSupport, e: Throwable): Unit =
+    record(ts, getStackTrace(e))
+
+  private def getStackTrace(e: Throwable): String = {
+    val sw = new StringWriter
+    e.printStackTrace(new PrintWriter(sw))
+    e.getClass.getCanonicalName + ": " + sw.toString
+  }
+
+  private def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
     holder.update(ts, send) { spanInt =>
       val a = new thrift.Annotation(System.currentTimeMillis * 1000, value)
       spanInt.add_to_annotations(a)
     }
 
-  private[this] def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,
+  private def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
     holder.update(ts) { spanInt =>
       val a = new thrift.BinaryAnnotation(key, value, valueType)
