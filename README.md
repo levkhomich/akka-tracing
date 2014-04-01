@@ -7,8 +7,6 @@ You can add custom annotations and key-value pairs to traces and use them for fi
 Extension can easily handle sampling thousands of traces per second.
 
 [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
-[![Coverage Status](https://coveralls.io/repos/levkhomich/akka-tracing/badge.png?branch=master)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
-
 
 Building
 --------

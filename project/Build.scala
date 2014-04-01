@@ -3,8 +3,6 @@ import Keys._
 
 object AkkaTracingBuild extends Build {
 
-  type Settings = Def.Setting[_]
-
   lazy val commonSettings = Seq (
     organization := "com.github.levkhomich.akka.tracing",
     version := "0.1.0-SNAPSHOT",
@@ -13,16 +11,16 @@ object AkkaTracingBuild extends Build {
     licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
   )
 
-  lazy val compilationSettings: Seq[Settings] = Seq(
+  lazy val compilationSettings = Seq(
     scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
     scalacOptions in Test ++= Seq("-Yrangepos")
-  ) ++ ScoverageSbtPlugin.instrumentSettings ++ CoverallsPlugin.coverallsSettings
+  )
 
-  lazy val publicationSettings: Seq[Settings] = Seq(
+  lazy val publicationSettings = Seq(
     publishMavenStyle := true,
-    publishTo := {
+    publishTo <<= version { v =>
       val nexus = "https://oss.sonatype.org/"
-      if (version.value.trim.endsWith("SNAPSHOT"))
+      if (v.trim.endsWith("SNAPSHOT"))
         Some("snapshots" at nexus + "content/repositories/snapshots")
       else
         Some("releases"  at nexus + "service/local/staging/deploy/maven2")
@@ -75,18 +73,18 @@ object Dependencies {
   }
 
   object Compile {
-    val akkaActor    = "com.typesafe.akka" %% "akka-actor"    % Versions.Akka
-    val config       = "com.typesafe"      %  "config"        % "1.0.2"
-    val libThrift    = "org.apache.thrift" %  "libthrift"     % "0.9.1"
-    val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12" % "1.5.2")
+    val akkaActor    = "com.typesafe.akka" %% "akka-actor"     % Versions.Akka
+    val config       = "com.typesafe"      %  "config"         % "1.0.2"
+    val libThrift    = "org.apache.thrift" %  "libthrift"      % "0.9.1"
+    val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12"  % "1.5.2")
       .exclude("javax.jms", "jms").exclude("com.sun.jdmk", "jmxtools").exclude("com.sun.jmx", "jmxri")
   }
 
   object Test {
-    val specs        = "org.specs2"        %% "specs2"        % "2.2.3"       % "test"
+    val specs        = "org.specs2"        %% "specs2"         % "2.2.3" % "test"
   }
 
-  val akka   = Seq(Compile.akkaActor, Compile.config)
+  val akka = Seq(Compile.akkaActor, Compile.config)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
-  val test   = Seq(Test.specs)
+  val test = Seq(Test.specs)
 }
