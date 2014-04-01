@@ -16,12 +16,13 @@
 
 package com.github.levkhomich.akka.tracing
 
+import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
+import java.util.UUID
 
 import akka.actor._
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TSocket, TFramedTransport}
-import java.io.{PrintWriter, StringWriter}
 
 
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
@@ -55,8 +56,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       throw new IllegalStateException("Tracing host not configured")
   }
 
-  def record(ts: TracingSupport, msg: String): Unit = {
-    holder.update(ts) { spanInt =>
+  def record(ts: TracingSupport, msg: String): Unit =
+    record(ts.msgId, msg)
+
+  private[tracing] def record(msgId: UUID, msg: String): Unit = {
+    holder.update(msgId) { spanInt =>
       val a = new thrift.Annotation(System.currentTimeMillis * 1000, msg)
       spanInt.add_to_annotations(a)
     }
@@ -86,10 +90,10 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   def recordRPCName(ts: TracingSupport, service: String, rpc: String): Unit = {
-    holder.update(ts) { spanInt =>
+    holder.update(ts.msgId) { spanInt =>
       spanInt.set_name(rpc)
     }
-    holder.setServiceName(ts, service)
+    holder.setServiceName(ts.msgId, service)
   }
 
   def recordRPCName(ts: TracingSupport, service: String): Unit = 
@@ -118,20 +122,20 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
-    holder.update(ts, send) { spanInt =>
+    holder.update(ts.msgId, send) { spanInt =>
       val a = new thrift.Annotation(System.currentTimeMillis * 1000, value)
       spanInt.add_to_annotations(a)
     }
 
   private def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
-    holder.update(ts) { spanInt =>
+    holder.update(ts.msgId) { spanInt =>
       val a = new thrift.BinaryAnnotation(key, value, valueType)
       spanInt.add_to_binary_annotations(a)
     }
 
   private[tracing] def createChildSpan(ts: TracingSupport): Option[Span] =
-    holder.createChildSpan(ts)
+    holder.createChildSpan(ts.msgId)
 
 }
 

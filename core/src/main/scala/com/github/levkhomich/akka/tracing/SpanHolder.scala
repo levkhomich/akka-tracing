@@ -23,7 +23,7 @@ import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue}
 import java.util.concurrent.atomic.AtomicLong
 import javax.xml.bind.DatatypeConverter
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 
@@ -52,11 +52,11 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
     }
   }
 
-  private def getSpan(ts: TracingSupport): Option[thrift.Span] =
-    Option(spans.get(ts.msgId))
+  private def getSpan(msgId: UUID): Option[thrift.Span] =
+    Option(spans.get(msgId))
 
   def sample(ts: TracingSupport): Boolean =
-    getSpan(ts) match {
+    getSpan(ts.msgId) match {
       case None if counter.incrementAndGet() % sampleRate == 0 =>
         val span = ts.span.getOrElse(Span(Random.nextLong(), None, Random.nextLong()))
         val spanInt = createSpan(ts.msgId, span)
@@ -67,23 +67,23 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
         false
     }
 
-  def update(ts: TracingSupport, send: Boolean = false)(f: thrift.Span => Unit): Unit =
-    getSpan(ts) foreach { spanInt =>
+  def update(msgId: UUID, send: Boolean = false)(f: thrift.Span => Unit): Unit =
+    getSpan(msgId) foreach { spanInt =>
       spanInt.synchronized {
         f(spanInt)
       }
       if (send) {
-        enqueue(ts.msgId, cancelJob = true)
+        enqueue(msgId, cancelJob = true)
       }
     }
 
-  def setServiceName(ts: TracingSupport, service: String): Unit =
-    getSpan(ts) foreach { span =>
+  def setServiceName(msgId: UUID, service: String): Unit =
+    getSpan(msgId) foreach { span =>
       serviceNames.putIfAbsent(span.id, service)
     }
 
-  private[tracing] def createChildSpan(ts: TracingSupport): Option[Span] =
-    getSpan(ts) match {
+  private[tracing] def createChildSpan(msgId: UUID): Option[Span] =
+    getSpan(msgId) match {
       case Some(parentSpan) =>
         Some(Span(Random.nextLong(), Some(parentSpan.id), parentSpan.trace_id))
       case _ =>
