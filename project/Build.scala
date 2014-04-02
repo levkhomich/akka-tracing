@@ -75,7 +75,7 @@ object AkkaTracingBuild extends Build {
 object Dependencies {
 
   object Versions {
-    val Akka = "2.3.0"
+    val Akka = "2.3.1"
   }
 
   object Compile {
