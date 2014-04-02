@@ -49,4 +49,5 @@ Work in progress. Will be available in project's wiki.
 Roadmap
 -------
 
-[0.1 Release](https://github.com/levkhomich/akka-tracing/issues?milestone=1)
+- [0.1 release](https://github.com/levkhomich/akka-tracing/issues?milestone=1) - WIP
+- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - planned
