@@ -33,7 +33,7 @@ import org.apache.thrift.transport.TMemoryBuffer
 
 case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
-private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Scheduler, var sampleRate: Int) {
+private[tracing] class SpanHolder(client: thrift.Scribe[Option], scheduler: Scheduler, var sampleRate: Int) {
 
   private[this] val counter = new AtomicLong(0)
 
@@ -47,7 +47,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
 
   scheduler.schedule(0.seconds, 2.seconds) {
     val result = send()
-    if (result != thrift.ResultCode.OK) {
+    if (result != thrift.ResultCode.Ok) {
       throw new RuntimeException
     }
   }
@@ -67,10 +67,10 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
         false
     }
 
-  def update(msgId: UUID, send: Boolean = false)(f: thrift.Span => Unit): Unit =
+  def update(msgId: UUID, send: Boolean = false)(f: thrift.Span => thrift.Span): Unit =
     getSpan(msgId) foreach { spanInt =>
       spanInt.synchronized {
-        f(spanInt)
+        spans.put(msgId, f(spanInt))
       }
       if (send) {
         enqueue(msgId, cancelJob = true)
@@ -85,7 +85,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
   private[tracing] def createChildSpan(msgId: UUID): Option[Span] =
     getSpan(msgId) match {
       case Some(parentSpan) =>
-        Some(Span(Random.nextLong(), Some(parentSpan.id), parentSpan.trace_id))
+        Some(Span(Random.nextLong(), Some(parentSpan.id), parentSpan.traceId))
       case _ =>
         None
     }
@@ -94,9 +94,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
     sendJobs.putIfAbsent(id, scheduler.scheduleOnce(30.seconds) {
       enqueue(id, cancelJob = false)
     })
-    val spanInt = new thrift.Span(span.traceId, null, span.id, new util.ArrayList(), new util.ArrayList())
-    span.parentId.foreach(spanInt.set_parent_id)
-    spanInt
+    thrift.Span(span.traceId, null, span.id, span.parentId, Nil, Nil)
   }
 
   private def enqueue(id: UUID, cancelJob: Boolean): Unit = {
@@ -110,42 +108,35 @@ private[tracing] class SpanHolder(client: thrift.Scribe.Client, scheduler: Sched
 
   private def send(): thrift.ResultCode = {
     var next = sendQueue.poll()
-    val list = new util.ArrayList[thrift.LogEntry]()
+    var list: List[thrift.LogEntry] = Nil
     while (next != null) {
-      list.add(spanToLogEntry(next))
+      list ::= spanToLogEntry(next)
       next = sendQueue.poll()
     }
 
     if (!list.isEmpty)
-      client.Log(list)
+      client.log(list).getOrElse(thrift.ResultCode.TryLater)
     else
-      thrift.ResultCode.OK
+      thrift.ResultCode.Ok
   }
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     val buffer = new TMemoryBuffer(1024)
     val endpoint = getEndpoint(spanInt.id)
 
-    val iter = spanInt.annotations.iterator()
-    while (iter.hasNext)
-      iter.next().set_host(endpoint)
-    val iter2 = spanInt.binary_annotations.iterator()
-    while (iter2.hasNext)
-      iter2.next().set_host(endpoint)
+    spanInt.copy(
+      annotations = spanInt.annotations.map(a => a.copy(host = Some(endpoint))),
+      binaryAnnotations = spanInt.binaryAnnotations.map(a => a.copy(host = Some(endpoint)))
+    ).write(protocolFactory.getProtocol(buffer))
 
-    import scala.collection.JavaConversions._
-    spanInt.annotations.foreach(_.set_host(endpoint))
-    spanInt.binary_annotations.foreach(_.set_host(endpoint))
-
-    spanInt.write(protocolFactory.getProtocol(buffer))
     val thriftBytes = buffer.getArray.take(buffer.length)
     val encodedSpan = DatatypeConverter.printBase64Binary(thriftBytes) + '\n'
-    new thrift.LogEntry("zipkin", encodedSpan)
+    thrift.LogEntry("zipkin", encodedSpan)
   }
 
   private def getEndpoint(spanId: Long): thrift.Endpoint = {
     val service = Option(serviceNames.remove(spanId)).getOrElse("Unknown")
-    new thrift.Endpoint(localAddress, 0, service)
+    thrift.Endpoint(localAddress, 0, service)
   }
 
 }

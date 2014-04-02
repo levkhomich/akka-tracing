@@ -16,30 +16,33 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.util
+import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.ActorSystem
+import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
-import org.apache.thrift.transport.{TFramedTransport, TServerSocket}
-import org.apache.thrift.server.{TServer, TSimpleServer}
-import org.apache.thrift.server.TServer.Args
-import org.specs2.mutable.Specification
+import com.github.levkhomich.akka.tracing.thrift.ScribeFinagleService
+import com.twitter.finagle.builder.{Server, ServerBuilder}
+import com.twitter.finagle.thrift.ThriftServerFramedCodec
+import com.twitter.util.{Future, Time}
+import org.apache.thrift.protocol.{TBinaryProtocol, TProtocolFactory}
+import scala.util.Random
 
 
 class TracingSpecification extends Specification {
-
-  val SpanCount = 10000
 
   case class StringMessage(content: String) extends TracingSupport
 
   sequential
 
-  val collector = startCollector()
+  startCollector()
+
+  var collector: Server = _
 
   val system = ActorSystem("TestSystem", ConfigFactory.empty())
   val trace = TracingExtension(system)
@@ -67,17 +70,13 @@ class TracingSpecification extends Specification {
       results.size() must beEqualTo(132)
     }
 
-    "corretly shutdown" in {
-      system.shutdown()
-      collector.stop()
-      system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
-    }
-
 //    "process more than 40000 traces per second using single thread" in {
+//      val SpanCount = 200000
+//      trace.holder.sampleRate = 1
 //      val startingTime = System.currentTimeMillis()
 //      for (_ <- 1 to SpanCount) {
 //        val msg = StringMessage(UUID.randomUUID().toString)
-//        trace.recordServerReceive(msg)
+//        trace.sample(msg)
 //        trace.recordRPCName(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
 //        trace.recordKeyValue(msg, "keyLong", Random.nextLong())
 //        trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
@@ -85,30 +84,37 @@ class TracingSpecification extends Specification {
 //      }
 //      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
 //      Thread.sleep(5000)
-//      println(results)
+//      println(results.size)
 //      tracesPerSecond must beGreaterThan(40000L)
 //    }
   }
 
-  def startCollector(): TServer = {
-    val handler = new thrift.Scribe.Iface {
-      override def Log(messages: util.List[thrift.LogEntry]): thrift.ResultCode = {
+  "corretly shutdown" in {
+    system.shutdown()
+    collector.close(Time.Top)
+    system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
+  }
+
+  def startCollector(): Unit = {
+    val handler = new thrift.Scribe[Future] {
+      override def log(messages: Seq[thrift.LogEntry]): Future[thrift.ResultCode] = {
+        import scala.collection.JavaConversions._
         results.addAll(messages)
-        thrift.ResultCode.OK
+        Future(thrift.ResultCode.Ok)
       }
     }
-    val processor = new thrift.Scribe.Processor(handler)
-    val transport = new TServerSocket(9410)
-    val server = new TSimpleServer(
-      new Args(transport).processor(processor).transportFactory(new TFramedTransport.Factory)
-    )
-    val collectorThread = new Thread(new Runnable() {
+    val service = new ScribeFinagleService(handler, new TBinaryProtocol.Factory)
+
+    new Thread(new Runnable() {
       override def run(): Unit = {
-        server.serve()
+        collector = ServerBuilder()
+          .name("DummyScribeService")
+          .bindTo(new InetSocketAddress(9410))
+          .codec(ThriftServerFramedCodec())
+          .build(service)
       }
     }).start()
     Thread.sleep(500)
-    server
   }
 
 

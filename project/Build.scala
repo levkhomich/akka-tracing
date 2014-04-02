@@ -1,5 +1,6 @@
 import sbt._
 import Keys._
+import com.twitter.scrooge.ScroogeSBT
 
 object AkkaTracingBuild extends Build {
 
@@ -11,9 +12,13 @@ object AkkaTracingBuild extends Build {
     licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
   )
 
-  lazy val compilationSettings = Seq(
+  lazy val compilationSettings = ScroogeSBT.newSettings ++ Seq(
     scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
-    scalacOptions in Test ++= Seq("-Yrangepos")
+    scalacOptions in Test ++= Seq("-Yrangepos"),
+    libraryDependencies ++= Seq(
+      "com.twitter" %% "scrooge-core" % "3.12.0"
+    ),
+    ScroogeSBT.scroogeBuildOptions in Compile := Seq("--verbose")
   )
 
   lazy val publicationSettings = Seq(
@@ -82,9 +87,10 @@ object Dependencies {
 
   object Test {
     val specs        = "org.specs2"        %% "specs2"         % "2.2.3" % "test"
+    val finagle      = "com.twitter"       %% "finagle-thrift" % "6.5.0" % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
-  val test = Seq(Test.specs)
+  val test = Seq(Test.specs, Test.finagle)
 }
