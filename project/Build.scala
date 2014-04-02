@@ -19,9 +19,6 @@ object AkkaTracingBuild extends Build {
     Seq(
       scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
       scalacOptions in Test ++= Seq("-Yrangepos"),
-      libraryDependencies ++= Seq(
-        "com.twitter" %% "scrooge-core" % "3.12.0"
-      ),
       ScroogeSBT.scroogeBuildOptions in Compile := Seq("--verbose")
     )
 
@@ -85,6 +82,7 @@ object Dependencies {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"     % Versions.Akka
     val config       = "com.typesafe"      %  "config"         % "1.0.2"
     val libThrift    = "org.apache.thrift" %  "libthrift"      % "0.9.1"
+    val scroogeCore  = "com.twitter"       %% "scrooge-core"   % "3.13.0"
     val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12"  % "1.5.2")
       .exclude("javax.jms", "jms").exclude("com.sun.jdmk", "jmxtools").exclude("com.sun.jmx", "jmxri")
   }
@@ -95,6 +93,6 @@ object Dependencies {
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
-  val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
+  val thrift = Seq(Compile.libThrift, Compile.scroogeCore, Compile.slf4jLog4j12)
   val test = Seq(Test.specs, Test.finagle)
 }
