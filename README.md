@@ -11,8 +11,7 @@ Furthermore, such annotations can be used as filtering parameters in Zipkin's We
 Building
 --------
 
-To build and test library run
-`sbt test`
+Run `sbt test` to build and test library.
 
 Using
 -----
@@ -27,12 +26,13 @@ libraryDependencies += "com.github.levkhomich.akka.tracing" %% "akka-tracing-cor
 ```
 
 - provide `akka.tracing.host` in application's config;
-- mix request-processing actors with `AkkaTracing` and traceable messages with `TracingSupport`;
-- use `trace.*` methods to record traces.
+- mix request-processing actors with [`AkkaTracing`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/ActorTracing.scala) and
+  traceable messages with [`TracingSupport`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/TracingSupport.scala);
+- use [`trace.record*`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/TracingExtension.scala#L58) methods to annotate traces.
 
-To start tracing correctly `trace.sample` must be called before other tracing methods
+To start tracing correctly `trace.sample(request)` must be called before other tracing methods
 (sampling rate can be changed using `akka.tracing.sample-rate` config parameter).
-To register server response, use `yourMessage.asResponseTo(request)`.
+To register server response, mark it with `responseMessage.asResponseTo(request)`.
 
 Examples
 --------
