@@ -6,9 +6,9 @@ Extension can be used in production environment as performance diagnostic tool o
 debugging purposes. Sampled traces can contain not only timing info, but custom annotations and key-value pairs.
 Furthermore, such annotations can be used as filtering parameters in Zipkin's Web UI.
 
-[![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
+![trace example](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/normal-details.png)
 
-Building
+Building [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
 --------
 
 Run `sbt test` to build and test library.
