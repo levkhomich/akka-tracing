@@ -12,14 +12,18 @@ object AkkaTracingBuild extends Build {
     licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
   )
 
-  lazy val compilationSettings = ScroogeSBT.newSettings ++ Seq(
-    scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
-    scalacOptions in Test ++= Seq("-Yrangepos"),
-    libraryDependencies ++= Seq(
-      "com.twitter" %% "scrooge-core" % "3.12.0"
-    ),
-    ScroogeSBT.scroogeBuildOptions in Compile := Seq("--verbose")
-  )
+  lazy val compilationSettings =
+    ScroogeSBT.newSettings ++
+    ScoverageSbtPlugin.instrumentSettings ++
+    CoverallsPlugin.coverallsSettings ++
+    Seq(
+      scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
+      scalacOptions in Test ++= Seq("-Yrangepos"),
+      libraryDependencies ++= Seq(
+        "com.twitter" %% "scrooge-core" % "3.12.0"
+      ),
+      ScroogeSBT.scroogeBuildOptions in Compile := Seq("--verbose")
+    )
 
   lazy val publicationSettings = Seq(
     publishMavenStyle := true,
