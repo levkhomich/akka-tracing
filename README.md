@@ -40,6 +40,9 @@ Examples
 See `examples` dir:
 - [Trace hierarchy and timeout handling](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main/scala/org/example/TraceHierarchy.scala)
 
+More screenshots:
+- [timeline](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png)
+- [annotations](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/annotations.png)
 
 Documentation
 -------------
