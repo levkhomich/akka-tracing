@@ -25,7 +25,7 @@ trait TracingActorLogging extends DiagnosticActorLogging {
 
   override def mdc(currentMessage: Any): MDC =
     currentMessage match {
-      case ts: TracingSupport if ts.span.isDefined =>
+      case ts: TracingSupport =>
         Map(TracingLogger.MessageIdField -> ts.msgId)
       case _ =>
         emptyMDC

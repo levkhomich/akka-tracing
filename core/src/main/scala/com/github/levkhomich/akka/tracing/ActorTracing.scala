@@ -23,6 +23,6 @@ trait ActorTracing { self: Actor =>
 
   implicit def any2response[T](msg: T): ResponseTracingSupport[T] = new ResponseTracingSupport(msg)
 
-  implicit val trace: TracingExtensionImpl = TracingExtension(context.system)
+  implicit lazy val trace: TracingExtensionImpl = TracingExtension(context.system)
 
 }
