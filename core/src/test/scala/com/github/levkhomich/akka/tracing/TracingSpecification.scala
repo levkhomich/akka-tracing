@@ -19,10 +19,12 @@ package com.github.levkhomich.akka.tracing
 import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
+import javax.xml.bind.DatatypeConverter
+import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, Props, ActorSystem}
 import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
@@ -30,23 +32,33 @@ import com.github.levkhomich.akka.tracing.thrift.ScribeFinagleService
 import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.finagle.thrift.ThriftServerFramedCodec
 import com.twitter.util.{Future, Time}
-import org.apache.thrift.protocol.{TBinaryProtocol, TProtocolFactory}
-import scala.util.Random
+import org.apache.thrift.protocol.TBinaryProtocol
+import org.apache.thrift.transport.TMemoryBuffer
 
+
+class TestActor extends TracingActorLogging with ActorTracing {
+  override def receive: Receive = {
+    case msg: TracingSupport =>
+      trace.sample(msg)
+      log.info("received message " + msg)
+      Thread.sleep(100)
+      trace.recordServerSend(msg)
+  }
+}
 
 class TracingSpecification extends Specification {
 
   case class StringMessage(content: String) extends TracingSupport
 
-  sequential
+  val collector: Server = startCollector()
 
-  startCollector()
-
-  var collector: Server = _
-
-  val system = ActorSystem("TestSystem", ConfigFactory.empty())
+  val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
   val trace = TracingExtension(system)
+  val testActor: ActorRef = system.actorOf(Props[TestActor])
+
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
+
+  sequential
 
   "TracingExtension" should {
     "sample traces" in {
@@ -69,6 +81,24 @@ class TracingSpecification extends Specification {
 
       results.size() must beEqualTo(132)
     }
+
+    "pipe logs to traces" in {
+      results.clear()
+      trace.holder.sampleRate = 1
+
+      testActor ! StringMessage("1")
+      testActor ! StringMessage("2")
+      testActor ! StringMessage("3")
+
+      Thread.sleep(3000)
+
+      results.size() must beEqualTo(3)
+      results.forall { e =>
+        val span = decodeSpan(e.message)
+        span.annotations.size == 3 && span.annotations.get(1).value.startsWith("Info")
+      } must beTrue
+    }
+
 
 //    "process more than 40000 traces per second using single thread" in {
 //      val SpanCount = 200000
@@ -95,7 +125,7 @@ class TracingSpecification extends Specification {
     system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
   }
 
-  def startCollector(): Unit = {
+  private def startCollector(): Server = {
     val handler = new thrift.Scribe[Future] {
       override def log(messages: Seq[thrift.LogEntry]): Future[thrift.ResultCode] = {
         import scala.collection.JavaConversions._
@@ -105,6 +135,7 @@ class TracingSpecification extends Specification {
     }
     val service = new ScribeFinagleService(handler, new TBinaryProtocol.Factory)
 
+    var collector: Server = null
     new Thread(new Runnable() {
       override def run(): Unit = {
         collector = ServerBuilder()
@@ -115,7 +146,15 @@ class TracingSpecification extends Specification {
       }
     }).start()
     Thread.sleep(500)
+    collector
   }
 
+  private def decodeSpan(logEntryMessage: String): thrift.Span = {
+    val protocolFactory = new TBinaryProtocol.Factory()
+    val thriftBytes = DatatypeConverter.parseBase64Binary(logEntryMessage.dropRight(1))
+    val buffer = new TMemoryBuffer(1024)
+    buffer.write(thriftBytes, 0, thriftBytes.length)
+    thrift.Span.decode(protocolFactory.getProtocol(buffer))
+  }
 
 }
