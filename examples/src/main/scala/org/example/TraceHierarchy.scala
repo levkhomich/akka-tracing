@@ -16,17 +16,20 @@
 
 package org.example
 
+import java.util
+import java.util.UUID
+import scala.collection.JavaConversions._
+import scala.concurrent.duration._
+import scala.util.Random
+
 import akka.actor.{ActorSystem, Props, ActorRef, Actor}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import scala.concurrent.duration._
 
 import com.github.levkhomich.akka.tracing.{ActorTracing, TracingSupport}
-import scala.util.Random
-import java.util.UUID
 import com.typesafe.config.{ConfigFactory, Config}
 
-final case class ExternalRequest(headers: Map[String, String], payload: String) extends TracingSupport
+final case class ExternalRequest(headers: util.Map[String, String], payload: String) extends TracingSupport
 final case class ExternalResponse(responseCode: Int, payload: String)
 final case class InternalRequest(payload: String) extends TracingSupport
 final case class InternalResponse(responseCode: Int, payload: String)
