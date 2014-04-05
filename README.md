@@ -17,12 +17,18 @@ Using
 -----
 
 - [setup](http://twitter.github.io/zipkin/install.html) Zipkin infrastructure;
-- include akka-tracing-core dependency to your build (as project API still not stabilized, you should use snapshot)
+- include akka-tracing-core dependency to your build
+
+```scala
+libraryDependencies += "com.github.levkhomich" %% "akka-tracing-core" % "0.1"
+```
+
+or, if you want to use snapshot version
 
 ```scala
 resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
-libraryDependencies += "com.github.levkhomich.akka.tracing" %% "akka-tracing-core" % "0.1.0-SNAPSHOT" changing()
+libraryDependencies += "com.github.levkhomich" %% "akka-tracing-core" % "0.2-SNAPSHOT" changing()
 ```
 
 - provide `akka.tracing.host` in application's config;
@@ -52,5 +58,4 @@ Work in progress. Will be available in project's wiki.
 Roadmap
 -------
 
-- [0.1 release](https://github.com/levkhomich/akka-tracing/issues?milestone=1) - WIP
 - [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - planned
