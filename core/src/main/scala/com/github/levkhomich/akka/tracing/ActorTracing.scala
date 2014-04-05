@@ -19,6 +19,18 @@ package com.github.levkhomich.akka.tracing
 import akka.actor.Actor
 import scala.language.implicitConversions
 
+/**
+ * Scala API: Mix in ActorTracing into your Actor to easily obtain a reference to a tracer,
+ * which is available under the name "trace".
+ *
+ * {{{
+ * class MyActor extends Actor with ActorTracing {
+ *   def receive = {
+ *     case msg: TracingSupport => trace.record(msg, "received: " + msg)
+ *   }
+ * }
+ * }}}
+ */
 trait ActorTracing { self: Actor =>
 
   implicit def any2response[T](msg: T): ResponseTracingSupport[T] = new ResponseTracingSupport(msg)

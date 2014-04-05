@@ -24,7 +24,10 @@ import akka.actor._
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TSocket, TFramedTransport}
 
-
+/**
+ * Tracer instance providing trace related methods.
+ * @param system parent actor system
+ */
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   import TracingExtension._
@@ -55,6 +58,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       throw new IllegalStateException("Tracing host not configured")
   }
 
+  /**
+   * Records string message and attaches it to timeline.
+   * @param ts traced message
+   * @param msg recorded string
+   */
   def record(ts: TracingSupport, msg: String): Unit =
     record(ts.msgId, msg)
 
@@ -65,6 +73,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     }
   }
 
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
   def recordKeyValue(ts: TracingSupport, key: String, value: Any): Unit = {
     value match {
       case v: String =>
@@ -88,6 +102,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     }
   }
 
+  /**
+   * Attaches information about service and call name to trace.
+   * @param ts traced message
+   * @param service service name
+   * @param rpc RPC name
+   */
   def recordRPCName(ts: TracingSupport, service: String, rpc: String): Unit = {
     holder.update(ts.msgId) { spanInt =>
       spanInt.copy(name = rpc)
@@ -95,9 +115,19 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     holder.setServiceName(ts.msgId, service)
   }
 
+  /**
+   * Attaches information about service name to trace. Call name is assumed to be message's class name.
+   * @param ts traced message
+   * @param service service name
+   */
   def recordRPCName(ts: TracingSupport, service: String): Unit = 
     recordRPCName(ts, service, ts.getClass.getSimpleName)
 
+  /**
+   * Enables message tracing and samples it. After sampling any nth message
+   * (defined by akka.tracing.sample-rate setting) will be actually traced.
+   * @param ts traced message
+   */
   def sample(ts: TracingSupport): Unit =
     if (holder.sample(ts))
       addAnnotation(ts, thrift.Constants.SERVER_RECV)
@@ -105,12 +135,17 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   private[tracing] def recordServerSend(ts: TracingSupport): Unit =
     addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)
 
-  def recordClientSend(ts: TracingSupport): Unit =
-    addAnnotation(ts, thrift.Constants.CLIENT_SEND)
+//  def recordClientSend(ts: TracingSupport): Unit =
+//    addAnnotation(ts, thrift.Constants.CLIENT_SEND)
 
-  def recordClientReceive(ts: TracingSupport): Unit =
-    addAnnotation(ts, thrift.Constants.CLIENT_RECV, send = true)
+//  def recordClientReceive(ts: TracingSupport): Unit =
+//    addAnnotation(ts, thrift.Constants.CLIENT_RECV, send = true)
 
+  /**
+   * Records exception's stack trace to trace.
+   * @param ts traced message
+   * @param e recorded exception
+   */
   def recordException(ts: TracingSupport, e: Throwable): Unit =
     record(ts, getStackTrace(e))
 
@@ -138,6 +173,15 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
 }
 
+/**
+ * Tracing extension. Provides tracer for actors mixed with [[com.github.levkhomich.akka.tracing.ActorTracing]].
+ *
+ * Configuration parameters:
+ * - akka.tracing.host - Scribe or Zipkin collector host
+ * - akka.tracing.port - Scribe or Zipkin collector port (9410 by default)
+ * - akka.tracing.sample-rate - trace sample rate, means that every nth message will be sampled
+ *
+ */
 object TracingExtension extends ExtensionId[TracingExtensionImpl] with ExtensionIdProvider {
 
   private[tracing] val AkkaTracingHost = "akka.tracing.host"

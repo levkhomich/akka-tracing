@@ -19,7 +19,10 @@ package com.github.levkhomich.akka.tracing
 import org.apache.thrift.protocol.{TMessageType, TMessage, TProtocol}
 import org.apache.thrift.{TApplicationException, TServiceClient}
 
-class ScribeClient(prot: TProtocol) extends TServiceClient(prot, prot) with thrift.Scribe[Option] {
+/**
+ * Internal API
+ */
+private[tracing] class ScribeClient(prot: TProtocol) extends TServiceClient(prot, prot) with thrift.Scribe[Option] {
 
   def log(messages: Seq[thrift.LogEntry]): Option[thrift.ResultCode] = {
     // send

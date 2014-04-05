@@ -31,8 +31,11 @@ import akka.actor.{Cancellable, Scheduler}
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 
-case class Span(id: Long, parentId: Option[Long], traceId: Long)
+private[tracing] case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
+/**
+ * Internal API
+ */
 private[tracing] class SpanHolder(client: thrift.Scribe[Option], scheduler: Scheduler, var sampleRate: Int) {
 
   private[this] val counter = new AtomicLong(0)

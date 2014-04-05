@@ -22,6 +22,10 @@ import akka.actor.{ActorSystem, ActorRef}
 import akka.dispatch._
 import com.typesafe.config.Config
 
+/**
+ * TracingUnboundedMailbox is the implementation of default unbounded MailboxType
+ * enhanced by the ability to trace incoming messages.
+ */
 class TracingUnboundedMailbox(settings: ActorSystem.Settings, config: Config)
     extends MailboxType with ProducesMessageQueue[UnboundedMailbox.MessageQueue] {
 

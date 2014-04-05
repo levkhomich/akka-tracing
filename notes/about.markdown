@@ -1,0 +1,1 @@
+[akka-tracing](https://github.com/levkhomich/akka-tracing) is a distributed tracing extension for Akka built on top of Twitter's [Zipkin](http://twitter.github.io/zipkin/).
