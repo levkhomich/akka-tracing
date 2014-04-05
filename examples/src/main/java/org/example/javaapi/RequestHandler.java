@@ -70,7 +70,7 @@ public class RequestHandler extends UntypedActor {
                         InternalResponse intResponse = (InternalResponse) intMessage;
                         ExternalResponse response = new ExternalResponse(intResponse.responseCode(), intResponse.toString() + '!');
                         // close trace
-                        trace.recordClientSend(msg);
+                        trace.recordServerSend(msg);
                         return response;
                     } else {
                         throw noMatch();
