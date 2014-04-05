@@ -6,7 +6,7 @@ object AkkaTracingBuild extends Build {
 
   lazy val commonSettings = Seq (
     organization := "com.github.levkhomich",
-    version := "0.1.0-SNAPSHOT",
+    version := "0.1",
     scalaVersion := "2.10.4",
     homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
     licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
