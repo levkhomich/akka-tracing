@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.net.InetSocketAddress
 import java.util.UUID
-import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
+import java.util.concurrent.{CountDownLatch, TimeoutException, ConcurrentLinkedQueue}
 import javax.xml.bind.DatatypeConverter
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
@@ -135,6 +135,7 @@ class TracingSpecification extends Specification {
     }
     val service = new ScribeFinagleService(handler, new TBinaryProtocol.Factory)
 
+    val latch = new CountDownLatch(1)
     var collector: Server = null
     new Thread(new Runnable() {
       override def run(): Unit = {
@@ -143,9 +144,10 @@ class TracingSpecification extends Specification {
           .bindTo(new InetSocketAddress(9410))
           .codec(ThriftServerFramedCodec())
           .build(service)
+        latch.countDown()
       }
     }).start()
-    Thread.sleep(1000)
+    latch.await()
     collector
   }
 
