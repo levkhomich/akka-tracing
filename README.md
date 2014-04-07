@@ -6,7 +6,7 @@ Extension can be used as performance diagnostics or debugging tool for complex d
 Sampled traces can contain not only timing info, but custom annotations and key-value pairs,
 furthermore, such annotations can be used as filtering parameters in Zipkin's Web UI.
 
-![trace example](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/normal-details.png)
+![trace example](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png)
 
 Building [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
 --------
@@ -53,9 +53,9 @@ More screenshots:
 Documentation
 -------------
 
-Work in progress. Will be available in project's wiki.
+See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki/_pages).
 
 Roadmap
 -------
 
-- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - planned
+- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - WIP

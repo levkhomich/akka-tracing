@@ -1,7 +1,7 @@
 First release of Akka Tracing. It includes:
 
-* tracing extension itself (with all features accessible both from Scala and Java APIs);
-* trace logger (which can be added to `akka.loggers` list);
+* tracing extension itself (supports both Scala and Java APIs);
+* trace logging support;
 * Scala and Java examples.
 
 Some screenshots: [timeline](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png) and
