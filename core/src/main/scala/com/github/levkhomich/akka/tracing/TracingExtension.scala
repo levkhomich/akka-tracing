@@ -68,7 +68,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] def record(msgId: UUID, msg: String): Unit = {
     holder.update(msgId) { spanInt =>
-      val a = thrift.Annotation(System.currentTimeMillis * 1000, msg, None, None)
+      val a = thrift.Annotation(System.nanoTime / 1000, msg, None, None)
       spanInt.copy(annotations = a +: spanInt.annotations)
     }
   }
@@ -157,7 +157,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
     holder.update(ts.msgId, send) { spanInt =>
-      val a = thrift.Annotation(System.currentTimeMillis * 1000, value, None, None)
+      val a = thrift.Annotation(System.nanoTime / 1000, value, None, None)
       spanInt.copy(annotations = a +: spanInt.annotations)
     }
 
