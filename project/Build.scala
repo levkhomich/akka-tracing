@@ -88,8 +88,8 @@ object Dependencies {
   }
 
   object Test {
-    val specs        = "org.specs2"        %% "specs2"         % "2.2.3" % "test"
-    val finagle      = "com.twitter"       %% "finagle-thrift" % "6.5.0" % "test"
+    val specs        = "org.specs2"        %% "specs2"         % "2.3.11" % "test"
+    val finagle      = "com.twitter"       %% "finagle-thrift" % "6.13.1" % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
