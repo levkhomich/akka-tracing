@@ -2,7 +2,7 @@ Akka Tracing
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
-Extension can be used as performance diagnostics or debugging tool for complex distributed applications.
+Extension can be used as performance diagnostics or debugging tool for distributed applications.
 Sampled traces can contain not only timing info, but custom annotations and key-value pairs,
 furthermore, such annotations can be used as filtering parameters in Zipkin's Web UI.
 
@@ -47,13 +47,12 @@ See `examples` dir:
 - [Trace hierarchy and timeout handling](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main/scala/org/example/TraceHierarchy.scala)
 
 More screenshots:
-- [timeline](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png)
 - [annotations](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/annotations.png)
 
 Documentation
 -------------
 
-See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki/_pages).
+See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki).
 
 Roadmap
 -------
