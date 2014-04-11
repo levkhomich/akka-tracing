@@ -5,6 +5,7 @@ scala:
 #  - 2.11.0-RC3
 
 jdk:
+  - oraclejdk8
   - oraclejdk7
   - openjdk7
   - openjdk6
