@@ -80,7 +80,7 @@ object Dependencies {
 
   object Compile {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"     % Versions.Akka
-    val config       = "com.typesafe"      %  "config"         % "1.0.2"
+    val config       = "com.typesafe"      %  "config"         % "1.2.0"
     val libThrift    = "org.apache.thrift" %  "libthrift"      % "0.9.1"
     val scroogeCore  = "com.twitter"       %% "scrooge-core"   % "3.13.0"
     val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12"  % "1.5.2")
