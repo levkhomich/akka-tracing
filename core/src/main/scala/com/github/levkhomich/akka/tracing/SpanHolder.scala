@@ -93,6 +93,14 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], scheduler: Sche
         None
     }
 
+  private[tracing] def flushAll(): Unit = {
+    import scala.collection.JavaConversions._
+    asScalaSet(spans.keySet()).toArray.foreach(id =>
+      enqueue(id, cancelJob = true)
+    )
+    send()
+  }
+
   private def createSpan(id: UUID, span: Span): thrift.Span = {
     sendJobs.putIfAbsent(id, scheduler.scheduleOnce(30.seconds) {
       enqueue(id, cancelJob = false)

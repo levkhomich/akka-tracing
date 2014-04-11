@@ -45,11 +45,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
         val protocol = new TBinaryProtocol(transport)
         val client = new ScribeClient(protocol)
 
+        val holder = new SpanHolder(client, system.scheduler, config.getInt(AkkaTracingSampleRate))
         system.registerOnTermination {
+          holder.flushAll()
           transport.close()
         }
-
-        new SpanHolder(client, system.scheduler, config.getInt(AkkaTracingSampleRate))
+        holder
       } catch {
         case e: org.apache.thrift.transport.TTransportException =>
           throw e
