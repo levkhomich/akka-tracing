@@ -62,12 +62,10 @@ object AkkaTracingBuild extends Build {
       compilationSettings ++
       publicationSettings ++ Seq(
         name := "Akka Tracing: Core",
-        libraryDependencies <<= libraryDependencies { deps =>
-          deps.filter(_.name != "scalac-scoverage-plugin") ++
-            Dependencies.thrift ++
-            Dependencies.akka ++
-            Dependencies.test
-        }
+        libraryDependencies ++=
+          Dependencies.thrift ++
+          Dependencies.akka ++
+          Dependencies.test
       )
   )
 }

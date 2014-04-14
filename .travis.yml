@@ -6,7 +6,7 @@ scala:
 
 jdk:
   - oraclejdk8
-  - openjdk8
+#  - openjdk8
   - oraclejdk7
   - openjdk7
   - openjdk6
@@ -17,4 +17,4 @@ matrix:
     - jdk: oraclejdk8
     - jdk: openjdk8
 
-#script: "sbt coveralls"
+script: "sbt 'project akka-tracing-core' 'coveralls'"
