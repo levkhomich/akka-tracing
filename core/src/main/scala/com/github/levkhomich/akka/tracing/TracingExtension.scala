@@ -18,7 +18,6 @@ package com.github.levkhomich.akka.tracing
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
-import java.util.UUID
 
 import akka.actor._
 import org.apache.thrift.protocol.TBinaryProtocol
@@ -31,6 +30,7 @@ import org.apache.thrift.transport.{TSocket, TFramedTransport}
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   import TracingExtension._
+  import SpanHolderInternalAction._
 
   // TODO: handle transport issues
   private[tracing] val holder = {
@@ -45,12 +45,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
         val protocol = new TBinaryProtocol(transport)
         val client = new ScribeClient(protocol)
 
-        val holder = new SpanHolder(client, system.scheduler, config.getInt(AkkaTracingSampleRate))
         system.registerOnTermination {
-          holder.flushAll()
           transport.close()
         }
-        holder
+
+        system.actorOf(Props(classOf[SpanHolder], client, config.getInt(AkkaTracingSampleRate)), "spanHolder")
       } catch {
         case e: org.apache.thrift.transport.TTransportException =>
           throw e
@@ -67,12 +66,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def record(ts: TracingSupport, msg: String): Unit =
     record(ts.msgId, msg)
 
-  private[tracing] def record(msgId: UUID, msg: String): Unit = {
-    holder.update(msgId) { spanInt =>
-      val a = thrift.Annotation(System.nanoTime / 1000, msg, None, None)
-      spanInt.copy(annotations = a +: spanInt.annotations)
-    }
-  }
+  private[tracing] def record(msgId: Long, msg: String): Unit =
+    holder ! AddAnnotation(msgId, thrift.Annotation(System.nanoTime / 1000, msg, None, None))
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -109,12 +104,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
-  def recordRPCName(ts: TracingSupport, service: String, rpc: String): Unit = {
-    holder.update(ts.msgId) { spanInt =>
-      spanInt.copy(name = rpc)
-    }
-    holder.setServiceName(ts.msgId, service)
-  }
+  def recordRPCName(ts: TracingSupport, service: String, rpc: String): Unit =
+    holder ! SetRPCName(ts.msgId, service, rpc)
 
   /**
    * Attaches information about service name to trace. Call name is assumed to be message's class name.
@@ -130,8 +121,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param ts traced message
    */
   def sample(ts: TracingSupport): Unit =
-    if (holder.sample(ts))
-      addAnnotation(ts, thrift.Constants.SERVER_RECV)
+    holder ! Sample(ts)
 
   private[tracing] def recordServerSend(ts: TracingSupport): Unit =
     addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)
@@ -157,20 +147,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
-    holder.update(ts.msgId, send) { spanInt =>
-      val a = thrift.Annotation(System.nanoTime / 1000, value, None, None)
-      spanInt.copy(annotations = a +: spanInt.annotations)
-    }
+    holder ! AddAnnotation(ts.msgId, thrift.Annotation(System.nanoTime / 1000, value, None, None))
 
   private def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
-    holder.update(ts.msgId) { spanInt =>
-      val a = thrift.BinaryAnnotation(key, value, valueType, None)
-      spanInt.copy(binaryAnnotations = a +: spanInt.binaryAnnotations)
-    }
+    holder ! AddBinaryAnnotation(ts.msgId, thrift.BinaryAnnotation(key, value, valueType, None))
 
-  private[tracing] def createChildSpan(ts: TracingSupport): Option[Span] =
-    holder.createChildSpan(ts.msgId)
+  private[tracing] def createChildSpan(msgId: Long, ts: TracingSupport): Unit =
+    holder ! CreateChildSpan(msgId, ts.msgId)
 
 }
 

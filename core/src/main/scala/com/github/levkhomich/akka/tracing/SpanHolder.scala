@@ -18,116 +18,129 @@ package com.github.levkhomich.akka.tracing
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.util
-import java.util.UUID
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue}
-import java.util.concurrent.atomic.AtomicLong
 import javax.xml.bind.DatatypeConverter
+import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 
-import akka.actor.{Cancellable, Scheduler}
+import akka.actor.{Actor, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 
 private[tracing] case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
+private[tracing] object SpanHolderInternalAction {
+  final case class Sample(ts: TracingSupport)
+  final case class Enqueue(msgId: Long, cancelJob: Boolean)
+  case object SendEnqueued
+  final case class SetRPCName(msgId: Long, service: String, rpc: String)
+  final case class AddAnnotation(msgId: Long, a: thrift.Annotation)
+  final case class AddBinaryAnnotation(msgId: Long, a: thrift.BinaryAnnotation)
+  final case class CreateChildSpan(msgId: Long, parentId: Long)
+  final case class SetSampleRate(sampleRate: Int)
+}
+
 /**
  * Internal API
  */
-private[tracing] class SpanHolder(client: thrift.Scribe[Option], scheduler: Scheduler, var sampleRate: Int) {
+private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate: Int) extends Actor {
 
-  private[this] val counter = new AtomicLong(0)
+  import SpanHolderInternalAction._
 
-  private[this] val spans = new ConcurrentHashMap[UUID, thrift.Span]()
-  private[this] val sendJobs = new ConcurrentHashMap[UUID, Cancellable]()
-  private[this] val serviceNames = new ConcurrentHashMap[Long, String]()
+  private[this] var counter = 0L
+
+  private[this] val spans = mutable.Map[Long, thrift.Span]()
+  private[this] val sendJobs = mutable.Map[Long, Cancellable]()
+  private[this] val serviceNames = mutable.Map[Long, String]()
+  private[this] val sendQueue = mutable.UnrolledBuffer[thrift.Span]()
+
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
-  private[this] val sendQueue: util.Queue[thrift.Span] = new ConcurrentLinkedQueue[thrift.Span]()
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
 
-  scheduler.schedule(0.seconds, 2.seconds) {
-    val result = send()
-    if (result != thrift.ResultCode.Ok) {
-      throw new RuntimeException
-    }
+  context.system.scheduler.schedule(0.seconds, 2.seconds, self, SendEnqueued)
+
+  override def receive: Receive = {
+    case Sample(ts) =>
+      counter += 1
+      lookup(ts.msgId) match {
+        case None if counter % sampleRate == 0 =>
+          val serverRecvAnn = thrift.Annotation(System.nanoTime / 1000, thrift.Constants.SERVER_RECV, None, None)
+          if (ts.traceId.isEmpty)
+            ts.traceId = Some(Random.nextLong())
+          val spanInt = createSpan(ts.msgId, Span(ts.msgId, ts.parentId, ts.traceId.get))
+          spans.put(ts.msgId, spanInt.copy(annotations = serverRecvAnn +: spanInt.annotations))
+
+        case _ =>
+      }
+
+    case Enqueue(msgId, cancelJob) =>
+      enqueue(msgId, cancelJob)
+
+    case SendEnqueued =>
+      send()
+
+    case SetRPCName(msgId, service, rpc) =>
+      lookup(msgId) foreach { spanInt =>
+        spans.put(msgId, spanInt.copy(name = rpc))
+        serviceNames.put(spanInt.id, service)
+      }
+
+    case AddAnnotation(msgId, a) =>
+      lookup(msgId) foreach { spanInt =>
+        spans.put(msgId, spanInt.copy(annotations = a +: spanInt.annotations))
+        if (a.value == thrift.Constants.SERVER_SEND) {
+          enqueue(msgId, cancelJob = true)
+        }
+      }
+
+    case AddBinaryAnnotation(msgId, a) =>
+      lookup(msgId) foreach { spanInt =>
+        spans.put(msgId, spanInt.copy(binaryAnnotations = a +: spanInt.binaryAnnotations))
+      }
+
+    case CreateChildSpan(msgId, parentId) =>
+      lookup(msgId) match {
+        case Some(parentSpan) =>
+          val spanInt = createSpan(msgId, Span(msgId, Some(parentSpan.id), parentSpan.traceId))
+          spans.put(msgId, spanInt)
+        case _ =>
+          None
+      }
+
+    case SetSampleRate(sampleRate) =>
+      this.sampleRate = sampleRate
   }
 
-  private def getSpan(msgId: UUID): Option[thrift.Span] =
-    Option(spans.get(msgId))
-
-  def sample(ts: TracingSupport): Boolean =
-    getSpan(ts.msgId) match {
-      case None if counter.incrementAndGet() % sampleRate == 0 =>
-        val span = ts.span.getOrElse(Span(Random.nextLong(), None, Random.nextLong()))
-        val spanInt = createSpan(ts.msgId, span)
-        val oldValue = spans.putIfAbsent(ts.msgId, spanInt)
-        oldValue == null
-
-      case _ =>
-        false
-    }
-
-  def update(msgId: UUID, send: Boolean = false)(f: thrift.Span => thrift.Span): Unit =
-    getSpan(msgId) foreach { spanInt =>
-      spanInt.synchronized {
-        spans.put(msgId, f(spanInt))
-      }
-      if (send) {
-        enqueue(msgId, cancelJob = true)
-      }
-    }
-
-  def setServiceName(msgId: UUID, service: String): Unit =
-    getSpan(msgId) foreach { span =>
-      serviceNames.putIfAbsent(span.id, service)
-    }
-
-  private[tracing] def createChildSpan(msgId: UUID): Option[Span] =
-    getSpan(msgId) match {
-      case Some(parentSpan) =>
-        Some(Span(Random.nextLong(), Some(parentSpan.id), parentSpan.traceId))
-      case _ =>
-        None
-    }
-
-  private[tracing] def flushAll(): Unit = {
-    import scala.collection.JavaConversions._
-    asScalaSet(spans.keySet()).toArray.foreach(id =>
+  override def postStop(): Unit = {
+    spans.keys.foreach(id =>
       enqueue(id, cancelJob = true)
     )
     send()
+    super.postStop()
   }
 
-  private def createSpan(id: UUID, span: Span): thrift.Span = {
-    sendJobs.putIfAbsent(id, scheduler.scheduleOnce(30.seconds) {
-      enqueue(id, cancelJob = false)
-    })
+  @inline
+  private def lookup(id: Long): Option[thrift.Span] =
+    spans.get(id)
+
+  private def createSpan(id: Long, span: Span): thrift.Span = {
+    sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
     thrift.Span(span.traceId, null, span.id, span.parentId, Nil, Nil)
   }
 
-  private def enqueue(id: UUID, cancelJob: Boolean): Unit = {
-    val spanInt = spans.remove(id)
-    val job = sendJobs.remove(id)
-    if (job != null)
-      job.cancel()
-    if (spanInt != null)
-      sendQueue.offer(spanInt)
+  private def enqueue(id: Long, cancelJob: Boolean): Unit = {
+    sendJobs.remove(id).foreach(job => if (cancelJob) job.cancel())
+    spans.remove(id).foreach(span => sendQueue.append(span))
   }
 
   private def send(): thrift.ResultCode = {
-    var next = sendQueue.poll()
-    var list: List[thrift.LogEntry] = Nil
-    while (next != null) {
-      list ::= spanToLogEntry(next)
-      next = sendQueue.poll()
-    }
-
-    if (!list.isEmpty)
-      client.log(list).getOrElse(thrift.ResultCode.TryLater)
-    else
+    if (!sendQueue.isEmpty) {
+      val messages = sendQueue.map(spanToLogEntry)
+      sendQueue.clear()
+      client.log(messages).getOrElse(thrift.ResultCode.TryLater)
+    } else
       thrift.ResultCode.Ok
   }
 
@@ -146,7 +159,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], scheduler: Sche
   }
 
   private def getEndpoint(spanId: Long): thrift.Endpoint = {
-    val service = Option(serviceNames.remove(spanId)).getOrElse("Unknown")
+    val service = serviceNames.get(spanId).getOrElse("Unknown")
     thrift.Endpoint(localAddress, 0, service)
   }
 

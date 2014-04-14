@@ -23,6 +23,7 @@ import javax.xml.bind.DatatypeConverter
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Random
 
 import akka.actor.{ActorRef, Props, ActorSystem}
 import org.specs2.mutable.Specification
@@ -70,11 +71,11 @@ class TracingSpecification extends Specification {
           trace.recordServerSend(msg)
         }
 
-      trace.holder.sampleRate = 1
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
       traceMessages(2)
-      trace.holder.sampleRate = 2
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(2)
       traceMessages(60)
-      trace.holder.sampleRate = 5
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(5)
       traceMessages(500)
 
       Thread.sleep(3000)
@@ -84,7 +85,7 @@ class TracingSpecification extends Specification {
 
     "pipe logs to traces" in {
       results.clear()
-      trace.holder.sampleRate = 1
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
 
       testActor ! StringMessage("1")
       testActor ! StringMessage("2")
@@ -102,7 +103,7 @@ class TracingSpecification extends Specification {
 
 //    "process more than 40000 traces per second using single thread" in {
 //      val SpanCount = 200000
-//      trace.holder.sampleRate = 1
+//      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
 //      val startingTime = System.currentTimeMillis()
 //      for (_ <- 1 to SpanCount) {
 //        val msg = StringMessage(UUID.randomUUID().toString)
@@ -114,7 +115,7 @@ class TracingSpecification extends Specification {
 //      }
 //      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
 //      Thread.sleep(5000)
-//      println(results.size)
+//      println("TPS = " + tracesPerSecond)
 //      tracesPerSecond must beGreaterThan(40000L)
 //    }
   }

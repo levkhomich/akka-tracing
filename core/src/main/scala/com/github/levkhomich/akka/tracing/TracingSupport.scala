@@ -16,15 +16,16 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.util.UUID
+import scala.util.Random
 
 /**
  * Trait to be mixed in messages that should support tracing.
  */
 trait TracingSupport extends Serializable {
 
-  private[tracing] val msgId = UUID.randomUUID()
-  private[tracing] var span: Option[Span] = None
+  private[tracing] val msgId = Random.nextLong()
+  private[tracing] var traceId: Option[Long] = None
+  private[tracing] var parentId: Option[Long] = None
 
   /**
    * Declares message as a child of another message.
@@ -32,7 +33,9 @@ trait TracingSupport extends Serializable {
    * @return child message with required tracing headers
    */
   def asChildOf(ts: TracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    span = tracer.createChildSpan(ts)
+    tracer.createChildSpan(msgId, ts)
+    parentId = Some(ts.msgId)
+    traceId = ts.traceId
     this
   }
 
