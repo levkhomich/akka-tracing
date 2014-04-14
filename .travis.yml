@@ -17,4 +17,4 @@ matrix:
     - jdk: oraclejdk8
     - jdk: openjdk8
 
-script: "sbt 'project akka-tracing-core' 'coveralls'"
+#script: "sbt 'project akka-tracing-core' 'coveralls'"
