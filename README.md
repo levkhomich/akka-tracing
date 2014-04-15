@@ -16,38 +16,15 @@ Run `sbt test` to build and test library.
 Using
 -----
 
-- [setup](http://twitter.github.io/zipkin/install.html) Zipkin infrastructure;
-- include akka-tracing-core dependency to your build
-
-```scala
-libraryDependencies += "com.github.levkhomich" %% "akka-tracing-core" % "0.1"
-```
-
-or, if you want to use snapshot version
-
-```scala
-resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
-
-libraryDependencies += "com.github.levkhomich" %% "akka-tracing-core" % "0.2-SNAPSHOT" changing()
-```
-
-- provide `akka.tracing.host` in application's config;
-- mix request-processing actors with [`AkkaTracing`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/ActorTracing.scala) and
+1. [Setup Zipkin infrastructure and your project](https://github.com/levkhomich/akka-tracing/wiki/Setup);
+1. mix request-processing actors with [`AkkaTracing`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/ActorTracing.scala) and
   traceable messages with [`TracingSupport`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/TracingSupport.scala);
-- use [`trace.record*`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/TracingExtension.scala#L58) methods to annotate traces.
+1. sample messages you want to trace using `trace.sample(message)`;
+1. use [`trace.record*`](https://github.com/levkhomich/akka-tracing/blob/master/core/src/main/scala/com/github/levkhomich/akka/tracing/TracingExtension.scala#L58) methods to annotate traces.
+1. to register server response, mark it with `responseMessage.asResponseTo(request)`.
 
-To start tracing correctly `trace.sample(request)` must be called before other tracing methods
-(sampling rate can be changed using `akka.tracing.sample-rate` config parameter).
-To register server response, mark it with `responseMessage.asResponseTo(request)`.
-
-Examples
---------
-
-See `examples` dir:
-- [Trace hierarchy and timeout handling](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main/scala/org/example/TraceHierarchy.scala)
-
-More screenshots:
-- [annotations](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/annotations.png)
+See more detailed guide [here](https://github.com/levkhomich/akka-tracing/wiki/Overview).
+Also, you can take a look at [examples](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main).
 
 Documentation
 -------------
@@ -57,4 +34,5 @@ See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki).
 Roadmap
 -------
 
-- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - WIP
+- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - WIP.
+- [0.3 release](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - Planned. Feel free to ask for any features.
