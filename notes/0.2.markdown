@@ -1,0 +1,11 @@
+Second release of Akka Tracing.
+
+It includes:
+* tracing performance improvements;
+* complete support for Java-only projects;
+* almost complete [developer docs](https://github.com/levkhomich/akka-tracing/wiki/Home).
+
+Some screenshots: [timeline](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png) and
+[annotations](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/annotations.png).
+
+Contributions are welcome! Feel free to [ask](https://twitter.com/levkhomich) any questions.
