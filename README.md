@@ -1,19 +1,14 @@
-Akka Tracing
+Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
 Extension can be used as performance diagnostics or debugging tool for distributed applications.
-Sampled traces can contain not only timing info, but custom annotations and key-value pairs,
-furthermore, such annotations can be used as filtering parameters in Zipkin's Web UI.
+
+See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki) for more information.
 
 ![trace example](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png)
 
-Building [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
---------
-
-Run `sbt test` to build and test library.
-
-Using
+Usage
 -----
 
 1. [Setup Zipkin infrastructure and your project](https://github.com/levkhomich/akka-tracing/wiki/Setup);
@@ -25,11 +20,6 @@ Using
 
 See more detailed guide [here](https://github.com/levkhomich/akka-tracing/wiki/Overview).
 Also, you can take a look at [examples](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main).
-
-Documentation
--------------
-
-See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki).
 
 Roadmap
 -------
