@@ -16,13 +16,12 @@
 
 package org.example.javaapi;
 
+import java.util.Random;
+
 import akka.actor.UntypedActor;
+
 import com.github.levkhomich.akka.tracing.TracingExtension;
 import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
-import org.example.InternalRequest;
-import org.example.InternalResponse;
-
-import java.util.Random;
 
 public class DelegateActor extends UntypedActor {
 
@@ -38,7 +37,7 @@ public class DelegateActor extends UntypedActor {
             trace.recordRPCName(msg, this.getClass().getSimpleName());
             // another computation (sometimes leading to timeout)
             Thread.sleep(rng.nextInt(30));
-            sender().tell(new InternalResponse(200, "Hello, " + msg.payload()), self()); //.asResponseTo(msg)
+            sender().tell(new InternalResponse(200, "Hello, " + msg.getPayload()), self()); //.asResponseTo(msg)
         } else {
             unhandled(message);
         }

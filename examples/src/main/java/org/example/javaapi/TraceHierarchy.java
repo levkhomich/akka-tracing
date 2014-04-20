@@ -16,17 +16,15 @@
 
 package org.example.javaapi;
 
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
-import com.typesafe.config.ConfigFactory;
-import org.example.ExternalRequest;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import static akka.pattern.Patterns.ask;
+import com.typesafe.config.ConfigFactory;
 
 public class TraceHierarchy {
 

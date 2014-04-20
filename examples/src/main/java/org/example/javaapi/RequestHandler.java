@@ -16,21 +16,17 @@
 
 package org.example.javaapi;
 
+import scala.concurrent.Future;
+
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import akka.japi.JavaPartialFunction;
-import com.github.levkhomich.akka.tracing.TracingExtension;
-import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
-import org.example.ExternalRequest;
-import org.example.ExternalResponse;
-import org.example.InternalRequest;
-import org.example.InternalResponse;
-import scala.concurrent.Future;
-
 import static akka.pattern.Patterns.ask;
 import static akka.pattern.Patterns.pipe;
 
+import com.github.levkhomich.akka.tracing.TracingExtension;
+import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
 
 public class RequestHandler extends UntypedActor {
 
@@ -39,6 +35,8 @@ public class RequestHandler extends UntypedActor {
 
     public void onReceive(Object message) throws Exception {
         if (message instanceof ExternalRequest) {
+            System.out.print("!");
+
             final ExternalRequest msg = (ExternalRequest) message;
             // notify tracing extension about external request to be sampled and traced
             trace.sample(msg);
@@ -46,11 +44,11 @@ public class RequestHandler extends UntypedActor {
             trace.recordRPCName(msg, this.getClass().getSimpleName());
 
             // add info about request headers to trace
-            for (String key : msg.headers().keySet()) {
-                trace.recordKeyValue(msg, key, msg.headers().get(key));
+            for (String key : msg.getHeaders().keySet()) {
+                trace.recordKeyValue(msg, key, msg.getHeaders().get(key));
             }
 
-            InternalRequest request = new InternalRequest(msg.payload());
+            InternalRequest request = new InternalRequest(msg.getPayload());
 
             Future<Object> f = ask(child, request.asChildOf(msg, trace), 500).recover(new JavaPartialFunction<Throwable, Object>() {
                 @Override
@@ -68,7 +66,7 @@ public class RequestHandler extends UntypedActor {
                     if (intMessage instanceof InternalResponse) {
                         if (isCheck) return null;
                         InternalResponse intResponse = (InternalResponse) intMessage;
-                        ExternalResponse response = new ExternalResponse(intResponse.responseCode(), intResponse.toString() + '!');
+                        ExternalResponse response = new ExternalResponse(intResponse.getResponseCode(), intResponse.toString() + '!');
                         // close trace
                         trace.recordServerSend(msg);
                         return response;
