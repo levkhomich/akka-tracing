@@ -31,7 +31,7 @@ import org.apache.thrift.transport.TMemoryBuffer
 private[tracing] case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
 private[tracing] object SpanHolderInternalAction {
-  final case class Sample(ts: TracingSupport)
+  final case class Sample(ts: BaseTracingSupport)
   final case class Enqueue(msgId: Long, cancelJob: Boolean)
   case object SendEnqueued
   final case class SetRPCName(msgId: Long, service: String, rpc: String)
@@ -68,7 +68,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
         case None if counter % sampleRate == 0 =>
           val serverRecvAnn = thrift.Annotation(System.nanoTime / 1000, thrift.Constants.SERVER_RECV, None, None)
           if (ts.traceId.isEmpty)
-            ts.traceId = Some(Random.nextLong())
+            ts.setTraceId(Some(Random.nextLong()))
           val spanInt = createSpan(ts.msgId, Span(ts.msgId, ts.parentId, ts.traceId.get))
           spans.put(ts.msgId, spanInt.copy(annotations = serverRecvAnn +: spanInt.annotations))
 

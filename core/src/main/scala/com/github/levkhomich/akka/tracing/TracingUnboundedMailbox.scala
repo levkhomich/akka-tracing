@@ -40,7 +40,7 @@ class TracingUnboundedMailbox(settings: ActorSystem.Settings, config: Config)
 
     override def enqueue(receiver: ActorRef, handle: Envelope): Unit = {
       handle.message match {
-        case ts: TracingSupport =>
+        case ts: BaseTracingSupport =>
           TracingExtension(system).record(ts, receiver.path + " received " + ts)
         case _ =>
       }

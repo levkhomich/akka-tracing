@@ -63,7 +63,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param ts traced message
    * @param msg recorded string
    */
-  def record(ts: TracingSupport, msg: String): Unit =
+  def record(ts: BaseTracingSupport, msg: String): Unit =
     record(ts.msgId, msg)
 
   private[tracing] def record(msgId: Long, msg: String): Unit =
@@ -75,7 +75,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param key recorded key
    * @param value recorded value
    */
-  def recordKeyValue(ts: TracingSupport, key: String, value: Any): Unit = {
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Any): Unit = {
     value match {
       case v: String =>
         addBinaryAnnotation(ts, key, ByteBuffer.wrap(v.getBytes), thrift.AnnotationType.String)
@@ -104,7 +104,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
-  def recordRPCName(ts: TracingSupport, service: String, rpc: String): Unit =
+  def recordRPCName(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     holder ! SetRPCName(ts.msgId, service, rpc)
 
   /**
@@ -112,7 +112,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param ts traced message
    * @param service service name
    */
-  def recordRPCName(ts: TracingSupport, service: String): Unit = 
+  def recordRPCName(ts: BaseTracingSupport, service: String): Unit =
     recordRPCName(ts, service, ts.getClass.getSimpleName)
 
   /**
@@ -120,10 +120,10 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * (defined by akka.tracing.sample-rate setting) will be actually traced.
    * @param ts traced message
    */
-  def sample(ts: TracingSupport): Unit =
+  def sample(ts: BaseTracingSupport): Unit =
     holder ! Sample(ts)
 
-  private[tracing] def recordServerSend(ts: TracingSupport): Unit =
+  private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)
 
 //  def recordClientSend(ts: TracingSupport): Unit =
@@ -137,7 +137,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param ts traced message
    * @param e recorded exception
    */
-  def recordException(ts: TracingSupport, e: Throwable): Unit =
+  def recordException(ts: BaseTracingSupport, e: Throwable): Unit =
     record(ts, getStackTrace(e))
 
   private def getStackTrace(e: Throwable): String = {
@@ -146,14 +146,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     e.getClass.getCanonicalName + ": " + sw.toString
   }
 
-  private def addAnnotation(ts: TracingSupport, value: String, send: Boolean = false): Unit =
+  private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
     holder ! AddAnnotation(ts.msgId, thrift.Annotation(System.nanoTime / 1000, value, None, None))
 
-  private def addBinaryAnnotation(ts: TracingSupport, key: String, value: ByteBuffer,
+  private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
     holder ! AddBinaryAnnotation(ts.msgId, thrift.BinaryAnnotation(key, value, valueType, None))
 
-  private[tracing] def createChildSpan(msgId: Long, ts: TracingSupport): Unit =
+  private[tracing] def createChildSpan(msgId: Long, ts: BaseTracingSupport): Unit =
     holder ! CreateChildSpan(msgId, ts.msgId)
 
 }

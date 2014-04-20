@@ -18,10 +18,20 @@ package com.github.levkhomich.akka.tracing
 
 import scala.util.Random
 
+trait BaseTracingSupport extends Serializable {
+  private[tracing] def msgId: Long
+  private[tracing] def traceId: Option[Long]
+  private[tracing] def parentId: Option[Long]
+
+  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type
+
+  private[tracing] def setTraceId(newTraceId: Option[Long]): Unit
+}
+
 /**
- * Trait to be mixed in messages that should support tracing.
+ * Trait to be mixed with messages that should support tracing.
  */
-trait TracingSupport extends Serializable {
+trait TracingSupport extends BaseTracingSupport {
 
   private[tracing] val msgId = Random.nextLong()
   private[tracing] var traceId: Option[Long] = None
@@ -32,11 +42,15 @@ trait TracingSupport extends Serializable {
    * @param ts parent message
    * @return child message with required tracing headers
    */
-  def asChildOf(ts: TracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
     tracer.createChildSpan(msgId, ts)
     parentId = Some(ts.msgId)
     traceId = ts.traceId
     this
+  }
+
+  def setTraceId(newTraceId: Option[Long]): Unit = {
+    traceId = newTraceId
   }
 
 }
@@ -48,7 +62,7 @@ class ResponseTracingSupport[T](val msg: T) extends AnyVal {
    * @param request parent message
    * @return unchanged message
    */
-  def asResponseTo(request: TracingSupport)(implicit trace: TracingExtensionImpl): T = {
+  def asResponseTo(request: BaseTracingSupport)(implicit trace: TracingExtensionImpl): T = {
     trace.record(request, "response: " + msg)
     trace.recordServerSend(request)
     msg
