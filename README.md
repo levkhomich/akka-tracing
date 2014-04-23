@@ -24,5 +24,4 @@ Also, you can take a look at [examples](https://github.com/levkhomich/akka-traci
 Roadmap
 -------
 
-- [0.2 release](https://github.com/levkhomich/akka-tracing/issues?milestone=2) - WIP.
-- [0.3 release](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - Planned. Feel free to ask for any features.
+- [0.3 release](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - WIP.
