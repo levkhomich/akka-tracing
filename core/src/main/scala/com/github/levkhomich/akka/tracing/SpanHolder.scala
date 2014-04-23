@@ -31,11 +31,11 @@ import org.apache.thrift.transport.TMemoryBuffer
 private[tracing] case class Span(id: Long, parentId: Option[Long], traceId: Long)
 
 private[tracing] object SpanHolderInternalAction {
-  final case class Sample(ts: BaseTracingSupport)
+  final case class Sample(ts: BaseTracingSupport, timestamp: Long)
   final case class Enqueue(msgId: Long, cancelJob: Boolean)
   case object SendEnqueued
   final case class SetRPCName(msgId: Long, service: String, rpc: String)
-  final case class AddAnnotation(msgId: Long, a: thrift.Annotation)
+  final case class AddAnnotation(msgId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(msgId: Long, a: thrift.BinaryAnnotation)
   final case class CreateChildSpan(msgId: Long, parentId: Long)
   final case class SetSampleRate(sampleRate: Int)
@@ -59,14 +59,16 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
 
+  private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
+
   context.system.scheduler.schedule(0.seconds, 2.seconds, self, SendEnqueued)
 
   override def receive: Receive = {
-    case Sample(ts) =>
+    case Sample(ts, timestamp) =>
       counter += 1
       lookup(ts.msgId) match {
         case None if counter % sampleRate == 0 =>
-          val serverRecvAnn = thrift.Annotation(System.nanoTime / 1000, thrift.Constants.SERVER_RECV, None, None)
+          val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, None, None)
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
           val spanInt = createSpan(ts.msgId, Span(ts.msgId, ts.parentId, ts.traceId.get))
@@ -87,8 +89,9 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
         serviceNames.put(spanInt.id, service)
       }
 
-    case AddAnnotation(msgId, a) =>
+    case AddAnnotation(msgId, timestamp, msg) =>
       lookup(msgId) foreach { spanInt =>
+        val a = thrift.Annotation(adjustedMicroTime(timestamp), msg, None, None)
         spans.put(msgId, spanInt.copy(annotations = a +: spanInt.annotations))
         if (a.value == thrift.Constants.SERVER_SEND) {
           enqueue(msgId, cancelJob = true)
@@ -120,6 +123,9 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
     send()
     super.postStop()
   }
+
+  private def adjustedMicroTime(nanoTime: Long): Long =
+    microTimeAdjustment + nanoTime / 1000
 
   @inline
   private def lookup(id: Long): Option[thrift.Span] =
