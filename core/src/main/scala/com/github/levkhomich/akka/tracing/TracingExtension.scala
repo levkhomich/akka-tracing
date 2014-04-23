@@ -67,7 +67,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     record(ts.msgId, msg)
 
   private[tracing] def record(msgId: Long, msg: String): Unit =
-    holder ! AddAnnotation(msgId, System.nanoTime / 1000, msg)
+    holder ! AddAnnotation(msgId, System.nanoTime, msg)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -121,7 +121,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param ts traced message
    */
   def sample(ts: BaseTracingSupport): Unit =
-    holder ! Sample(ts, System.nanoTime / 1000)
+    holder ! Sample(ts, System.nanoTime)
 
   private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)
@@ -147,7 +147,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    holder ! AddAnnotation(ts.msgId, System.nanoTime / 1000, value)
+    holder ! AddAnnotation(ts.msgId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
