@@ -21,7 +21,9 @@ Usage
 See more detailed guide [here](https://github.com/levkhomich/akka-tracing/wiki/Overview).
 Also, you can take a look at [examples](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main).
 
-Roadmap
--------
+Roadmap and Changelog
+---------------------
 
-- [0.3 release](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - WIP.
+- [0.1](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.1.markdown) - done.
+- [0.2](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.2.markdown) - done.
+- [0.3](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - WIP.
