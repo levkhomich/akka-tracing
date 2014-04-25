@@ -28,8 +28,6 @@ import akka.actor.{Actor, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 
-private[tracing] case class Span(id: Long, parentId: Option[Long], traceId: Long)
-
 private[tracing] object SpanHolderInternalAction {
   final case class Sample(ts: BaseTracingSupport, timestamp: Long)
   final case class Enqueue(msgId: Long, cancelJob: Boolean)
@@ -71,8 +69,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
           val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, None, None)
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
-          val spanInt = createSpan(ts.msgId, Span(ts.msgId, ts.parentId, ts.traceId.get))
-          spans.put(ts.msgId, spanInt.copy(annotations = serverRecvAnn +: spanInt.annotations))
+          createSpan(ts.msgId, ts.parentId, ts.traceId.get, Seq(serverRecvAnn))
 
         case _ =>
       }
@@ -106,8 +103,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
     case CreateChildSpan(msgId, parentId) =>
       lookup(msgId) match {
         case Some(parentSpan) =>
-          val spanInt = createSpan(msgId, Span(msgId, Some(parentSpan.id), parentSpan.traceId))
-          spans.put(msgId, spanInt)
+          createSpan(msgId, Some(parentSpan.id), parentSpan.traceId)
         case _ =>
           None
       }
@@ -131,9 +127,11 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
   private def lookup(id: Long): Option[thrift.Span] =
     spans.get(id)
 
-  private def createSpan(id: Long, span: Span): thrift.Span = {
+  private def createSpan(id: Long, parentId: Option[Long], traceId: Long,
+                         annotations: Seq[thrift.Annotation] = Nil,
+                         binaryAnnotations: Seq[thrift.BinaryAnnotation] = Nil): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
-    thrift.Span(span.traceId, null, span.id, span.parentId, Nil, Nil)
+    spans.put(id, thrift.Span(traceId, null, id, parentId, annotations, binaryAnnotations))
   }
 
   private def enqueue(id: Long, cancelJob: Boolean): Unit = {
