@@ -43,10 +43,8 @@ class RequestHandler extends Actor with ActorTracing {
 
   override def receive: Receive = {
     case msg @ ExternalRequest(headers, payload) =>
-      // notify tracing extension about external request to be sampled and traced
-      trace.sample(msg)
-      // name service processing request
-      trace.recordRPCName(msg, this.getClass.getSimpleName)
+      // notify tracing extension about external request to be sampled and traced, name service processing request
+      trace.sample(msg, this.getClass.getSimpleName)
 
       // add info about request headers to trace
       headers.foreach { case (k, v) => trace.recordKeyValue(msg, k, v)}
@@ -68,8 +66,7 @@ class DelegateActor extends Actor with ActorTracing {
 
   override def receive: Receive = {
     case msg @ InternalRequest(payload) =>
-      trace.sample(msg)
-      trace.recordRPCName(msg, this.getClass.getSimpleName)
+      trace.sample(msg, this.getClass.getSimpleName)
       // another computation (sometimes leading to timeout)
       Thread.sleep(Random.nextInt(30))
       sender ! InternalResponse(200, s"Hello, $payload").asResponseTo(msg)

@@ -99,29 +99,24 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   /**
-   * Attaches information about service and call name to trace.
+   * Enables message tracing, names and samples it. After sampling any nth message
+   * (defined by akka.tracing.sample-rate setting) will be actually traced.
    * @param ts traced message
    * @param service service name
    * @param rpc RPC name
    */
-  def recordRPCName(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    holder ! SetRPCName(ts.msgId, service, rpc)
+  def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
+    holder ! Sample(ts, service, rpc, System.nanoTime)
 
   /**
-   * Attaches information about service name to trace. Call name is assumed to be message's class name.
+   * Enables message tracing, names (rpc name is assumed to be message's class name)
+   * and samples it. After sampling any nth message (defined by akka.tracing.sample-rate setting)
+   * will be actually traced.
    * @param ts traced message
    * @param service service name
    */
-  def recordRPCName(ts: BaseTracingSupport, service: String): Unit =
-    recordRPCName(ts, service, ts.getClass.getSimpleName)
-
-  /**
-   * Enables message tracing and samples it. After sampling any nth message
-   * (defined by akka.tracing.sample-rate setting) will be actually traced.
-   * @param ts traced message
-   */
-  def sample(ts: BaseTracingSupport): Unit =
-    holder ! Sample(ts, System.nanoTime)
+  def sample(ts: BaseTracingSupport, service: String): Unit =
+    sample(ts, service, ts.getClass.getSimpleName)
 
   private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)

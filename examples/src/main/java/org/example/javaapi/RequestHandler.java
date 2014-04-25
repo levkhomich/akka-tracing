@@ -38,10 +38,8 @@ public class RequestHandler extends UntypedActor {
             System.out.print("!");
 
             final ExternalRequest msg = (ExternalRequest) message;
-            // notify tracing extension about external request to be sampled and traced
-            trace.sample(msg);
-            // name service processing request
-            trace.recordRPCName(msg, this.getClass().getSimpleName());
+            // notify tracing extension about external request to be sampled and traced, name service processing request
+            trace.sample(msg, this.getClass().getSimpleName());
 
             // add info about request headers to trace
             for (String key : msg.getHeaders().keySet()) {

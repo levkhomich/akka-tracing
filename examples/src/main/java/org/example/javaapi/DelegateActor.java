@@ -31,10 +31,8 @@ public class DelegateActor extends UntypedActor {
     public void onReceive(Object message) throws Exception {
         if (message instanceof InternalRequest) {
             InternalRequest msg = (InternalRequest) message;
-            // notify tracing extension about external request to be sampled and traced
-            trace.sample(msg);
-            // name service processing request
-            trace.recordRPCName(msg, this.getClass().getSimpleName());
+            // notify tracing extension about external request to be sampled and traced, name service processing request
+            trace.sample(msg, this.getClass().getSimpleName());
             // another computation (sometimes leading to timeout)
             Thread.sleep(rng.nextInt(30));
             sender().tell(new InternalResponse(200, "Hello, " + msg.getPayload()), self()); //.asResponseTo(msg)

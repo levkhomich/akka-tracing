@@ -40,7 +40,7 @@ import org.apache.thrift.transport.TMemoryBuffer
 class TestActor extends TracingActorLogging with ActorTracing {
   override def receive: Receive = {
     case msg: TracingSupport =>
-      trace.sample(msg)
+      trace.sample(msg, "test")
       log.info("received message " + msg)
       Thread.sleep(100)
       trace.recordServerSend(msg)
@@ -66,8 +66,7 @@ class TracingSpecification extends Specification {
       def traceMessages(count: Int): Unit =
         for (_ <- 1 to count) {
           val msg = StringMessage(UUID.randomUUID().toString)
-          trace.sample(msg)
-          trace.recordRPCName(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
+          trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
           trace.recordServerSend(msg)
         }
 

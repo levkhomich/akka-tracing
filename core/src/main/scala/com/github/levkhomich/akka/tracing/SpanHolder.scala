@@ -29,10 +29,9 @@ import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 
 private[tracing] object SpanHolderInternalAction {
-  final case class Sample(ts: BaseTracingSupport, timestamp: Long)
+  final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
   final case class Enqueue(msgId: Long, cancelJob: Boolean)
   case object SendEnqueued
-  final case class SetRPCName(msgId: Long, service: String, rpc: String)
   final case class AddAnnotation(msgId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(msgId: Long, a: thrift.BinaryAnnotation)
   final case class CreateChildSpan(msgId: Long, parentId: Long)
@@ -62,14 +61,20 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
   context.system.scheduler.schedule(0.seconds, 2.seconds, self, SendEnqueued)
 
   override def receive: Receive = {
-    case Sample(ts, timestamp) =>
+    case Sample(ts, serviceName, rpcName, timestamp) =>
       counter += 1
       lookup(ts.msgId) match {
         case None if counter % sampleRate == 0 =>
           val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, None, None)
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
-          createSpan(ts.msgId, ts.parentId, ts.traceId.get, Seq(serverRecvAnn))
+          createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, Seq(serverRecvAnn))
+          serviceNames.put(ts.msgId, serviceName)
+
+        // TODO: check if it really needed
+        case Some(spanInt) if spanInt.name != rpcName || !serviceNames.contains(ts.msgId) =>
+          spans.put(ts.msgId, spanInt.copy(name = rpcName))
+          serviceNames.put(ts.msgId, serviceName)
 
         case _ =>
       }
@@ -79,12 +84,6 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
     case SendEnqueued =>
       send()
-
-    case SetRPCName(msgId, service, rpc) =>
-      lookup(msgId) foreach { spanInt =>
-        spans.put(msgId, spanInt.copy(name = rpc))
-        serviceNames.put(spanInt.id, service)
-      }
 
     case AddAnnotation(msgId, timestamp, msg) =>
       lookup(msgId) foreach { spanInt =>
@@ -127,11 +126,11 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
   private def lookup(id: Long): Option[thrift.Span] =
     spans.get(id)
 
-  private def createSpan(id: Long, parentId: Option[Long], traceId: Long,
+  private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String = null,
                          annotations: Seq[thrift.Annotation] = Nil,
                          binaryAnnotations: Seq[thrift.BinaryAnnotation] = Nil): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
-    spans.put(id, thrift.Span(traceId, null, id, parentId, annotations, binaryAnnotations))
+    spans.put(id, thrift.Span(traceId, name, id, parentId, annotations, binaryAnnotations))
   }
 
   private def enqueue(id: Long, cancelJob: Boolean): Unit = {
