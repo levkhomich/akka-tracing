@@ -33,7 +33,7 @@ private[tracing] object SpanHolderInternalAction {
   final case class Enqueue(msgId: Long, cancelJob: Boolean)
   case object SendEnqueued
   final case class AddAnnotation(msgId: Long, timestamp: Long, msg: String)
-  final case class AddBinaryAnnotation(msgId: Long, a: thrift.BinaryAnnotation)
+  final case class AddBinaryAnnotation(msgId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
   final case class CreateChildSpan(msgId: Long, parentId: Long)
   final case class SetSampleRate(sampleRate: Int)
 }
@@ -49,12 +49,13 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
   private[this] val spans = mutable.Map[Long, thrift.Span]()
   private[this] val sendJobs = mutable.Map[Long, Cancellable]()
-  private[this] val serviceNames = mutable.Map[Long, String]()
+  private[this] val endpoints = mutable.Map[Long, thrift.Endpoint]()
   private[this] val sendQueue = mutable.UnrolledBuffer[thrift.Span]()
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
+  private[this] val unknownEndpoint = Some(thrift.Endpoint(localAddress, 0, "unknown"))
 
   private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
 
@@ -69,12 +70,12 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
           createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, Seq(serverRecvAnn))
-          serviceNames.put(ts.msgId, serviceName)
+          endpoints.put(ts.msgId, thrift.Endpoint(localAddress, 0, serviceName))
 
         // TODO: check if it really needed
-        case Some(spanInt) if spanInt.name != rpcName || !serviceNames.contains(ts.msgId) =>
+        case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.msgId) =>
           spans.put(ts.msgId, spanInt.copy(name = rpcName))
-          serviceNames.put(ts.msgId, serviceName)
+          endpoints.put(ts.msgId, thrift.Endpoint(localAddress, 0, serviceName))
 
         case _ =>
       }
@@ -87,15 +88,16 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
     case AddAnnotation(msgId, timestamp, msg) =>
       lookup(msgId) foreach { spanInt =>
-        val a = thrift.Annotation(adjustedMicroTime(timestamp), msg, None, None)
+        val a = thrift.Annotation(adjustedMicroTime(timestamp), msg, endpointFor(msgId), None)
         spans.put(msgId, spanInt.copy(annotations = a +: spanInt.annotations))
         if (a.value == thrift.Constants.SERVER_SEND) {
           enqueue(msgId, cancelJob = true)
         }
       }
 
-    case AddBinaryAnnotation(msgId, a) =>
+    case AddBinaryAnnotation(msgId, key, value, valueType) =>
       lookup(msgId) foreach { spanInt =>
+        val a = thrift.BinaryAnnotation(key, value, valueType, endpointFor(msgId))
         spans.put(msgId, spanInt.copy(binaryAnnotations = a +: spanInt.binaryAnnotations))
       }
 
@@ -149,21 +151,13 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     val buffer = new TMemoryBuffer(1024)
-    val endpoint = getEndpoint(spanInt.id)
-
-    spanInt.copy(
-      annotations = spanInt.annotations.map(a => a.copy(host = Some(endpoint))),
-      binaryAnnotations = spanInt.binaryAnnotations.map(a => a.copy(host = Some(endpoint)))
-    ).write(protocolFactory.getProtocol(buffer))
-
+    spanInt.write(protocolFactory.getProtocol(buffer))
     val thriftBytes = buffer.getArray.take(buffer.length)
     val encodedSpan = DatatypeConverter.printBase64Binary(thriftBytes) + '\n'
     thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private def getEndpoint(spanId: Long): thrift.Endpoint = {
-    val service = serviceNames.get(spanId).getOrElse("Unknown")
-    thrift.Endpoint(localAddress, 0, service)
-  }
+  private def endpointFor(msgId: Long): Option[thrift.Endpoint] =
+    endpoints.get(msgId).orElse(unknownEndpoint)
 
 }

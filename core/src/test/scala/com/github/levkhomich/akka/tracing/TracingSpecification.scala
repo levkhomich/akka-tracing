@@ -100,23 +100,24 @@ class TracingSpecification extends Specification {
     }
 
 
-//    "process more than 40000 traces per second using single thread" in {
-//      val SpanCount = 200000
-//      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
-//      val startingTime = System.currentTimeMillis()
-//      for (_ <- 1 to SpanCount) {
-//        val msg = StringMessage(UUID.randomUUID().toString)
-//        trace.sample(msg)
-//        trace.recordRPCName(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
-//        trace.recordKeyValue(msg, "keyLong", Random.nextLong())
-//        trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
-//        trace.recordServerSend(msg)
-//      }
-//      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-//      Thread.sleep(5000)
-//      println("TPS = " + tracesPerSecond)
-//      tracesPerSecond must beGreaterThan(40000L)
-//    }
+    "process more than 40000 traces per second using single thread" in {
+      val SpanCount = 200000
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
+
+      val startingTime = System.currentTimeMillis()
+      for (_ <- 1 to SpanCount) {
+        val msg = StringMessage(UUID.randomUUID().toString)
+        trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
+        trace.recordKeyValue(msg, "keyLong", Random.nextLong())
+        trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
+        trace.recordServerSend(msg)
+      }
+      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
+      Thread.sleep(5000)
+      println("TPS = " + tracesPerSecond)
+
+      tracesPerSecond must beGreaterThan(40000L)
+    }
   }
 
   "corretly shutdown" in {

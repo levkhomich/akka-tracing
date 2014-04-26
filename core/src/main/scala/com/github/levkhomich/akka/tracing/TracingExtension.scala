@@ -146,7 +146,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
-    holder ! AddBinaryAnnotation(ts.msgId, thrift.BinaryAnnotation(key, value, valueType, None))
+    holder ! AddBinaryAnnotation(ts.msgId, key, value, valueType)
 
   private[tracing] def createChildSpan(msgId: Long, ts: BaseTracingSupport): Unit =
     holder ! CreateChildSpan(msgId, ts.msgId)
