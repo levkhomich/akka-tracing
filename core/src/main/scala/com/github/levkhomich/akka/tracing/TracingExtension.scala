@@ -66,6 +66,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def record(ts: BaseTracingSupport, msg: String): Unit =
     record(ts.msgId, msg)
 
+  /**
+   * Records exception's stack trace to trace.
+   * @param ts traced message
+   * @param e recorded exception
+   */
+  def record(ts: BaseTracingSupport, e: Throwable): Unit =
+    record(ts, getStackTrace(e))
+
   private[tracing] def record(msgId: Long, msg: String): Unit =
     holder ! AddAnnotation(msgId, System.nanoTime, msg)
 
@@ -126,14 +134,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
 //  def recordClientReceive(ts: TracingSupport): Unit =
 //    addAnnotation(ts, thrift.Constants.CLIENT_RECV, send = true)
-
-  /**
-   * Records exception's stack trace to trace.
-   * @param ts traced message
-   * @param e recorded exception
-   */
-  def recordException(ts: BaseTracingSupport, e: Throwable): Unit =
-    record(ts, getStackTrace(e))
 
   private def getStackTrace(e: Throwable): String = {
     val sw = new StringWriter
