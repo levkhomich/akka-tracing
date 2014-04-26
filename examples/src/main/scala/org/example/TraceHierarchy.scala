@@ -52,7 +52,7 @@ class RequestHandler extends Actor with ActorTracing {
       child ? InternalRequest(payload).asChildOf(msg) recover {
         case e: Exception =>
           // trace exception
-          trace.record(msg, e.toString)
+          trace.record(msg, e)
           InternalResponse(500, "")
       } map {
         case InternalResponse(responseCode, resp) =>

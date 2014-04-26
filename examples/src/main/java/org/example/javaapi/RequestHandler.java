@@ -53,7 +53,7 @@ public class RequestHandler extends UntypedActor {
                 public Object apply(Throwable e, boolean isCheck) throws Exception {
                     if (isCheck) return null;
                     // trace exception
-                    trace.record(msg, e.toString());
+                    trace.record(msg, e);
                     return new InternalResponse(500, "");
                 }
             }, context().dispatcher());
