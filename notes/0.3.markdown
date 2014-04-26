@@ -1,0 +1,11 @@
+akka-tracing 0.3 is the third release of extension offering:
+
+* reduced memory footprint;
+* minor performance improvements (up to 10%).
+
+API changes:
+
+* `trace.sample(msg); trace.recordRPCName(msg, service, rpc)` replaced by `trace.sample(msg, service, rpc)`;
+* `trace.recordException` renamed to `trace.record`
+
+Contributions are welcome! Feel free to [ask](https://twitter.com/levkhomich) any questions.
