@@ -25,8 +25,7 @@ import spray.httpx.unmarshalling.Unmarshaller
 import spray.routing.HttpService
 import scala.xml.NodeSeq
 
-import com.github.levkhomich.akka.tracing.TracingSupport
-import com.github.levkhomich.akka.tracing.TracingDirectives
+import com.github.levkhomich.akka.tracing.{ActorTracing, TracingSupport, TracingDirectives}
 
 object SprayDirectives extends App {
   implicit val system = ActorSystem("akka-tracing-spray-directives")
@@ -47,17 +46,14 @@ object RootRequest {
     }
 }
 
-class SprayDirectivesServiceActor extends Actor with SprayDirectivesService {
-  def actorRefFactory = context
-  def receive = runRoute(route)
-}
-
-trait SprayDirectivesService extends HttpService with TracingDirectives {
+class SprayDirectivesServiceActor extends Actor with ActorTracing with HttpService with TracingDirectives {
 
   import RootRequest._
 
   implicit def executionContext = actorRefFactory.dispatcher
 
+  def actorRefFactory = context
+  def receive = runRoute(route)
 
   def process(r: RootRequest): String =
     r.toString
@@ -65,7 +61,7 @@ trait SprayDirectivesService extends HttpService with TracingDirectives {
   val route = {
     get {
       pathSingleSlash {
-        tracingHandleWith {
+        tracedHandleWith {
           process
         }
       }

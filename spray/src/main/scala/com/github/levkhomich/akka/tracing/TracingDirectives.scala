@@ -16,16 +16,18 @@
 
 package com.github.levkhomich.akka.tracing
 
-import spray.routing._
+import akka.actor.Actor
 import shapeless._
-import spray.httpx.unmarshalling._
-import spray.httpx.marshalling.ToResponseMarshaller
-import spray.routing.directives.RouteDirectives
 import spray.http.HttpRequest
+import spray.httpx.marshalling.ToResponseMarshaller
+import spray.httpx.unmarshalling._
+import spray.routing._
+import spray.routing.UnsupportedRequestContentTypeRejection
+import spray.routing.MalformedRequestContentRejection
 
 final case class Span(traceId: Long, spanId: Long, parentId: Option[Long])
 
-trait TracingDirectives {
+trait TracingDirectives { this: Actor with ActorTracing =>
 
   import spray.routing.directives.BasicDirectives._
   import spray.routing.directives.RouteDirectives._
@@ -61,10 +63,14 @@ trait TracingDirectives {
     }
   }
 
-  def tracingHandleWith[A <: TracingSupport, B](f: A ⇒ B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](f: A ⇒ B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+    tracedHandleWith(self.path.name)(f)
+
+  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A ⇒ B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     (hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: HNil).hflatMap[A :: Option[Span] :: HNil] {
       case Right(value) :: optSpan :: HNil =>
         optSpan.foreach(s => value.init(s.spanId, s.traceId, s.parentId))
+        trace.sample(value, service)
         hprovide(value :: optSpan :: HNil)
 
       case Left(ContentExpected) :: _ =>
@@ -78,8 +84,7 @@ trait TracingDirectives {
 
     } & cancelAllRejections(ofTypes(RequestEntityExpectedRejection.getClass, classOf[UnsupportedRequestContentTypeRejection])))
     {
-      case (a, optTrace) => RouteDirectives.complete(f(a))
+      case (a, optTrace) => complete(f(a).asResponseTo(a))
     }
 }
 
-object TracingDirectives extends TracingDirectives
