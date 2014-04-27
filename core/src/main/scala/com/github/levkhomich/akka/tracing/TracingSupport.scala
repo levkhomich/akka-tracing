@@ -33,7 +33,7 @@ trait BaseTracingSupport extends Serializable {
  */
 trait TracingSupport extends BaseTracingSupport {
 
-  private[tracing] val msgId = Random.nextLong()
+  private[tracing] var msgId = Random.nextLong()
   private[tracing] var traceId: Option[Long] = None
   private[tracing] var parentId: Option[Long] = None
 
@@ -51,6 +51,12 @@ trait TracingSupport extends BaseTracingSupport {
 
   def setTraceId(newTraceId: Option[Long]): Unit = {
     traceId = newTraceId
+  }
+
+  private[tracing] def init(spanId: Long, traceId: Long, parentId: Option[Long]): Unit = {
+    this.msgId = spanId
+    this.traceId = Some(traceId)
+    this.parentId = parentId
   }
 
 }
