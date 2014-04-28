@@ -18,15 +18,20 @@ package com.github.levkhomich.akka.tracing.http
 
 import akka.actor.Actor
 import shapeless._
-import spray.httpx.marshalling.ToResponseMarshaller
+import spray.httpx.marshalling.{ToResponseMarshallable, ToResponseMarshaller}
 import spray.httpx.unmarshalling._
 import spray.routing._
 import spray.routing.UnsupportedRequestContentTypeRejection
 import spray.routing.MalformedRequestContentRejection
 
-import com.github.levkhomich.akka.tracing.{TracingSupport, ActorTracing}
+import com.github.levkhomich.akka.tracing.{TracingExtensionImpl, BaseTracingSupport, TracingSupport, ActorTracing}
+import scala.concurrent.{ExecutionContext, Future}
 
-private[http] final case class Span(traceId: Long, spanId: Long, parentId: Option[Long])
+private[http] final case class Span(traceId: Option[Long], spanId: Long, parentId: Option[Long]) extends BaseTracingSupport {
+  override private[tracing] def setTraceId(newTraceId: Option[Long]): Unit = throw new UnsupportedOperationException
+  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = this
+  override private[tracing] def msgId: Long = spanId
+}
 
 trait TracingDirectives { this: Actor with ActorTracing =>
 
@@ -47,13 +52,13 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 //        None :: HNil
 //    }
 
-  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B], ec: ExecutionContext): Route =
     tracedHandleWith(self.path.name)(f)
 
-  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B], ec: ExecutionContext): Route =
     (hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: HNil).hflatMap[A :: Option[Span] :: HNil] {
       case Right(value) :: optSpan :: HNil =>
-        optSpan.foreach(s => value.init(s.spanId, s.traceId, s.parentId))
+        optSpan.foreach(s => value.init(s.spanId, s.traceId.get, s.parentId))
         trace.sample(value, service)
         hprovide(value :: optSpan :: HNil)
 
@@ -68,7 +73,39 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 
     } & cancelAllRejections(ofTypes(RequestEntityExpectedRejection.getClass, classOf[UnsupportedRequestContentTypeRejection])))
     {
-      case (a, optTrace) => complete(f(a).asResponseTo(a))
+      case (a, optTrace) =>
+        complete {
+          val marshallable = f(a)
+          marshallable match {
+            case future: Future[Any] =>
+              future.onComplete { case r => r.asResponseTo(a)}
+            case r =>
+              r.asResponseTo(a)
+          }
+          marshallable
+        }
+    }
+
+  def tracedComplete[T](value: => T)(implicit marshaller: ToResponseMarshaller[T], ec: ExecutionContext): StandardRoute =
+    tracedComplete(self.path.name)(value)
+
+  def tracedComplete[T](service: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T], ec: ExecutionContext): StandardRoute =
+    new StandardRoute {
+      def apply(ctx: RequestContext): Unit =
+        extractSpan(ctx.request) match {
+          case Some(span) =>
+            trace.sample(span, service, ctx.request.uri.path.reverse.head.toString)
+            value match {
+              case future: Future[Any] =>
+                future.onComplete { case r => trace.recordServerSend(span) }
+              case r =>
+                trace.recordServerSend(span)
+            }
+            ctx.complete(value)
+
+          case None =>
+            ctx.complete(value)
+        }
     }
 }
 

@@ -28,6 +28,7 @@ import scala.xml.NodeSeq
 import com.github.levkhomich.akka.tracing.{ActorTracing, TracingSupport}
 import com.github.levkhomich.akka.tracing.http.unmarshalling._
 import com.github.levkhomich.akka.tracing.http.TracingDirectives
+import scala.concurrent.Future
 
 object SprayDirectives extends App {
   implicit val system = ActorSystem("akka-tracing-spray-directives")
@@ -59,8 +60,11 @@ class SprayDirectivesServiceActor extends Actor with ActorTracing with HttpServi
   def actorRefFactory = context
   def receive = runRoute(route)
 
-  def process(r: RootRequest): String =
-    r.toString
+  def process(r: RootRequest): Future[String] =
+    Future {
+      Thread.sleep(7000)
+      r.toString
+    }
 
   val route = {
     get {
@@ -73,6 +77,11 @@ class SprayDirectivesServiceActor extends Actor with ActorTracing with HttpServi
         entity(as[RootRequest]) { request =>
           trace.sample(request, "spray-directives-service")
           complete(process(request).asResponseTo(request))
+        }
+      } ~
+      path("traced") {
+        entity(as[RootRequest]) { request =>
+          tracedComplete(process(request))
         }
       }
     }

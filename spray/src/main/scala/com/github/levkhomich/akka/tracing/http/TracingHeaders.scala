@@ -33,7 +33,7 @@ object TracingHeaders {
     headerByName(message, TraceId) -> headerByName(message, SpanId) match {
       case (Some(traceId), Some(spanId)) =>
         try {
-          Some(Span(traceId.toLong, spanId.toLong, headerByName(message, ParentSpanId).map(_.toLong)))
+          Some(Span(Some(traceId.toLong), spanId.toLong, headerByName(message, ParentSpanId).map(_.toLong)))
         } catch {
           case e: NumberFormatException =>
             None
