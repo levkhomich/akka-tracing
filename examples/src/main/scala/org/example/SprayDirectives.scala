@@ -21,11 +21,13 @@ import akka.io.IO
 import spray.can.Http
 import spray.http._
 import spray.http.ContentTypes._
-import spray.httpx.unmarshalling.Unmarshaller
+import spray.httpx.unmarshalling._
 import spray.routing.HttpService
 import scala.xml.NodeSeq
 
-import com.github.levkhomich.akka.tracing.{ActorTracing, TracingSupport, TracingDirectives}
+import com.github.levkhomich.akka.tracing.{ActorTracing, TracingSupport}
+import com.github.levkhomich.akka.tracing.http.unmarshalling._
+import com.github.levkhomich.akka.tracing.http.TracingDirectives
 
 object SprayDirectives extends App {
   implicit val system = ActorSystem("akka-tracing-spray-directives")
@@ -44,6 +46,8 @@ object RootRequest {
       case HttpEntity.Empty ⇒
         RootRequest.apply("")
     }
+
+  implicit val RootRequestUnmarshallerWithTracingSupport = unmarshallerWithTracingSupport[RootRequest]
 }
 
 class SprayDirectivesServiceActor extends Actor with ActorTracing with HttpService with TracingDirectives {
@@ -60,9 +64,15 @@ class SprayDirectivesServiceActor extends Actor with ActorTracing with HttpServi
 
   val route = {
     get {
-      pathSingleSlash {
+      path("tracedHandleWith") {
         tracedHandleWith {
           process
+        }
+      } ~
+      path("unmarshalling") {
+        entity(as[RootRequest]) { request =>
+          trace.sample(request, "spray-directives-service")
+          complete(process(request).asResponseTo(request))
         }
       }
     }

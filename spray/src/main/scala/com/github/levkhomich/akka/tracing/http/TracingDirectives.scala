@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.github.levkhomich.akka.tracing
+package com.github.levkhomich.akka.tracing.http
 
 import akka.actor.Actor
 import shapeless._
-import spray.http.HttpRequest
 import spray.httpx.marshalling.ToResponseMarshaller
 import spray.httpx.unmarshalling._
 import spray.routing._
 import spray.routing.UnsupportedRequestContentTypeRejection
 import spray.routing.MalformedRequestContentRejection
 
-final case class Span(traceId: Long, spanId: Long, parentId: Option[Long])
+import com.github.levkhomich.akka.tracing.{TracingSupport, ActorTracing}
+
+private[http] final case class Span(traceId: Long, spanId: Long, parentId: Option[Long])
 
 trait TracingDirectives { this: Actor with ActorTracing =>
 
@@ -46,27 +47,10 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 //        None :: HNil
 //    }
 
-  private def headerByName(request: HttpRequest, name: String): Option[String] =
-    request.headers.find(_.name == name).map(_.value)
-
-  private def extractSpan(request: HttpRequest): Option[Span] = {
-    headerByName(request, TraceId) -> headerByName(request, SpanId) match {
-      case (Some(traceId), Some(spanId)) =>
-        try {
-          Some(Span(traceId.toLong, spanId.toLong, headerByName(request, ParentSpanId).map(_.toLong)))
-        } catch {
-          case e: NumberFormatException =>
-            None
-        }
-      case _ =>
-        None
-    }
-  }
-
-  def tracedHandleWith[A <: TracingSupport, B](f: A ⇒ B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedHandleWith(self.path.name)(f)
 
-  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A ⇒ B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     (hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: HNil).hflatMap[A :: Option[Span] :: HNil] {
       case Right(value) :: optSpan :: HNil =>
         optSpan.foreach(s => value.init(s.spanId, s.traceId, s.parentId))

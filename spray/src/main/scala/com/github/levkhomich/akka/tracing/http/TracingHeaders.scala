@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-package com.github.levkhomich.akka.tracing
+package com.github.levkhomich.akka.tracing.http
+
+import spray.http.HttpMessage
 
 // see https://github.com/twitter/finagle/blob/master/finagle-http/src/main/scala/com/twitter/finagle/http/Codec.scala
 object TracingHeaders {
@@ -23,5 +25,23 @@ object TracingHeaders {
   val ParentSpanId = "X-B3-ParentSpanId"
   val Sampled = "X-B3-Sampled"
   val Flags = "X-B3-Flags"
+
+  private[tracing] def headerByName(message: HttpMessage, name: String): Option[String] =
+    message.headers.find(_.name == name).map(_.value)
+
+  private[tracing] def extractSpan(message: HttpMessage): Option[Span] = {
+    headerByName(message, TraceId) -> headerByName(message, SpanId) match {
+      case (Some(traceId), Some(spanId)) =>
+        try {
+          Some(Span(traceId.toLong, spanId.toLong, headerByName(message, ParentSpanId).map(_.toLong)))
+        } catch {
+          case e: NumberFormatException =>
+            None
+        }
+      case _ =>
+        None
+    }
+  }
+
 }
 
