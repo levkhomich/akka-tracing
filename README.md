@@ -19,7 +19,7 @@ Usage
 1. to register server response, mark it with `responseMessage.asResponseTo(request)`.
 
 See more detailed guide [here](https://github.com/levkhomich/akka-tracing/wiki/Overview).
-Also, you can take a look at [examples](https://github.com/levkhomich/akka-tracing/tree/master/examples/src/main).
+Also, you can take a look at project's [activator template](https://github.com/levkhomich/activator-akka-tracing/tree/master/src/main).
 
 Roadmap and Changelog
 ---------------------

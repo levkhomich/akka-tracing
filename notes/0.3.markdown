@@ -2,7 +2,8 @@ akka-tracing 0.3 is the third release of extension offering:
 
 * spray integration;
 * reduced memory footprint and GC overhead;
-* minor performance improvements (up to 10%).
+* minor performance improvements (up to 10%);
+* examples and docs combined in [activator template](https://github.com/levkhomich/activator-akka-tracing).
 
 API changes:
 
