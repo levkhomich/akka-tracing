@@ -99,8 +99,8 @@ class TracingSpecification extends Specification {
       } must beTrue
     }
 
-    val ExpectedTPS = 25000
-    // limited to 25k because of low test environment performance (travis-ci.org)
+    val ExpectedTPS = 20000
+    // limited to 20k because of low test environment performance (travis-ci.org)
     // it should be more than 60k on mediocre machine
     s"process more than $ExpectedTPS traces per second using single thread" in {
       val SpanCount = ExpectedTPS * 8
