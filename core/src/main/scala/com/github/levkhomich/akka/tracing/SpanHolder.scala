@@ -66,11 +66,12 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
       counter += 1
       lookup(ts.msgId) match {
         case None if counter % sampleRate == 0 =>
-          val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, None, None)
+          val endpoint = thrift.Endpoint(localAddress, 0, serviceName)
+          val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, Some(endpoint), None)
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
           createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, Seq(serverRecvAnn))
-          endpoints.put(ts.msgId, thrift.Endpoint(localAddress, 0, serviceName))
+          endpoints.put(ts.msgId, endpoint)
 
         // TODO: check if it really needed
         case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.msgId) =>
