@@ -2,11 +2,13 @@ Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
-Extension can be used as performance diagnostics or debugging tool for distributed applications.
+Extension can be used as performance diagnostics and debugging tool.
 
 See [project's wiki](https://github.com/levkhomich/akka-tracing/wiki) for more information.
 
 ![trace example](https://raw.githubusercontent.com/levkhomich/akka-tracing/gh-pages/screenshots/timeline.png)
+
+[Demo](http://zipkin.io)
 
 Usage
 -----
@@ -24,6 +26,7 @@ Also, you can take a look at project's [activator template](https://github.com/l
 Roadmap and Changelog
 ---------------------
 
-- [0.1](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.1.markdown) - done.
-- [0.2](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.2.markdown) - done.
-- [0.3](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - WIP.
+- [0.4](https://github.com/levkhomich/akka-tracing/issues?milestone=4) - scheduled
+- [0.3](https://github.com/levkhomich/akka-tracing/issues?milestone=3) - WIP
+- [0.2](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.2.markdown) - done
+- [0.1](https://github.com/levkhomich/akka-tracing/tree/master/notes/0.1.markdown) - done
