@@ -94,6 +94,7 @@ object Dependencies {
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.1"
     val scroogeCore  = "com.twitter"       %  "scrooge-core_2.10"   % "3.14.1"
+    val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
   }
 
   object Test {
@@ -104,6 +105,6 @@ object Dependencies {
 
   val akka = Seq(Compile.akkaActor, Compile.config)
   val spray = Seq(Compile.sprayRouting)
-  val thrift = Seq(Compile.libThrift, Compile.scroogeCore /*, Compile.slf4jLog4j12*/)
+  val thrift = Seq(Compile.libThrift, Compile.scroogeCore , Compile.slf4jLog4j12)
   val test = Seq(Test.specs, Test.finagle, Test.sprayCan)
 }
