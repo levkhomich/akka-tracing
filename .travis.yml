@@ -2,7 +2,7 @@ language: scala
 
 scala:
   - 2.10.4
-#  - 2.11.0-RC3
+  - 2.11.0
 
 jdk:
   - oraclejdk8
@@ -16,5 +16,9 @@ matrix:
   allow_failures:
     - jdk: oraclejdk8
     - jdk: openjdk8
+
+cache:
+  directories:
+  - $HOME/.ivy2
 
 #script: "sbt 'project akka-tracing-core' 'coveralls'"
