@@ -18,6 +18,8 @@ package com.github.levkhomich.akka.tracing.http
 
 import spray.http.HttpMessage
 
+import com.github.levkhomich.akka.tracing.Span
+
 // see https://github.com/twitter/finagle/blob/master/finagle-http/src/main/scala/com/twitter/finagle/http/Codec.scala
 object TracingHeaders {
   val TraceId = "X-B3-TraceId"
@@ -33,7 +35,11 @@ object TracingHeaders {
     headerByName(message, TraceId) -> headerByName(message, SpanId) match {
       case (Some(traceId), Some(spanId)) =>
         try {
-          Some(Span(Some(traceId.toLong), spanId.toLong, headerByName(message, ParentSpanId).map(_.toLong)))
+          Some(Span(
+            Some(Span.fromString(traceId)),
+            Span.fromString(spanId),
+            headerByName(message, ParentSpanId).map(Span.fromString)
+          ))
         } catch {
           case e: NumberFormatException =>
             None

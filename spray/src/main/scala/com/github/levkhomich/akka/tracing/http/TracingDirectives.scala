@@ -23,13 +23,7 @@ import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
-import com.github.levkhomich.akka.tracing.{TracingExtensionImpl, BaseTracingSupport, TracingSupport, ActorTracing}
-
-private[http] final case class Span(traceId: Option[Long], spanId: Long, parentId: Option[Long]) extends BaseTracingSupport {
-  override private[tracing] def setTraceId(newTraceId: Option[Long]): Unit = throw new UnsupportedOperationException
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = this
-  override private[tracing] def msgId: Long = spanId
-}
+import com.github.levkhomich.akka.tracing._
 
 trait TracingDirectives { this: Actor with ActorTracing =>
 
