@@ -2,17 +2,16 @@ language: scala
 
 scala:
   - 2.10.4
-  - 2.11.0
+#  - 2.11.0
 
 jdk:
   - oraclejdk8
-#  - openjdk8
-#  - oraclejdk7
+  - oraclejdk7
   - openjdk7
   - openjdk6
 
-#matrix:
-#  fast_finish: true
+matrix:
+  fast_finish: true
 #  allow_failures:
 #    - jdk: oraclejdk8
 

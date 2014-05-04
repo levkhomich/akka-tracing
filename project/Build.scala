@@ -89,23 +89,21 @@ object AkkaTracingBuild extends Build {
 object Dependencies {
 
   object Compile {
-    val akkaActor    = "com.typesafe.akka" %% "akka-actor"         % "2.3.2"
-    val sprayRouting = "io.spray"          %  "spray-routing"      % "1.3.1"
-    val config       = "com.typesafe"      %  "config"             % "1.2.0"
-    val libThrift    = "org.apache.thrift" %  "libthrift"          % "0.9.1"
-    val scroogeCore  = "com.twitter"       %  "scrooge-core_2.10"  % "3.13.0"
-    val slf4jLog4j12 = ("org.slf4j"        %  "slf4j-log4j12"      % "1.5.2")
-      .exclude("javax.jms", "jms").exclude("com.sun.jdmk", "jmxtools").exclude("com.sun.jmx", "jmxri")
+    val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % "2.3.2"
+    val sprayRouting = "io.spray"          %  "spray-routing"       % "1.3.1"
+    val config       = "com.typesafe"      %  "config"              % "1.2.1"
+    val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.1"
+    val scroogeCore  = "com.twitter"       %  "scrooge-core_2.10"   % "3.14.1"
   }
 
   object Test {
-    val specs        = "org.specs2"        %% "specs2"             % "2.3.11" % "test"
-    val finagle      = "com.twitter"       % "finagle-thrift_2.10" % "6.13.1" % "test"
-    val sprayCan     = "io.spray"          %  "spray-can"          % "1.3.1"  % "test"
+    val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
+    val finagle      = "com.twitter"       %  "finagle-thrift_2.10" % "6.15.0" % "test"
+    val sprayCan     = "io.spray"          %  "spray-can"           % "1.3.1"  % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
   val spray = Seq(Compile.sprayRouting)
-  val thrift = Seq(Compile.libThrift, Compile.scroogeCore, Compile.slf4jLog4j12)
+  val thrift = Seq(Compile.libThrift, Compile.scroogeCore /*, Compile.slf4jLog4j12*/)
   val test = Seq(Test.specs, Test.finagle, Test.sprayCan)
 }
