@@ -2,10 +2,10 @@ akka-tracing 0.3 is the third release of extension offering:
 
 * [activator template](https://github.com/levkhomich/activator-akka-tracing) with tutorial and zipkin install automation;
 * Scala 2.11 support;
-* Spray integration;
+* [spray-routing integration](https://github.com/levkhomich/akka-tracing/wiki/Spray-integration);
 * reduced memory footprint and GC overhead;
 * minor performance improvements (up to 10%);
-* small set of bugfixes.
+* [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=3&page=1&state=closed).
 
 API changes:
 
