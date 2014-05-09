@@ -33,11 +33,11 @@ import org.apache.thrift.transport.TMemoryBuffer
 
 private[tracing] object SpanHolderInternalAction {
   final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
-  final case class Enqueue(msgId: Long, cancelJob: Boolean)
+  final case class Enqueue(spanId: Long, cancelJob: Boolean)
   case object SendEnqueued
-  final case class AddAnnotation(msgId: Long, timestamp: Long, msg: String)
-  final case class AddBinaryAnnotation(msgId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
-  final case class CreateChildSpan(msgId: Long, parentId: Long)
+  final case class AddAnnotation(spanId: Long, timestamp: Long, msg: String)
+  final case class AddBinaryAnnotation(spanId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
+  final case class CreateChildSpan(spanId: Long, parentId: Long)
   final case class SetSampleRate(sampleRate: Int)
 }
 
@@ -87,33 +87,33 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
         case _ =>
       }
 
-    case Enqueue(msgId, cancelJob) =>
-      enqueue(msgId, cancelJob)
+    case Enqueue(spanId, cancelJob) =>
+      enqueue(spanId, cancelJob)
 
     case SendEnqueued =>
       send()
 
-    case AddAnnotation(msgId, timestamp, msg) =>
-      lookup(msgId) foreach { spanInt =>
+    case AddAnnotation(spanId, timestamp, msg) =>
+      lookup(spanId) foreach { spanInt =>
         val a = new thrift.Annotation(adjustedMicroTime(timestamp), msg)
-        a.set_host(endpointFor(msgId))
+        a.set_host(endpointFor(spanId))
         spanInt.add_to_annotations(a)
         if (a.value == thrift.zipkinConstants.SERVER_SEND) {
-          enqueue(msgId, cancelJob = true)
+          enqueue(spanId, cancelJob = true)
         }
       }
 
-    case AddBinaryAnnotation(msgId, key, value, valueType) =>
-      lookup(msgId) foreach { spanInt =>
+    case AddBinaryAnnotation(spanId, key, value, valueType) =>
+      lookup(spanId) foreach { spanInt =>
         val a = new thrift.BinaryAnnotation(key, value, valueType)
-        a.set_host(endpointFor(msgId))
+        a.set_host(endpointFor(spanId))
         spanInt.add_to_binary_annotations(a)
       }
 
-    case CreateChildSpan(msgId, parentId) =>
-      lookup(msgId) match {
+    case CreateChildSpan(spanId, parentId) =>
+      lookup(spanId) match {
         case Some(parentSpan) =>
-          createSpan(msgId, Some(parentSpan.id), parentSpan.trace_id)
+          createSpan(spanId, Some(parentSpan.id), parentSpan.trace_id)
         case _ =>
           None
       }
@@ -177,7 +177,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
     new thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private def endpointFor(msgId: Long): thrift.Endpoint =
-    endpoints.get(msgId).getOrElse(unknownEndpoint)
+  private def endpointFor(spanId: Long): thrift.Endpoint =
+    endpoints.get(spanId).getOrElse(unknownEndpoint)
 
 }

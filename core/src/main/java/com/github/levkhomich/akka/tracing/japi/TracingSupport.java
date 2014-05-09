@@ -8,13 +8,13 @@ import java.util.Random;
 
 public abstract class TracingSupport implements BaseTracingSupport {
 
-    private long msgId = new Random().nextLong();
+    private long spanId = new Random().nextLong();
     private Option<Object> traceId = Option.empty();
     private Option<Object> parentId = Option.empty();
 
     @Override
     public long spanId() {
-        return msgId;
+        return spanId;
     }
 
     @Override
@@ -34,7 +34,7 @@ public abstract class TracingSupport implements BaseTracingSupport {
 
     @Override
     public BaseTracingSupport asChildOf(BaseTracingSupport ts, TracingExtensionImpl tracer) {
-        tracer.createChildSpan(msgId, ts);
+        tracer.createChildSpan(spanId, ts);
         parentId = scala.Option.apply((Object) ts.spanId());
         traceId = ts.traceId();
         return this;

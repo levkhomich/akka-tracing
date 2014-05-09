@@ -70,7 +70,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    */
   def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedEntity(service)(um) { case (a, span) =>
-      intComplete(f(a))(traceServerSend(m, span))
+      intComplete(f(a))(traceServerSend(span))
     }
 
   /**
@@ -79,7 +79,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    *
    * @param rpc RPC name to be added to trace
    */
-  def tracedComplete[T](rpc: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T]): StandardRoute =
+  def tracedComplete[T](rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     tracedComplete(self.path.name, rpc)(value)
 
   /**
@@ -89,7 +89,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    * @param service service name to be added to trace
    * @param rpc RPC name to be added to trace
    */
-  def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T]): StandardRoute =
+  def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
         extractSpan(ctx.request) match {
@@ -97,7 +97,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             trace.sample(span, service, rpc)
-            ctx.complete(value)(traceServerSend(marshaller, span))
+            ctx.complete(value)(traceServerSend(span))
 
           case None =>
             ctx.complete(value)
@@ -108,11 +108,11 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   private def intComplete[T](result: => ToResponseMarshallable)(implicit m: ToResponseMarshaller[T]): Route =
     complete(result)
 
-  private def traceServerSend[T](marshaller: ToResponseMarshaller[T], ts: BaseTracingSupport): ToResponseMarshaller[T] =
+  private def traceServerSend[T](ts: BaseTracingSupport)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
     new ToResponseMarshaller[T] {
       override def apply(value: T, ctx: ToResponseMarshallingContext): Unit = {
         val result = value
-        marshaller.apply(result, new DelegatingToResponseMarshallingContext(ctx) {
+        m.apply(result, new DelegatingToResponseMarshallingContext(ctx) {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
             trace.recordServerSend(ts)

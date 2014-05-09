@@ -26,7 +26,7 @@ trait TracingActorLogging extends DiagnosticActorLogging {
   override def mdc(currentMessage: Any): MDC =
     currentMessage match {
       case ts: BaseTracingSupport =>
-        Map(TracingLogger.MessageIdField -> ts.spanId)
+        Map(TracingLogger.SpanIdField -> ts.spanId)
       case _ =>
         emptyMDC
     }
@@ -40,9 +40,9 @@ class TracingLogger extends Actor with ActorTracing {
       sender() ! LoggerInitialized
 
     case e: LogEvent =>
-      e.mdc.get(TracingLogger.MessageIdField) match {
-        case Some(msgId: Long) =>
-          trace.record(msgId, e.getClass.getSimpleName + ": " + e.message)
+      e.mdc.get(TracingLogger.SpanIdField) match {
+        case Some(spanId: Long) =>
+          trace.record(spanId, e.getClass.getSimpleName + ": " + e.message)
         case _ =>
           // do nothing
       }
@@ -51,5 +51,5 @@ class TracingLogger extends Actor with ActorTracing {
 }
 
 private[this] object TracingLogger {
-  val MessageIdField = "msgId"
+  val SpanIdField = "spanId"
 }

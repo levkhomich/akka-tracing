@@ -69,8 +69,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def record(ts: BaseTracingSupport, e: Throwable): Unit =
     record(ts, getStackTrace(e))
 
-  private[tracing] def record(msgId: Long, msg: String): Unit =
-    holder ! AddAnnotation(msgId, System.nanoTime, msg)
+  private[tracing] def record(spanId: Long, msg: String): Unit =
+    holder ! AddAnnotation(spanId, System.nanoTime, msg)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -143,8 +143,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
                                         valueType: thrift.AnnotationType): Unit =
     holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
-  private[tracing] def createChildSpan(msgId: Long, ts: BaseTracingSupport): Unit =
-    holder ! CreateChildSpan(msgId, ts.spanId)
+  private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
+    holder ! CreateChildSpan(spanId, ts.spanId)
 
 }
 
