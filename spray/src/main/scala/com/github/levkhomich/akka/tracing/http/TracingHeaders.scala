@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing.http
 
 import spray.http.HttpMessage
 
-import com.github.levkhomich.akka.tracing.Span
+import com.github.levkhomich.akka.tracing.{BaseTracingSupport, Span}
 
 // see https://github.com/twitter/finagle/blob/master/finagle-http/src/main/scala/com/twitter/finagle/http/Codec.scala
 object TracingHeaders {
@@ -31,7 +31,7 @@ object TracingHeaders {
   private[tracing] def headerByName(message: HttpMessage, name: String): Option[String] =
     message.headers.find(_.name == name).map(_.value)
 
-  private[tracing] def extractSpan(message: HttpMessage): Option[Span] = {
+  private[tracing] def extractSpan(message: HttpMessage): Option[BaseTracingSupport] = {
     headerByName(message, TraceId) -> headerByName(message, SpanId) match {
       case (Some(traceId), Some(spanId)) =>
         try {

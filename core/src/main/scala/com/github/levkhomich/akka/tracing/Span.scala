@@ -1,11 +1,11 @@
 package com.github.levkhomich.akka.tracing
 
 import java.io.{ByteArrayInputStream, DataInputStream}
+import scala.util.Random
 
-private[tracing] final case class Span(traceId: Option[Long], spanId: Long, parentId: Option[Long]) extends BaseTracingSupport {
+private[tracing] final case class Span(traceId: Option[Long], msgId: Long, parentId: Option[Long]) extends BaseTracingSupport {
   override private[tracing] def setTraceId(newTraceId: Option[Long]): Unit = throw new UnsupportedOperationException
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = this
-  override private[tracing] def msgId: Long = spanId
 }
 
 private[tracing] object Span {
@@ -16,10 +16,13 @@ private[tracing] object Span {
       val s = "%04x".format(bb)
       Array(s.charAt(0), s.charAt(1), s.charAt(2), s.charAt(3))
     }
-    ).toArray
+  ).toArray
 
   private def asChars(b: Long) =
     lookup((b & 0xffff).toShort - Short.MinValue)
+
+  private[tracing] def random: Span =
+    Span(Some(Random.nextLong()), Random.nextLong(), None)
 
   def asString(x: Long): String = {
     val b = new StringBuilder(16)
