@@ -1,6 +1,5 @@
 import sbt._
 import Keys._
-import com.twitter.scrooge.ScroogeSBT
 
 object AkkaTracingBuild extends Build {
 
@@ -13,13 +12,11 @@ object AkkaTracingBuild extends Build {
   )
 
   lazy val compilationSettings =
-    ScroogeSBT.newSettings ++
 //    ScoverageSbtPlugin.instrumentSettings ++
 //    CoverallsPlugin.coverallsSettings ++
     Seq(
       scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
-      scalacOptions in Test ++= Seq("-Yrangepos"),
-      ScroogeSBT.scroogeBuildOptions in Compile := Seq("--verbose")
+      scalacOptions in Test ++= Seq("-Yrangepos")
     )
 
   lazy val publicationSettings = Seq(
@@ -66,7 +63,13 @@ object AkkaTracingBuild extends Build {
         libraryDependencies ++=
           Dependencies.thrift ++
           Dependencies.akka ++
-          Dependencies.test
+          Dependencies.test,
+        sourceGenerators in Compile += Def.task {
+          val srcManaged = (sourceManaged in Compile).value
+          val thriftSrc = (sourceDirectory in Compile).value / "thrift" / "zipkin.thrift"
+          s"${baseDirectory.value}/gen_thrift.sh $thriftSrc $srcManaged".!
+          (srcManaged / "com" / "github" / "levkhomich" / "akka" / "tracing" / "thrift").listFiles().toSeq
+        }.taskValue
       )
   )
 
@@ -93,18 +96,17 @@ object Dependencies {
     val sprayRouting = "io.spray"          %  "spray-routing"       % "1.3.1"
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.1"
-    val scroogeCore  = "com.twitter"       %  "scrooge-core_2.10"   % "3.14.1"
     val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
   }
 
   object Test {
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
-    val finagle      = "com.twitter"       %  "finagle-thrift_2.10" % "6.15.0" % "test"
+    val finagle      = "com.twitter"       %  "finagle-core_2.10"   % "6.15.0" % "test"
     val sprayCan     = "io.spray"          %  "spray-can"           % "1.3.1"  % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
   val spray = Seq(Compile.sprayRouting)
-  val thrift = Seq(Compile.libThrift, Compile.scroogeCore , Compile.slf4jLog4j12)
+  val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
   val test = Seq(Test.specs, Test.finagle, Test.sprayCan)
 }

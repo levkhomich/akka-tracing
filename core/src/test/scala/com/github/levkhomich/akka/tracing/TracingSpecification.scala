@@ -16,26 +16,23 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.net.InetSocketAddress
+import java.util
 import java.util.UUID
-import java.util.concurrent.{CountDownLatch, TimeoutException, ConcurrentLinkedQueue}
+import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
+import scala.util.Random
 import javax.xml.bind.DatatypeConverter
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Random
 
 import akka.actor.{ActorRef, Props, ActorSystem}
+import org.apache.thrift.protocol.TBinaryProtocol
+import org.apache.thrift.transport.{TFramedTransport, TServerSocket, TMemoryBuffer}
+import org.apache.thrift.server.{TThreadPoolServer, TServer}
 import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
-import com.github.levkhomich.akka.tracing.thrift.ScribeFinagleService
-import com.twitter.finagle.builder.{Server, ServerBuilder}
-import com.twitter.finagle.thrift.ThriftServerFramedCodec
-import com.twitter.util.{Future, Time}
-import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.TMemoryBuffer
-
+import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
 
 class TestActor extends TracingActorLogging with ActorTracing {
   override def receive: Receive = {
@@ -51,11 +48,10 @@ class TracingSpecification extends Specification {
 
   case class StringMessage(content: String) extends TracingSupport
 
-  val collector: Server = startCollector()
+  val collector: TServer = startCollector()
 
   val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
   val trace = TracingExtension(system)
-  val testActor: ActorRef = system.actorOf(Props[TestActor])
 
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
@@ -85,6 +81,8 @@ class TracingSpecification extends Specification {
     "pipe logs to traces" in {
       results.clear()
       trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
+
+      val testActor: ActorRef = system.actorOf(Props[TestActor])
 
       testActor ! StringMessage("1")
       testActor ! StringMessage("2")
@@ -120,35 +118,33 @@ class TracingSpecification extends Specification {
     }.pendingUntilFixed("Ignored due to performance issues of travis-ci")
   }
 
-  "corretly shutdown" in {
+  "shutdown correctly" in {
     system.shutdown()
-    collector.close(Time.Top)
+    collector.stop()
     system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
   }
 
-  private def startCollector(): Server = {
-    val handler = new thrift.Scribe[Future] {
-      override def log(messages: Seq[thrift.LogEntry]): Future[thrift.ResultCode] = {
-        import scala.collection.JavaConversions._
+  private def startCollector(): TServer = {
+
+    val handler = new thrift.Scribe.Iface {
+      override def Log(messages: util.List[LogEntry]): ResultCode = {
         results.addAll(messages)
-        Future(thrift.ResultCode.Ok)
+        thrift.ResultCode.OK
       }
     }
-    val service = new ScribeFinagleService(handler, new TBinaryProtocol.Factory)
+    val processor = new thrift.Scribe.Processor(handler)
 
-    val latch = new CountDownLatch(1)
-    var collector: Server = null
+    val transport = new TServerSocket(9410)
+    val collector = new TThreadPoolServer(
+      new TThreadPoolServer.Args(transport).processor(processor).
+        transportFactory(new TFramedTransport.Factory).protocolFactory(new TBinaryProtocol.Factory).minWorkerThreads(3)
+    )
     new Thread(new Runnable() {
       override def run(): Unit = {
-        collector = ServerBuilder()
-          .name("DummyScribeService")
-          .bindTo(new InetSocketAddress(9410))
-          .codec(ThriftServerFramedCodec())
-          .build(service)
-        latch.countDown()
+        collector.serve()
       }
     }).start()
-    latch.await()
+    Thread.sleep(3000)
     collector
   }
 
@@ -157,7 +153,9 @@ class TracingSpecification extends Specification {
     val thriftBytes = DatatypeConverter.parseBase64Binary(logEntryMessage.dropRight(1))
     val buffer = new TMemoryBuffer(1024)
     buffer.write(thriftBytes, 0, thriftBytes.length)
-    thrift.Span.decode(protocolFactory.getProtocol(buffer))
+    val span = new thrift.Span
+    span.read(protocolFactory.getProtocol(buffer))
+    span
   }
 
 }

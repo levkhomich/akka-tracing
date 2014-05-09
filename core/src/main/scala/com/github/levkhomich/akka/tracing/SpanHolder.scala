@@ -18,13 +18,16 @@ package com.github.levkhomich.akka.tracing
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
+import java.util
 import javax.xml.bind.DatatypeConverter
 import scala.collection.mutable
+import scala.concurrent.{promise, Future}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 
 import akka.actor.{Actor, Cancellable}
+import org.apache.thrift.async.AsyncMethodCallback
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 
@@ -41,7 +44,7 @@ private[tracing] object SpanHolderInternalAction {
 /**
  * Internal API
  */
-private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate: Int) extends Actor {
+private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRate: Int) extends Actor {
 
   import SpanHolderInternalAction._
 
@@ -55,7 +58,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
 
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
-  private[this] val unknownEndpoint = Some(thrift.Endpoint(localAddress, 0, "unknown"))
+  private[this] val unknownEndpoint = new thrift.Endpoint(localAddress, 0, "unknown")
 
   private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
 
@@ -66,17 +69,20 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
       counter += 1
       lookup(ts.msgId) match {
         case None if counter % sampleRate == 0 =>
-          val endpoint = thrift.Endpoint(localAddress, 0, serviceName)
-          val serverRecvAnn = thrift.Annotation(adjustedMicroTime(timestamp), thrift.Constants.SERVER_RECV, Some(endpoint), None)
+          val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
+          val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(timestamp), thrift.zipkinConstants.SERVER_RECV)
+          serverRecvAnn.set_host(endpoint)
           if (ts.traceId.isEmpty)
             ts.setTraceId(Some(Random.nextLong()))
-          createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, Seq(serverRecvAnn))
+          val annotations = new util.ArrayList[thrift.Annotation]()
+          annotations.add(serverRecvAnn)
+          createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, annotations)
           endpoints.put(ts.msgId, endpoint)
 
         // TODO: check if it really needed
         case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.msgId) =>
-          spans.put(ts.msgId, spanInt.copy(name = rpcName))
-          endpoints.put(ts.msgId, thrift.Endpoint(localAddress, 0, serviceName))
+          spanInt.set_name(rpcName)
+          endpoints.put(ts.msgId, new thrift.Endpoint(localAddress, 0, serviceName))
 
         case _ =>
       }
@@ -89,23 +95,25 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
 
     case AddAnnotation(msgId, timestamp, msg) =>
       lookup(msgId) foreach { spanInt =>
-        val a = thrift.Annotation(adjustedMicroTime(timestamp), msg, endpointFor(msgId), None)
-        spans.put(msgId, spanInt.copy(annotations = a +: spanInt.annotations))
-        if (a.value == thrift.Constants.SERVER_SEND) {
+        val a = new thrift.Annotation(adjustedMicroTime(timestamp), msg)
+        a.set_host(endpointFor(msgId))
+        spanInt.add_to_annotations(a)
+        if (a.value == thrift.zipkinConstants.SERVER_SEND) {
           enqueue(msgId, cancelJob = true)
         }
       }
 
     case AddBinaryAnnotation(msgId, key, value, valueType) =>
       lookup(msgId) foreach { spanInt =>
-        val a = thrift.BinaryAnnotation(key, value, valueType, endpointFor(msgId))
-        spans.put(msgId, spanInt.copy(binaryAnnotations = a +: spanInt.binaryAnnotations))
+        val a = new thrift.BinaryAnnotation(key, value, valueType)
+        a.set_host(endpointFor(msgId))
+        spanInt.add_to_binary_annotations(a)
       }
 
     case CreateChildSpan(msgId, parentId) =>
       lookup(msgId) match {
         case Some(parentSpan) =>
-          createSpan(msgId, Some(parentSpan.id), parentSpan.traceId)
+          createSpan(msgId, Some(parentSpan.id), parentSpan.trace_id)
         case _ =>
           None
       }
@@ -130,10 +138,12 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
     spans.get(id)
 
   private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String = null,
-                         annotations: Seq[thrift.Annotation] = Nil,
-                         binaryAnnotations: Seq[thrift.BinaryAnnotation] = Nil): Unit = {
+                         annotations: util.List[thrift.Annotation] = new util.ArrayList(),
+                         binaryAnnotations: util.List[thrift.BinaryAnnotation] = new util.ArrayList()): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
-    spans.put(id, thrift.Span(traceId, name, id, parentId, annotations, binaryAnnotations))
+    val span = new thrift.Span(traceId, name, id, annotations, binaryAnnotations)
+    parentId.foreach(span.set_parent_id)
+    spans.put(id, span)
   }
 
   private def enqueue(id: Long, cancelJob: Boolean): Unit = {
@@ -141,13 +151,22 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
     spans.remove(id).foreach(span => sendQueue.append(span))
   }
 
-  private def send(): thrift.ResultCode = {
+  private def send(): Future[thrift.ResultCode] = {
+    import scala.collection.JavaConversions._
     if (!sendQueue.isEmpty) {
       val messages = sendQueue.map(spanToLogEntry)
       sendQueue.clear()
-      client.log(messages).getOrElse(thrift.ResultCode.TryLater)
-    } else
-      thrift.ResultCode.Ok
+      val p = promise[thrift.ResultCode]()
+      client.Log(messages, new AsyncMethodCallback[thrift.Scribe.AsyncClient.Log_call] {
+        override def onError(e: Exception): Unit =
+          p.failure(e)
+        override def onComplete(r: thrift.Scribe.AsyncClient.Log_call): Unit =
+          p.success(r.getResult)
+      })
+      p.future
+    } else {
+      Future(thrift.ResultCode.OK)
+    }
   }
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
@@ -155,10 +174,10 @@ private[tracing] class SpanHolder(client: thrift.Scribe[Option], var sampleRate:
     spanInt.write(protocolFactory.getProtocol(buffer))
     val thriftBytes = buffer.getArray.take(buffer.length)
     val encodedSpan = DatatypeConverter.printBase64Binary(thriftBytes) + '\n'
-    thrift.LogEntry("zipkin", encodedSpan)
+    new thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private def endpointFor(msgId: Long): Option[thrift.Endpoint] =
-    endpoints.get(msgId).orElse(unknownEndpoint)
+  private def endpointFor(msgId: Long): thrift.Endpoint =
+    endpoints.get(msgId).getOrElse(unknownEndpoint)
 
 }

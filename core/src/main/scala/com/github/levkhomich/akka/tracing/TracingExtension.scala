@@ -21,7 +21,8 @@ import java.nio.ByteBuffer
 
 import akka.actor._
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TSocket, TFramedTransport}
+import org.apache.thrift.transport.{TNonblockingSocket, TSocket, TFramedTransport}
+import org.apache.thrift.async.TAsyncClientManager
 
 /**
  * Tracer instance providing trace related methods.
@@ -37,18 +38,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     val config = system.settings.config
 
     if (config.hasPath(AkkaTracingHost)) {
-      val transport = new TFramedTransport(
-        new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
-      )
+      val transport = new TNonblockingSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       try {
-        transport.open()
-        val protocol = new TBinaryProtocol(transport)
-        val client = new ScribeClient(protocol)
-
+        val client = new thrift.Scribe.AsyncClient(new TBinaryProtocol.Factory, new TAsyncClientManager, transport)
         system.registerOnTermination {
           transport.close()
         }
-
         system.actorOf(Props(classOf[SpanHolder], client, config.getInt(AkkaTracingSampleRate)), "spanHolder")
       } catch {
         case e: org.apache.thrift.transport.TTransportException =>
@@ -86,21 +81,21 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Any): Unit = {
     value match {
       case v: String =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v.getBytes), thrift.AnnotationType.String)
+        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v.getBytes), thrift.AnnotationType.STRING)
       case v: Int =>
         addBinaryAnnotation(ts, key, ByteBuffer.allocate(4).putInt(0, v), thrift.AnnotationType.I32)
       case v: Long =>
         addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putLong(0, v), thrift.AnnotationType.I64)
       case v: Boolean =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(Array[Byte](if (v) 1 else 0)), thrift.AnnotationType.Bool)
+        addBinaryAnnotation(ts, key, ByteBuffer.wrap(Array[Byte](if (v) 1 else 0)), thrift.AnnotationType.BOOL)
       case v: Double =>
-        addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putDouble(0, v), thrift.AnnotationType.Double)
+        addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putDouble(0, v), thrift.AnnotationType.DOUBLE)
       case v: Short =>
         addBinaryAnnotation(ts, key, ByteBuffer.allocate(2).putShort(0, v), thrift.AnnotationType.I16)
       case v: Array[Byte] =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v), thrift.AnnotationType.Bytes)
+        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v), thrift.AnnotationType.BYTES)
       case v: ByteBuffer =>
-        addBinaryAnnotation(ts, key, v, thrift.AnnotationType.Bytes)
+        addBinaryAnnotation(ts, key, v, thrift.AnnotationType.BYTES)
       case v =>
         throw new IllegalArgumentException("Unsupported value type")
     }
@@ -127,7 +122,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     sample(ts, service, ts.getClass.getSimpleName)
 
   private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
-    addAnnotation(ts, thrift.Constants.SERVER_SEND, send = true)
+    addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
 //  def recordClientSend(ts: TracingSupport): Unit =
 //    addAnnotation(ts, thrift.Constants.CLIENT_SEND)
