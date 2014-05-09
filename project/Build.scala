@@ -3,13 +3,15 @@ import Keys._
 
 object AkkaTracingBuild extends Build {
 
-  lazy val commonSettings = Seq (
-    organization := "com.github.levkhomich",
-    version := "0.3-SNAPSHOT",
-    scalaVersion := "2.10.4",
-    homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
-    licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-  )
+  lazy val commonSettings =
+    Defaults.defaultSettings ++
+    Seq (
+      organization := "com.github.levkhomich",
+      version := "0.3-SNAPSHOT",
+      scalaVersion := "2.10.4",
+      homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
+      licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+    )
 
   lazy val compilationSettings =
 //    ScoverageSbtPlugin.instrumentSettings ++
@@ -51,11 +53,21 @@ object AkkaTracingBuild extends Build {
       </developers>
   )
 
+  lazy val root = Project(
+    id = "akka-tracing-root",
+    base = file("."),
+    settings =
+      commonSettings ++
+      publicationSettings ++
+      Seq(
+        publish := ()
+      )
+  ).aggregate(core, spray)
+
   lazy val core = Project(
     id = "akka-tracing-core",
     base = file("core"),
     settings =
-      Defaults.defaultSettings ++
       commonSettings ++
       compilationSettings ++
       publicationSettings ++ Seq(
@@ -77,15 +89,14 @@ object AkkaTracingBuild extends Build {
     id = "akka-tracing-spray",
     base = file("spray"),
     settings =
-      Defaults.defaultSettings ++
-        commonSettings ++
-        compilationSettings ++
-        publicationSettings ++ Seq(
-          name := "Akka Tracing: Spray",
-          libraryDependencies ++=
-              Dependencies.spray ++
-              Dependencies.test
-        )
+      commonSettings ++
+      compilationSettings ++
+      publicationSettings ++ Seq(
+        name := "Akka Tracing: Spray",
+        libraryDependencies ++=
+            Dependencies.spray ++
+            Dependencies.test
+      )
   ).dependsOn(core)
 }
 
