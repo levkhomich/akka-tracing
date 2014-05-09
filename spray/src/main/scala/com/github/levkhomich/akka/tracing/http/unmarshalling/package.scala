@@ -30,7 +30,7 @@ package object unmarshalling {
     new Deserializer[HttpMessage, T] {
       override def apply(message: HttpMessage): Deserialized[T] =
         um(message.entity).right.map { result =>
-          extractSpan(message).foreach(s => result.init(s.msgId, s.traceId.get, s.parentId))
+          extractSpan(message).foreach(s => result.init(s.spanId, s.traceId.get, s.parentId))
           result
         }
     }

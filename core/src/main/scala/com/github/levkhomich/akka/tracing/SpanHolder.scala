@@ -67,7 +67,7 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
   override def receive: Receive = {
     case Sample(ts, serviceName, rpcName, timestamp) =>
       counter += 1
-      lookup(ts.msgId) match {
+      lookup(ts.spanId) match {
         case None if counter % sampleRate == 0 =>
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
           val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(timestamp), thrift.zipkinConstants.SERVER_RECV)
@@ -76,13 +76,13 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
             ts.setTraceId(Some(Random.nextLong()))
           val annotations = new util.ArrayList[thrift.Annotation]()
           annotations.add(serverRecvAnn)
-          createSpan(ts.msgId, ts.parentId, ts.traceId.get, rpcName, annotations)
-          endpoints.put(ts.msgId, endpoint)
+          createSpan(ts.spanId, ts.parentId, ts.traceId.get, rpcName, annotations)
+          endpoints.put(ts.spanId, endpoint)
 
         // TODO: check if it really needed
-        case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.msgId) =>
+        case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.spanId) =>
           spanInt.set_name(rpcName)
-          endpoints.put(ts.msgId, new thrift.Endpoint(localAddress, 0, serviceName))
+          endpoints.put(ts.spanId, new thrift.Endpoint(localAddress, 0, serviceName))
 
         case _ =>
       }

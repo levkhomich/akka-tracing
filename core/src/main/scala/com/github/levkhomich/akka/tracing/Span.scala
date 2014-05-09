@@ -3,7 +3,7 @@ package com.github.levkhomich.akka.tracing
 import java.io.{ByteArrayInputStream, DataInputStream}
 import scala.util.Random
 
-private[tracing] final case class Span(traceId: Option[Long], msgId: Long, parentId: Option[Long]) extends BaseTracingSupport {
+private[tracing] final case class Span(traceId: Option[Long], spanId: Long, parentId: Option[Long]) extends BaseTracingSupport {
   override private[tracing] def setTraceId(newTraceId: Option[Long]): Unit = throw new UnsupportedOperationException
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = this
 }

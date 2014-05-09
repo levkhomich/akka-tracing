@@ -13,7 +13,7 @@ public abstract class TracingSupport implements BaseTracingSupport {
     private Option<Object> parentId = Option.empty();
 
     @Override
-    public long msgId() {
+    public long spanId() {
         return msgId;
     }
 
@@ -35,7 +35,7 @@ public abstract class TracingSupport implements BaseTracingSupport {
     @Override
     public BaseTracingSupport asChildOf(BaseTracingSupport ts, TracingExtensionImpl tracer) {
         tracer.createChildSpan(msgId, ts);
-        parentId = scala.Option.apply((Object) ts.msgId());
+        parentId = scala.Option.apply((Object) ts.spanId());
         traceId = ts.traceId();
         return this;
     }

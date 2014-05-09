@@ -59,7 +59,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param msg recorded string
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
-    record(ts.msgId, msg)
+    record(ts.spanId, msg)
 
   /**
    * Records exception's stack trace to trace.
@@ -137,14 +137,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    holder ! AddAnnotation(ts.msgId, System.nanoTime, value)
+    holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
-    holder ! AddBinaryAnnotation(ts.msgId, key, value, valueType)
+    holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(msgId: Long, ts: BaseTracingSupport): Unit =
-    holder ! CreateChildSpan(msgId, ts.msgId)
+    holder ! CreateChildSpan(msgId, ts.spanId)
 
 }
 

@@ -19,7 +19,7 @@ package com.github.levkhomich.akka.tracing
 import scala.util.Random
 
 trait BaseTracingSupport extends Serializable {
-  private[tracing] def msgId: Long
+  private[tracing] def spanId: Long
   private[tracing] def traceId: Option[Long]
   private[tracing] def parentId: Option[Long]
 
@@ -33,7 +33,7 @@ trait BaseTracingSupport extends Serializable {
  */
 trait TracingSupport extends BaseTracingSupport {
 
-  private[tracing] var msgId = Random.nextLong()
+  private[tracing] var spanId = Random.nextLong()
   private[tracing] var traceId: Option[Long] = None
   private[tracing] var parentId: Option[Long] = None
 
@@ -43,8 +43,8 @@ trait TracingSupport extends BaseTracingSupport {
    * @return child message with required tracing headers
    */
   def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    tracer.createChildSpan(msgId, ts)
-    parentId = Some(ts.msgId)
+    tracer.createChildSpan(spanId, ts)
+    parentId = Some(ts.spanId)
     traceId = ts.traceId
     this
   }
@@ -54,7 +54,7 @@ trait TracingSupport extends BaseTracingSupport {
   }
 
   private[tracing] def init(spanId: Long, traceId: Long, parentId: Option[Long]): Unit = {
-    this.msgId = spanId
+    this.spanId = spanId
     this.traceId = Some(traceId)
     this.parentId = parentId
   }
