@@ -23,6 +23,9 @@ import TracingHeaders._
 
 package object unmarshalling {
 
+  /**
+   * Enables specified unmarshaller to extract trace info from incoming request headers.
+   */
   def unmarshallerWithTracingSupport[T <: TracingSupport](implicit um: Unmarshaller[T]): FromMessageUnmarshaller[T] =
     new Deserializer[HttpMessage, T] {
       override def apply(message: HttpMessage): Deserialized[T] =

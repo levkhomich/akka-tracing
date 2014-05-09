@@ -44,9 +44,30 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     } & cancelAllRejections(ofTypes(RequestEntityExpectedRejection.getClass, classOf[UnsupportedRequestContentTypeRejection]))
 
 
+  /**
+   * Completes the request using the given function. The input to the function is
+   * produced with the in-scope entity unmarshaller and the result value of the
+   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
+   * sampled for tracing and can be used thereafter to add trace annotations.
+   * RPC name is set to unmarshalled entity simple class name. Service name is set to
+   * HTTP service actor's name. After marshalling step, trace is automatically closed
+   * and sent to collector service. tracedHandleWith can be a convenient method
+   * combining entity with complete.
+   */
   def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedHandleWith(self.path.name)(f)
 
+  /**
+   * Completes the request using the given function. The input to the function is
+   * produced with the in-scope entity unmarshaller and the result value of the
+   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
+   * sampled for tracing and can be used thereafter to add trace annotations.
+   * RPC name is set to unmarshalled entity simple class name.
+   * After marshalling step, trace is automatically closed and sent to collector service.
+   * tracedHandleWith can be a convenient method combining entity with complete.
+   *
+   * @param service service name to be added to trace
+   */
   def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedEntity(service)(um) { case (a, optTrace) =>
       optTrace match {
@@ -57,9 +78,20 @@ trait TracingDirectives { this: Actor with ActorTracing =>
       }
     }
 
+  /**
+   * Completes the request using the given argument(s). Capture server receive and
+   * send events for requests with tracing headers. Service name is set to HTTP service actor's name.
+   * @param rpc RPC name to be added to trace
+   */
   def tracedComplete[T](rpc: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T]): StandardRoute =
     tracedComplete(self.path.name, rpc)(value)
 
+  /**
+   * Completes the request using the given argument(s). Capture server receive and
+   * send events for requests with tracing headers.
+   * @param service service name to be added to trace
+   * @param rpc RPC name to be added to trace
+   */
   def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit =
