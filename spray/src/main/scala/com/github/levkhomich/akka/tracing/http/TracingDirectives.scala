@@ -75,8 +75,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 
   /**
    * Completes the request using the given argument(s). Traces server receive and
-   * send events, supports requests with tracing-specific headers. Shouldn't be used if
-   * requests are also traced manually. Service name is set to HTTP service actor's name.
+   * send events, supports requests with tracing-specific headers. Service name is set to HTTP service actor's name.
    *
    * @param rpc RPC name to be added to trace
    */
@@ -85,8 +84,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 
   /**
    * Completes the request using the given argument(s). Traces server receive and
-   * send events, supports requests with tracing-specific headers. Shouldn't be used if
-   * requests are also traced manually.
+   * send events, supports requests with tracing-specific headers.
    *
    * @param service service name to be added to trace
    * @param rpc RPC name to be added to trace
@@ -94,9 +92,16 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit marshaller: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
-        val span = extractSpan(ctx.request).getOrElse(Span.random)
-        trace.sample(span, service, rpc)
-        ctx.complete(value)(traceServerSend(marshaller, span))
+        extractSpan(ctx.request) match {
+          case Some(span) =>
+            // only requests with explicit tracing headers can be traced here, because we don't have
+            // any clues about spanId generated for unmarshalled entity
+            trace.sample(span, service, rpc)
+            ctx.complete(value)(traceServerSend(marshaller, span))
+
+          case None =>
+            ctx.complete(value)
+        }
       }
     }
 
