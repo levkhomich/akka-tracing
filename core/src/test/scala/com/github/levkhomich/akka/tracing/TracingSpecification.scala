@@ -19,11 +19,11 @@ package com.github.levkhomich.akka.tracing
 import java.util
 import java.util.UUID
 import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
-import scala.util.Random
 import javax.xml.bind.DatatypeConverter
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Random
 
 import akka.actor.{ActorRef, Props, ActorSystem}
 import org.apache.thrift.protocol.TBinaryProtocol
@@ -48,7 +48,7 @@ class TracingSpecification extends Specification {
 
   case class StringMessage(content: String) extends TracingSupport
 
-  val collector: TServer = startCollector()
+  var collector: TServer = startCollector()
 
   val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
   val trace = TracingExtension(system)
@@ -57,24 +57,23 @@ class TracingSpecification extends Specification {
 
   sequential
 
+  def traceMessages(count: Int, sampleRate: Int = 1): Unit = {
+    trace.holder ! SpanHolderInternalAction.SetSampleRate(sampleRate)
+    println(s"test: sending $count messages (sample rate = $sampleRate)")
+    for (_ <- 1 to count) {
+      val msg = StringMessage(UUID.randomUUID().toString)
+      trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
+      trace.recordServerSend(msg)
+    }
+  }
+
   "TracingExtension" should {
     "sample traces" in {
-      def traceMessages(count: Int): Unit =
-        for (_ <- 1 to count) {
-          val msg = StringMessage(UUID.randomUUID().toString)
-          trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
-          trace.recordServerSend(msg)
-        }
+      traceMessages(2, 1)
+      traceMessages(60, 2)
+      traceMessages(500, 5)
 
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
-      traceMessages(2)
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(2)
-      traceMessages(60)
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(5)
-      traceMessages(500)
-
-      Thread.sleep(3000)
-
+      Thread.sleep(5000)
       results.size() must beEqualTo(132)
     }
 
@@ -88,7 +87,7 @@ class TracingSpecification extends Specification {
       testActor ! StringMessage("2")
       testActor ! StringMessage("3")
 
-      Thread.sleep(3000)
+      Thread.sleep(5000)
 
       results.size() must beEqualTo(3)
       results.forall { e =>
@@ -97,10 +96,11 @@ class TracingSpecification extends Specification {
       } must beTrue
     }
 
-    val ExpectedTPS = 50000
+    val ExpectedTPS = 70000
+    val BenchmarkSampleRate = 10
     s"process more than $ExpectedTPS traces per second using single thread" in {
       val SpanCount = ExpectedTPS * 4
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
+      trace.holder ! SpanHolderInternalAction.SetSampleRate(BenchmarkSampleRate)
 
       val startingTime = System.currentTimeMillis()
       for (_ <- 1 to SpanCount) {
@@ -111,11 +111,29 @@ class TracingSpecification extends Specification {
         trace.recordServerSend(msg)
       }
       val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-      Thread.sleep(5000)
-      println("TPS = " + tracesPerSecond)
+      Thread.sleep(8000)
+      println(s"benchmark: TPS = $tracesPerSecond")
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
+      results.size() must beEqualTo(SpanCount / BenchmarkSampleRate)
     }.pendingUntilFixed("Ignored due to performance issues of travis-ci")
+
+    "handle collector connectivity problems" in {
+      traceMessages(1)
+      collector.stop()
+
+      Thread.sleep(3000)
+      results.clear()
+
+      traceMessages(100)
+      // wait for submission while collector is down
+      Thread.sleep(5000)
+
+      collector = startCollector()
+      Thread.sleep(3000)
+
+      results.size() must beEqualTo(100)
+    }
   }
 
   "shutdown correctly" in {
@@ -128,6 +146,7 @@ class TracingSpecification extends Specification {
 
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
+        println(s"collector: received ${messages.size} messages")
         results.addAll(messages)
         thrift.ResultCode.OK
       }
@@ -141,7 +160,9 @@ class TracingSpecification extends Specification {
     )
     new Thread(new Runnable() {
       override def run(): Unit = {
+        println("collector: started")
         collector.serve()
+        println("collector: stopped")
       }
     }).start()
     Thread.sleep(3000)

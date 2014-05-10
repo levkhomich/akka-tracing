@@ -20,9 +20,7 @@ import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
 
 import akka.actor._
-import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TNonblockingSocket, TSocket, TFramedTransport}
-import org.apache.thrift.async.TAsyncClientManager
+import org.apache.thrift.transport.{TSocket, TFramedTransport}
 
 /**
  * Tracer instance providing trace related methods.
@@ -38,13 +36,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     val config = system.settings.config
 
     if (config.hasPath(AkkaTracingHost)) {
-      val transport = new TNonblockingSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
+      val transport = new TFramedTransport(
+        new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
+      )
       try {
-        val client = new thrift.Scribe.AsyncClient(new TBinaryProtocol.Factory, new TAsyncClientManager, transport)
-        system.registerOnTermination {
-          transport.close()
-        }
-        system.actorOf(Props(classOf[SpanHolder], client, config.getInt(AkkaTracingSampleRate)), "spanHolder")
+        system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
       } catch {
         case e: org.apache.thrift.transport.TTransportException =>
           throw e
@@ -123,12 +119,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
-
-//  def recordClientSend(ts: TracingSupport): Unit =
-//    addAnnotation(ts, thrift.Constants.CLIENT_SEND)
-
-//  def recordClientReceive(ts: TracingSupport): Unit =
-//    addAnnotation(ts, thrift.Constants.CLIENT_RECV, send = true)
 
   private def getStackTrace(e: Throwable): String = {
     val sw = new StringWriter

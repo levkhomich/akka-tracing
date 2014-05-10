@@ -21,15 +21,15 @@ import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
 import scala.collection.mutable
-import scala.concurrent.{promise, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
+import scala.util.{Success, Random}
 
 import akka.actor.{Actor, Cancellable}
-import org.apache.thrift.async.AsyncMethodCallback
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.TMemoryBuffer
+import org.apache.thrift.transport.{TTransport, TMemoryBuffer}
+import scala.util.control.ControlThrowable
 
 private[tracing] object SpanHolderInternalAction {
   final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
@@ -44,25 +44,32 @@ private[tracing] object SpanHolderInternalAction {
 /**
  * Internal API
  */
-private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRate: Int) extends Actor {
+private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) extends Actor {
 
   import SpanHolderInternalAction._
 
   private[this] var counter = 0L
 
+  // map of spanId -> span for uncompleted traces
   private[this] val spans = mutable.Map[Long, thrift.Span]()
+  // scheduler jobs which send incomplete traces by timeout
   private[this] val sendJobs = mutable.Map[Long, Cancellable]()
-  private[this] val endpoints = mutable.Map[Long, thrift.Endpoint]()
-  private[this] val sendQueue = mutable.UnrolledBuffer[thrift.Span]()
+  // next submission batch
+  private[this] val nextBatch = mutable.UnrolledBuffer[thrift.Span]()
+  // buffer for submitted spans, which should be resent in case of connectivity problems
+  private[this] var submittedSpans: mutable.Buffer[thrift.LogEntry] = mutable.Buffer.empty
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
 
+  private[this] val endpoints = mutable.Map[Long, thrift.Endpoint]()
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
   private[this] val unknownEndpoint = new thrift.Endpoint(localAddress, 0, "unknown")
 
   private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
 
-  context.system.scheduler.schedule(0.seconds, 2.seconds, self, SendEnqueued)
+  private[this] val client = new thrift.Scribe.Client(new TBinaryProtocol(transport))
+
+  scheduleNextBatch()
 
   override def receive: Receive = {
     case Sample(ts, serviceName, rpcName, timestamp) =>
@@ -118,15 +125,25 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
           None
       }
 
-    case SetSampleRate(sampleRate) =>
-      this.sampleRate = sampleRate
+    case SetSampleRate(newSampleRate) =>
+      sampleRate = newSampleRate
   }
 
   override def postStop(): Unit = {
+    import scala.collection.JavaConversions._
+    // we don't want to resend at this point
+    submittedSpans.clear()
     spans.keys.foreach(id =>
       enqueue(id, cancelJob = true)
     )
-    send()
+    try {
+      client.Log(nextBatch.map(spanToLogEntry))
+      if (transport.isOpen)
+        transport.close()
+    } catch {
+      case ct: ControlThrowable => throw ct
+      case _ => // ignore
+    }
     super.postStop()
   }
 
@@ -148,25 +165,31 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
 
   private def enqueue(id: Long, cancelJob: Boolean): Unit = {
     sendJobs.remove(id).foreach(job => if (cancelJob) job.cancel())
-    spans.remove(id).foreach(span => sendQueue.append(span))
+    spans.remove(id).foreach(span => nextBatch.append(span))
   }
 
-  private def send(): Future[thrift.ResultCode] = {
+  private def send(): Unit = {
     import scala.collection.JavaConversions._
-    if (!sendQueue.isEmpty) {
-      val messages = sendQueue.map(spanToLogEntry)
-      sendQueue.clear()
-      val p = promise[thrift.ResultCode]()
-      client.Log(messages, new AsyncMethodCallback[thrift.Scribe.AsyncClient.Log_call] {
-        override def onError(e: Exception): Unit =
-          p.failure(e)
-        override def onComplete(r: thrift.Scribe.AsyncClient.Log_call): Unit =
-          p.success(r.getResult)
-      })
-      p.future
-    } else {
-      Future(thrift.ResultCode.OK)
+    if (!nextBatch.isEmpty) {
+      submittedSpans ++= nextBatch.map(spanToLogEntry)
+      nextBatch.clear()
     }
+    if (!submittedSpans.isEmpty) {
+      Future {
+        if (!transport.isOpen)
+          transport.open()
+        client.Log(submittedSpans)
+      }.onComplete {
+        case Success(thrift.ResultCode.OK) =>
+          submittedSpans.clear()
+          scheduleNextBatch()
+        case _ =>
+          // to reconnect next time
+          transport.close()
+          scheduleNextBatch()
+      }
+    } else
+      scheduleNextBatch()
   }
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
@@ -179,5 +202,8 @@ private[tracing] class SpanHolder(client: thrift.Scribe.AsyncIface, var sampleRa
 
   private def endpointFor(spanId: Long): thrift.Endpoint =
     endpoints.get(spanId).getOrElse(unknownEndpoint)
+
+  private def scheduleNextBatch(): Unit =
+    context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
 
 }
