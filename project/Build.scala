@@ -79,7 +79,7 @@ object AkkaTracingBuild extends Build {
         sourceGenerators in Compile += Def.task {
           val srcManaged = (sourceManaged in Compile).value
           val thriftSrc = (sourceDirectory in Compile).value / "thrift" / "zipkin.thrift"
-          s"${baseDirectory.value}/gen_thrift.sh $thriftSrc $srcManaged".!
+          s"${baseDirectory.value}/project/gen_thrift.sh $thriftSrc $srcManaged".!
           (srcManaged / "com" / "github" / "levkhomich" / "akka" / "tracing" / "thrift").listFiles().toSeq
         }.taskValue
       )
