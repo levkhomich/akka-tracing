@@ -4,7 +4,8 @@ akka-tracing 0.3 is the third release of extension offering:
 * Scala 2.11 support;
 * [spray-routing integration](https://github.com/levkhomich/akka-tracing/wiki/Spray-integration);
 * reduced memory footprint and GC overhead;
-* minor performance improvements (up to 10%);
+* performance improvements (up to 20%);
+* collector connectivity issues handling;
 * [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=3&page=1&state=closed).
 
 API changes:
