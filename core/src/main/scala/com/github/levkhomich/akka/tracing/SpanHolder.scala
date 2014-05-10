@@ -142,7 +142,7 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
         transport.close()
     } catch {
       case ct: ControlThrowable => throw ct
-      case _ => // ignore
+      case _: Throwable => // ignore
     }
     super.postStop()
   }
