@@ -24,9 +24,9 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Success, Random}
+import scala.util.{Failure, Random, Success}
 
-import akka.actor.{Actor, Cancellable}
+import akka.actor.{Actor, ActorLogging, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TTransport, TMemoryBuffer}
 import scala.util.control.ControlThrowable
@@ -44,7 +44,7 @@ private[tracing] object SpanHolderInternalAction {
 /**
  * Internal API
  */
-private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) extends Actor {
+private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) extends Actor with ActorLogging {
 
   import SpanHolderInternalAction._
 
@@ -183,7 +183,13 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
         case Success(thrift.ResultCode.OK) =>
           submittedSpans.clear()
           scheduleNextBatch()
-        case _ =>
+        case f =>
+          f match {
+            case Failure(e) =>
+              log.warning("Zipkin collector is unreachable: " + e.getMessage)
+            case Success(thrift.ResultCode.TRY_LATER) =>
+              log.debug("Zipkin collector is busy")
+          }
           // to reconnect next time
           transport.close()
           scheduleNextBatch()
