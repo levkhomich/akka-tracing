@@ -33,9 +33,12 @@ private[tracing] object Span {
     b.toString()
   }
 
-  def fromString(s: String): Long = {
-    if (s.length > 16)
-      throw new NumberFormatException("String is longer than 16 chars")
+  def fromString(x: String): Long = {
+    if (x == null || x.length == 0 || x.length > 16)
+      throw new NumberFormatException("Invalid span id string: " + x)
+    val s =
+      if (x.length % 2 == 0) x
+      else "0" + x
     val bytes = new Array[Byte](8)
     val start = 7 - (s.length + 1) / 2
     (s.length until 0 by -2).foreach {

@@ -27,20 +27,49 @@ class SpanIdSpecification extends Specification {
 
   "SpanId" should {
     "provide serialization conforming to Finagle's implementation" in {
-      def checkValue(x: Long): Unit =
-        if (Span.asString(x) != new com.twitter.finagle.tracing.SpanId(x).toString())
-          failure("SpanId serialization failed for value " + x)
-
-      for (_ <- 1L to IterationsCount)
-        checkValue(Random.nextLong())
+      def checkValue(x: Long): Unit = {
+        val actual = Span.asString(x)
+        val expected = new com.twitter.finagle.tracing.SpanId(x).toString()
+        if (actual != expected)
+          failure(s"SpanId serialization failed for value $x (was $actual instead of $expected)")
+      }
 
       checkValue(Long.MaxValue)
       checkValue(Long.MinValue)
       checkValue(0)
       checkValue(10)
+      checkValue(100)
       checkValue(100000)
       checkValue(-10)
+      checkValue(-100)
       checkValue(-100000)
+
+      for (_ <- 1L to IterationsCount)
+        checkValue(Random.nextLong())
+
+      success
+    }
+    "provide deserialization conforming to Finagle's implementation" in {
+      def checkValue(x: String): Unit = {
+        val actual = Span.fromString(x)
+        val expected = com.twitter.finagle.tracing.SpanId.fromString(x).get.toLong
+        if (actual != expected)
+          failure(s"SpanId deserialization failed for value $x (was $actual instead of $expected)")
+      }
+
+      checkValue("FFFFFFFFFFFFFFFF")
+      checkValue("0")
+      checkValue("00")
+      checkValue("0000000000000000")
+      checkValue("1")
+      checkValue("11")
+      checkValue("111")
+
+      for (_ <- 1L to IterationsCount)
+        checkValue {
+          val str = Random.nextLong().toString.replace("-", "")
+          str.substring(0, (Random.nextInt(15) + 1) min str.length)
+        }
 
       success
     }
@@ -68,23 +97,12 @@ class SpanIdSpecification extends Specification {
       println(s"benchmark: spanId serialization performance delta = $percentDelta%" )
       percentDelta must beGreaterThan(-10L)
     }
-    "provide correct deserialization" in {
-      def checkValue(x: Long): Unit =
-        if (Span.fromString(Span.asString(x)) != x)
-          failure("SpanId deserialization failed for value " + Span.asString(x))
-
-      for (_ <- 1L to IterationsCount)
-        checkValue(Random.nextLong())
-
-      checkValue(Long.MaxValue)
-      checkValue(Long.MinValue)
-      checkValue(0)
-      checkValue(10)
-      checkValue(100000)
-      checkValue(-10)
-      checkValue(-100000)
-
-      success
+    "handle invalid input" in {
+      Span.fromString(null) must throwAn[NumberFormatException]
+      Span.fromString("") must throwAn[NumberFormatException]
+      Span.fromString("not a number") must throwAn[NumberFormatException]
+      Span.fromString("11111111111111111") must throwAn[NumberFormatException]
+      Span.fromString("11111111111111111") must throwAn[NumberFormatException]
     }
   }
 
