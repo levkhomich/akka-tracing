@@ -16,9 +16,9 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import akka.actor.Actor
+import akka.actor.{ActorLogging, Actor}
 import shapeless._
-import spray.http.HttpResponse
+import spray.http.{HttpRequest, HttpResponse}
 import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.routing._
@@ -33,10 +33,11 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   import TracingHeaders._
 
   private def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
-    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
-      case Right(value) :: optSpan :: HNil =>
+    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
+      case Right(value) :: optSpan :: request :: HNil =>
         optSpan.foreach(s => value.init(s.spanId, s.traceId.get, s.parentId))
         trace.sample(value, service)
+        addHttpAnnotations(value, request)
         hprovide(value :: optSpan.getOrElse(value) :: HNil)
       case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
       case Left(UnsupportedContentType(supported)) :: _ => reject(UnsupportedRequestContentTypeRejection(supported))
@@ -70,7 +71,10 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    */
   def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedEntity(service)(um) { case (a, span) =>
-      intComplete(f(a))(traceServerSend(span))
+      new StandardRoute {
+        def apply(ctx: RequestContext): Unit =
+          ctx.complete(f(a))(traceServerSend(span))
+      }
     }
 
   /**
@@ -97,6 +101,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             trace.sample(span, service, rpc)
+            addHttpAnnotations(span, ctx.request)
             ctx.complete(value)(traceServerSend(span))
 
           case None =>
@@ -105,8 +110,13 @@ trait TracingDirectives { this: Actor with ActorTracing =>
       }
     }
 
-  private def intComplete[T](result: => ToResponseMarshallable)(implicit m: ToResponseMarshaller[T]): Route =
-    complete(result)
+  private def addHttpAnnotations(ts: BaseTracingSupport, request: HttpRequest): Unit = {
+    // TODO: use batching
+    trace.recordKeyValue(ts, "http.uri", request.uri.toString())
+    request.headers.foreach { header =>
+      trace.recordKeyValue(ts, "http.header." + header.name, header.value)
+    }
+  }
 
   private def traceServerSend[T](ts: BaseTracingSupport)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
     new ToResponseMarshaller[T] {
