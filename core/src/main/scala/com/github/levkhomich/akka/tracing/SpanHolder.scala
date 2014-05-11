@@ -187,8 +187,8 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
           f match {
             case Failure(e) =>
               log.warning("Zipkin collector is unreachable: " + e.getMessage)
-            case Success(thrift.ResultCode.TRY_LATER) =>
-              log.debug("Zipkin collector is busy")
+            case Success(response) =>
+              log.debug("Zipkin collector is busy: " + response)
           }
           // to reconnect next time
           transport.close()
