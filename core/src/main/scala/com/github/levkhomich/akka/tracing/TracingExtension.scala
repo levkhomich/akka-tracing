@@ -74,28 +74,71 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param key recorded key
    * @param value recorded value
    */
-  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Any): Unit = {
-    value match {
-      case v: String =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v.getBytes), thrift.AnnotationType.STRING)
-      case v: Int =>
-        addBinaryAnnotation(ts, key, ByteBuffer.allocate(4).putInt(0, v), thrift.AnnotationType.I32)
-      case v: Long =>
-        addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putLong(0, v), thrift.AnnotationType.I64)
-      case v: Boolean =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(Array[Byte](if (v) 1 else 0)), thrift.AnnotationType.BOOL)
-      case v: Double =>
-        addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putDouble(0, v), thrift.AnnotationType.DOUBLE)
-      case v: Short =>
-        addBinaryAnnotation(ts, key, ByteBuffer.allocate(2).putShort(0, v), thrift.AnnotationType.I16)
-      case v: Array[Byte] =>
-        addBinaryAnnotation(ts, key, ByteBuffer.wrap(v), thrift.AnnotationType.BYTES)
-      case v: ByteBuffer =>
-        addBinaryAnnotation(ts, key, v, thrift.AnnotationType.BYTES)
-      case v =>
-        throw new IllegalArgumentException("Unsupported value type")
-    }
-  }
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: String): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Int): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.allocate(4).putInt(0, value), thrift.AnnotationType.I32)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Long): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putLong(0, value), thrift.AnnotationType.I64)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Boolean): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.wrap(Array[Byte](if (value) 1 else 0)), thrift.AnnotationType.BOOL)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Double): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putDouble(0, value), thrift.AnnotationType.DOUBLE)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Short): Unit =
+    addBinaryAnnotation(ts, key, ByteBuffer.allocate(2).putShort(0, value), thrift.AnnotationType.I16)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Array[Byte]): Unit =    
+    addBinaryAnnotation(ts, key, ByteBuffer.wrap(value), thrift.AnnotationType.BYTES)
+
+  /**
+   * Records key-value pair and attaches it to trace's binary annotations.
+   * @param ts traced message
+   * @param key recorded key
+   * @param value recorded value
+   */
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: ByteBuffer): Unit =
+    addBinaryAnnotation(ts, key, value, thrift.AnnotationType.BYTES)
 
   /**
    * Enables message tracing, names and samples it. After sampling any nth message
@@ -130,7 +173,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
-                                        valueType: thrift.AnnotationType): Unit =
+                                  valueType: thrift.AnnotationType): Unit =
     holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
