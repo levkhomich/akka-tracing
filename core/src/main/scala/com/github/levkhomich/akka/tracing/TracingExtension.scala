@@ -31,7 +31,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolderInternalAction._
 
-  // TODO: handle transport issues
   private[tracing] val holder = {
     val config = system.settings.config
 
@@ -39,12 +38,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
-      try {
-        system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
-      } catch {
-        case e: org.apache.thrift.transport.TTransportException =>
-          throw e
-      }
+      system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
     } else
       throw new IllegalStateException("Tracing host not configured")
   }
