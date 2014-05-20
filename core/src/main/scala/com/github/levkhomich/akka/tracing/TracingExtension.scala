@@ -31,13 +31,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolderInternalAction._
 
-  /**
-   * This Actor is used when Akka Tracing is not configured
-   */
-  private[tracing] class EmptyActor extends Actor {
-    def receive = Actor.emptyBehavior
-  }
-
   private[tracing] val holder = {
     val config = system.settings.config
 
@@ -47,7 +40,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       )
       system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
     } else {
-      system.actorOf(Props(classOf[EmptyActor]))
+      system.actorOf(Props.empty)
     }
   }
 
