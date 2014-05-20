@@ -41,7 +41,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   private[tracing] val holder = {
     val config = system.settings.config
 
-    if (config.hasPath(AkkaTracingHost) && (!config.hasPath(AkkaTracingEnabled) || config.getBoolean(AkkaTracingEnabled))) {
+    if (config.hasPath(AkkaTracingHost) && config.getBoolean(AkkaTracingEnabled)) {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
