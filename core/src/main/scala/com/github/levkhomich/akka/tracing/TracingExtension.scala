@@ -31,16 +31,24 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolderInternalAction._
 
+  /**
+   * This Actor is used when Akka Tracing is not configured
+   */
+  private[tracing] class EmptyActor extends Actor {
+    def receive = Actor.emptyBehavior
+  }
+
   private[tracing] val holder = {
     val config = system.settings.config
 
-    if (config.hasPath(AkkaTracingHost)) {
+    if (config.hasPath(AkkaTracingHost) && (!config.hasPath(AkkaTracingEnabled) || config.getBoolean(AkkaTracingEnabled))) {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
       system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
-    } else
-      throw new IllegalStateException("Tracing host not configured")
+    } else {
+      system.actorOf(Props(classOf[EmptyActor]))
+    }
   }
 
   /**
@@ -182,6 +190,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
  * - akka.tracing.host - Scribe or Zipkin collector host
  * - akka.tracing.port - Scribe or Zipkin collector port (9410 by default)
  * - akka.tracing.sample-rate - trace sample rate, means that every nth message will be sampled
+ * - akka.tracing.enabled - defaults to true, can be used to disable tracing
  *
  */
 object TracingExtension extends ExtensionId[TracingExtensionImpl] with ExtensionIdProvider {
@@ -189,6 +198,7 @@ object TracingExtension extends ExtensionId[TracingExtensionImpl] with Extension
   private[tracing] val AkkaTracingHost = "akka.tracing.host"
   private[tracing] val AkkaTracingPort = "akka.tracing.port"
   private[tracing] val AkkaTracingSampleRate = "akka.tracing.sample-rate"
+  private[tracing] val AkkaTracingEnabled = "akka.tracing.enabled"
 
   override def lookup() =
     TracingExtension
