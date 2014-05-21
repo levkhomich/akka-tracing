@@ -1,4 +1,4 @@
-akka-tracing 0.3 is the third release of extension offering:
+akka-tracing 0.3 is now available. New features:
 
 * [activator template](https://github.com/levkhomich/activator-akka-tracing) with tutorial and zipkin install automation;
 * Scala 2.11 support;
@@ -12,5 +12,3 @@ API changes:
 
 * `trace.sample(msg); trace.recordRPCName(msg, service, rpc)` replaced by `trace.sample(msg, service, rpc)`;
 * `trace.recordException` renamed to `trace.record`
-
-Contributions are welcome! Feel free to [ask](https://twitter.com/levkhomich) any questions.
