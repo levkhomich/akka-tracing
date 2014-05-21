@@ -7,7 +7,7 @@ object AkkaTracingBuild extends Build {
     Defaults.defaultSettings ++
     Seq (
       organization := "com.github.levkhomich",
-      version := "0.3",
+      version := "0.4-SNAPSHOT",
       scalaVersion := "2.10.4",
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
