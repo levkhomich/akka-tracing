@@ -60,7 +60,10 @@ object AkkaTracingBuild extends Build {
       commonSettings ++
       publicationSettings ++
       Seq(
-        publish := ()
+        publish := (),
+        publishLocal := (),
+        // workaround for sbt-pgp
+        packagedArtifacts := Map.empty
       )
   ).aggregate(core, spray)
 
