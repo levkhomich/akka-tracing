@@ -31,10 +31,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolderInternalAction._
 
+  private[tracing] val enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+
   private[tracing] val holder = {
     val config = system.settings.config
 
-    if (config.hasPath(AkkaTracingHost) && config.getBoolean(AkkaTracingEnabled)) {
+    if (config.hasPath(AkkaTracingHost) && enabled) {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
@@ -61,7 +63,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     record(ts, getStackTrace(e))
 
   private[tracing] def record(spanId: Long, msg: String): Unit =
-    holder ! AddAnnotation(spanId, System.nanoTime, msg)
+    if (enabled) holder ! AddAnnotation(spanId, System.nanoTime, msg)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -143,7 +145,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param rpc RPC name
    */
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    holder ! Sample(ts, service, rpc, System.nanoTime)
+    if (enabled) holder ! Sample(ts, service, rpc, System.nanoTime)
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -165,14 +167,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
+    if (enabled) holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
-    holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
+    if (enabled) holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
-    holder ! CreateChildSpan(spanId, ts.spanId)
+    if (enabled) holder ! CreateChildSpan(spanId, ts.spanId)
 
 }
 
