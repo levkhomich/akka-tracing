@@ -87,9 +87,8 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
           endpoints.put(ts.spanId, endpoint)
 
         // TODO: check if it really needed
-        case Some(spanInt) if spanInt.name != rpcName || !endpoints.contains(ts.spanId) =>
+        case Some(spanInt) if spanInt.name != rpcName =>
           spanInt.set_name(rpcName)
-          endpoints.put(ts.spanId, new thrift.Endpoint(localAddress, 0, serviceName))
 
         case _ =>
       }
@@ -156,10 +155,9 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
     spans.get(id)
 
   private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String = null,
-                         annotations: util.List[thrift.Annotation] = new util.ArrayList(),
-                         binaryAnnotations: util.List[thrift.BinaryAnnotation] = new util.ArrayList()): Unit = {
+                         annotations: util.List[thrift.Annotation] = null): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
-    val span = new thrift.Span(traceId, name, id, annotations, binaryAnnotations)
+    val span = new thrift.Span(traceId, name, id, annotations, null)
     parentId.foreach(span.set_parent_id)
     spans.put(id, span)
   }
@@ -167,6 +165,7 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
   private def enqueue(id: Long, cancelJob: Boolean): Unit = {
     sendJobs.remove(id).foreach(job => if (cancelJob) job.cancel())
     spans.remove(id).foreach(span => nextBatch.append(span))
+    endpoints.remove(id)
   }
 
   private def send(): Unit = {
