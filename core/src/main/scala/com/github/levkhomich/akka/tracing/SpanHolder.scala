@@ -37,7 +37,7 @@ private[tracing] object SpanHolderInternalAction {
   case object SendEnqueued
   final case class AddAnnotation(spanId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(spanId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
-  final case class CreateChildSpan(spanId: Long, parentId: Long)
+  final case class CreateChildSpan(spanId: Long, parentId: Long, optTraceId: Option[Long])
   final case class SetSampleRate(sampleRate: Int)
 }
 
@@ -117,11 +117,12 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
         spanInt.add_to_binary_annotations(a)
       }
 
-    case CreateChildSpan(spanId, parentId) =>
-      lookup(spanId) match {
-        case Some(parentSpan) =>
-          createSpan(spanId, Some(parentSpan.id), parentSpan.trace_id)
+    case CreateChildSpan(spanId, parentId, optTraceId) =>
+      optTraceId match {
+        case Some(traceId) =>
+          createSpan(spanId, Some(parentId), traceId)
         case _ =>
+          // do not sample if parent was not sampled
           None
       }
 
@@ -190,7 +191,7 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
             case Success(response) =>
               log.debug("Zipkin collector is busy: " + response)
           }
-          // to reconnect next time
+          // reconnect next time
           transport.close()
           scheduleNextBatch()
       }

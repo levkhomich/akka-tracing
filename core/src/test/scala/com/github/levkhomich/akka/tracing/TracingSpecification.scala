@@ -33,11 +33,15 @@ import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
 import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
+import java.nio.charset.Charset
+
+case class StringMessage(content: String) extends TracingSupport
 
 class TestActor extends TracingActorLogging with ActorTracing {
   override def receive: Receive = {
-    case msg: TracingSupport =>
+    case msg @ StringMessage(content) =>
       trace.sample(msg, "test")
+      trace.recordKeyValue(msg, "content", content)
       log.info("received message " + msg)
       Thread.sleep(100)
       trace.recordServerSend(msg)
@@ -46,12 +50,11 @@ class TestActor extends TracingActorLogging with ActorTracing {
 
 class TracingSpecification extends Specification {
 
-  case class StringMessage(content: String) extends TracingSupport
 
   var collector: TServer = startCollector()
 
   val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
-  val trace = TracingExtension(system)
+  implicit val trace = TracingExtension(system)
 
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
@@ -94,6 +97,45 @@ class TracingSpecification extends Specification {
         val span = decodeSpan(e.message)
         span.annotations.size == 3 && span.annotations.get(1).value.startsWith("Info")
       } must beTrue
+    }
+
+    "track call hierarchy" in {
+      results.clear()
+
+      val testActor: ActorRef = system.actorOf(Props[TestActor])
+
+      val parentMsg = StringMessage("parent")
+      testActor ! parentMsg
+
+      // wait until parent msg span will be sent
+      Thread.sleep(500)
+
+      val childMsg = StringMessage("child").asChildOf(parentMsg)
+      testActor ! childMsg
+
+      Thread.sleep(5000)
+
+      results.size() must beEqualTo(2)
+
+      val spans = results.map(e => decodeSpan(e.message))
+      val parentSpan = spans.find { s =>
+        val content = s.binary_annotations.find(_.key == "content").get.value
+        new String(content.array()) == "parent"
+      }.get
+      val childSpan = spans.find { s =>
+        val content = s.binary_annotations.find(_.key == "content").get.value
+        new String(content.array()) == "child"
+      }.get
+
+      parentSpan.id must beEqualTo(parentMsg.spanId)
+      parentSpan.is_set_parent_id must beFalse
+      parentSpan.trace_id must beEqualTo(parentMsg.traceId.get)
+
+      childSpan.id must beEqualTo(childMsg.spanId)
+      childSpan.parent_id must beEqualTo(parentMsg.spanId)
+      childSpan.trace_id must beEqualTo(parentMsg.traceId.get)
+
+      parentMsg.traceId must beEqualTo(childMsg.traceId)
     }
 
     val ExpectedTPS = 70000

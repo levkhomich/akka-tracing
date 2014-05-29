@@ -174,7 +174,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (enabled) holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
-    if (enabled) holder ! CreateChildSpan(spanId, ts.spanId)
+    if (enabled) holder ! CreateChildSpan(spanId, ts.spanId, ts.traceId)
 
 }
 
