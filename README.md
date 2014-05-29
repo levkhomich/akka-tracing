@@ -2,7 +2,13 @@ Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
-Extension can be used as performance diagnostics and debugging tool.
+
+It allows you to:
+- trace distributed hierarchy calls (akka-remote, akka-cluster, Finagle services, etc.);
+- find slow requests in your system;
+- debug request processing pipeline (you can log to trace, annotate it with custom key-value pairs).
+
+Extension is designed to run on production systems (reactive, minimal overhead, adjustable sample rate).
 
 See [wiki](https://github.com/levkhomich/akka-tracing/wiki) for more information.
 
