@@ -24,7 +24,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Random, Success}
+import scala.util.{Failure, Success}
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
@@ -38,17 +38,14 @@ private[tracing] object SpanHolderInternalAction {
   final case class AddAnnotation(spanId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(spanId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
   final case class CreateChildSpan(spanId: Long, parentId: Long, optTraceId: Option[Long])
-  final case class SetSampleRate(sampleRate: Int)
 }
 
 /**
  * Internal API
  */
-private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) extends Actor with ActorLogging {
+private[tracing] class SpanHolder(transport: TTransport) extends Actor with ActorLogging {
 
   import SpanHolderInternalAction._
-
-  private[this] var counter = 0L
 
   // map of spanId -> span for uncompleted traces
   private[this] val spans = mutable.Map[Long, thrift.Span]()
@@ -73,14 +70,11 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
 
   override def receive: Receive = {
     case Sample(ts, serviceName, rpcName, timestamp) =>
-      counter += 1
       lookup(ts.spanId) match {
-        case None if counter % sampleRate == 0 =>
+        case None =>
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
           val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(timestamp), thrift.zipkinConstants.SERVER_RECV)
           serverRecvAnn.set_host(endpoint)
-          if (ts.traceId.isEmpty)
-            ts.setTraceId(Some(Random.nextLong()))
           val annotations = new util.ArrayList[thrift.Annotation]()
           annotations.add(serverRecvAnn)
           createSpan(ts.spanId, ts.parentId, ts.traceId.get, rpcName, annotations)
@@ -124,9 +118,6 @@ private[tracing] class SpanHolder(var sampleRate: Int, transport: TTransport) ex
           // do not sample if parent was not sampled
           None
       }
-
-    case SetSampleRate(newSampleRate) =>
-      sampleRate = newSampleRate
   }
 
   override def postStop(): Unit = {

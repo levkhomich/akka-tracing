@@ -18,6 +18,8 @@ package com.github.levkhomich.akka.tracing
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
+import scala.util.Random
 
 import akka.actor._
 import org.apache.thrift.transport.{TSocket, TFramedTransport}
@@ -32,6 +34,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import SpanHolderInternalAction._
 
   private[tracing] val enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+  private[this] val msgCounter = new AtomicLong()
+  @volatile private[this] var sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
   private[tracing] val holder = {
     val config = system.settings.config
@@ -40,7 +44,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
-      system.actorOf(Props(classOf[SpanHolder], config.getInt(AkkaTracingSampleRate), transport), "spanHolder")
+      system.actorOf(Props(classOf[SpanHolder], transport), "spanHolder")
     } else {
       system.actorOf(Props.empty)
     }
@@ -52,7 +56,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param msg recorded string
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
-    record(ts.spanId, msg)
+    if (ts.traceId.isDefined)
+      record(ts.spanId, msg)
 
   /**
    * Records exception's stack trace to trace.
@@ -63,7 +68,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     record(ts, getStackTrace(e))
 
   private[tracing] def record(spanId: Long, msg: String): Unit =
-    if (enabled) holder ! AddAnnotation(spanId, System.nanoTime, msg)
+    if (enabled)
+      holder ! AddAnnotation(spanId, System.nanoTime, msg)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -145,7 +151,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param rpc RPC name
    */
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    if (enabled) holder ! Sample(ts, service, rpc, System.nanoTime)
+    if (enabled && msgCounter.incrementAndGet() % sampleRate == 0) {
+      if (ts.traceId.isEmpty)
+        ts.setTraceId(Some(Random.nextLong()))
+      holder ! Sample(ts, service, rpc, System.nanoTime)
+    }
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -167,15 +177,20 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   }
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    if (enabled) holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
+    if (enabled && ts.traceId.isDefined)
+      holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
-    if (enabled) holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
+    if (enabled && ts.traceId.isDefined)
+      holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
-    if (enabled) holder ! CreateChildSpan(spanId, ts.spanId, ts.traceId)
+    if (enabled && ts.traceId.isDefined)
+      holder ! CreateChildSpan(spanId, ts.spanId, ts.traceId)
 
+  def setSampleRate(newSampleRate: Int): Unit =
+    sampleRate = newSampleRate
 }
 
 /**

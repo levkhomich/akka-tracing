@@ -61,7 +61,7 @@ class TracingSpecification extends Specification {
   sequential
 
   def traceMessages(count: Int, sampleRate: Int = 1): Unit = {
-    trace.holder ! SpanHolderInternalAction.SetSampleRate(sampleRate)
+    trace.setSampleRate(sampleRate)
     println(s"test: sending $count messages (sample rate = $sampleRate)")
     for (_ <- 1 to count) {
       val msg = StringMessage(UUID.randomUUID().toString)
@@ -82,7 +82,7 @@ class TracingSpecification extends Specification {
 
     "pipe logs to traces" in {
       results.clear()
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(1)
+      trace.setSampleRate(1)
 
       val testActor: ActorRef = system.actorOf(Props[TestActor])
 
@@ -101,6 +101,7 @@ class TracingSpecification extends Specification {
 
     "track call hierarchy" in {
       results.clear()
+      trace.setSampleRate(1)
 
       val testActor: ActorRef = system.actorOf(Props[TestActor])
 
@@ -119,12 +120,16 @@ class TracingSpecification extends Specification {
 
       val spans = results.map(e => decodeSpan(e.message))
       val parentSpan = spans.find { s =>
-        val content = s.binary_annotations.find(_.key == "content").get.value
-        new String(content.array()) == "parent"
+        s.binary_annotations != null && {
+          val content = s.binary_annotations.find(_.key == "content").get.value
+          new String(content.array()) == "parent"
+        }
       }.get
       val childSpan = spans.find { s =>
-        val content = s.binary_annotations.find(_.key == "content").get.value
-        new String(content.array()) == "child"
+        s.binary_annotations != null && {
+          val content = s.binary_annotations.find(_.key == "content").get.value
+          new String(content.array()) == "child"
+        }
       }.get
 
       parentSpan.id must beEqualTo(parentMsg.spanId)
@@ -142,7 +147,7 @@ class TracingSpecification extends Specification {
     val BenchmarkSampleRate = 10
     s"process more than $ExpectedTPS traces per second using single thread" in {
       val SpanCount = ExpectedTPS * 4
-      trace.holder ! SpanHolderInternalAction.SetSampleRate(BenchmarkSampleRate)
+      trace.setSampleRate(BenchmarkSampleRate)
 
       val startingTime = System.currentTimeMillis()
       for (_ <- 1 to SpanCount) {
@@ -153,7 +158,7 @@ class TracingSpecification extends Specification {
         trace.recordServerSend(msg)
       }
       val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-      Thread.sleep(8000)
+      Thread.sleep(10000)
       println(s"benchmark: TPS = $tracesPerSecond")
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
