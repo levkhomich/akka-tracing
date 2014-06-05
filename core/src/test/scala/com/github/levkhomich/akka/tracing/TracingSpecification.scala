@@ -76,7 +76,7 @@ class TracingSpecification extends Specification {
       traceMessages(60, 2)
       traceMessages(500, 5)
 
-      Thread.sleep(5000)
+      Thread.sleep(7000)
       results.size() must beEqualTo(132)
     }
 
