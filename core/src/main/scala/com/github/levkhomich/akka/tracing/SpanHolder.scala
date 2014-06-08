@@ -53,8 +53,11 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
   private[this] val sendJobs = mutable.Map[Long, Cancellable]()
   // next submission batch
   private[this] val nextBatch = mutable.UnrolledBuffer[thrift.Span]()
+
   // buffer for submitted spans, which should be resent in case of connectivity problems
   private[this] var submittedSpans: mutable.Buffer[thrift.LogEntry] = mutable.Buffer.empty
+  // buffer's size limit
+  private[this] val maxSubmissionBufferSize = 1000
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
 
@@ -175,6 +178,8 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           submittedSpans.clear()
           scheduleNextBatch()
         case f =>
+          if (submittedSpans.size > maxSubmissionBufferSize)
+            submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
           f match {
             case Failure(e) =>
               log.warning("Zipkin collector is unreachable: " + e.getMessage)
