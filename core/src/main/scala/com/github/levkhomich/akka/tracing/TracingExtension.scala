@@ -33,7 +33,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolderInternalAction._
 
-  private[tracing] val enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+  private[tracing] var enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
   private[this] val msgCounter = new AtomicLong()
   @volatile private[this] var sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
@@ -49,6 +49,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       system.actorOf(Props.empty)
     }
   }
+
+  private[tracing] def markCollectorAsUnavailable(): Unit =
+    enabled = false
+
+  private[tracing] def markCollectorAsAvailable(): Unit =
+    if (!enabled) enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
 
   /**
    * Records string message and attaches it to timeline.
@@ -170,12 +176,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
-  private def getStackTrace(e: Throwable): String = {
-    val sw = new StringWriter
-    e.printStackTrace(new PrintWriter(sw))
-    e.getClass.getCanonicalName + ": " + sw.toString
-  }
-
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
     if (enabled && ts.traceId.isDefined)
       holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
@@ -218,5 +218,11 @@ object TracingExtension extends ExtensionId[TracingExtensionImpl] with Extension
 
   override def get(system: ActorSystem): TracingExtensionImpl =
     super.get(system)
+
+  private[tracing] def getStackTrace(e: Throwable): String = {
+    val sw = new StringWriter
+    e.printStackTrace(new PrintWriter(sw))
+    e.getClass.getCanonicalName + ": " + sw.toString
+  }
 
 }

@@ -179,6 +179,11 @@ class TracingSpecification extends Specification {
       collector = startCollector()
       Thread.sleep(3000)
 
+      // extension should wait for some time before retrying
+      results.size() must beEqualTo(0)
+
+      Thread.sleep(10000)
+
       results.size() must beEqualTo(100)
     }
   }

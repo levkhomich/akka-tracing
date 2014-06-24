@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.net.InetAddress
+import java.net.{SocketException, NoRouteToHostException, ConnectException, InetAddress}
 import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
@@ -28,7 +28,7 @@ import scala.util.{Failure, Success}
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TTransport, TMemoryBuffer}
+import org.apache.thrift.transport.{TTransportException, TTransport, TMemoryBuffer}
 import scala.util.control.ControlThrowable
 
 private[tracing] object SpanHolderInternalAction {
@@ -170,29 +170,52 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     }
     if (!submittedSpans.isEmpty) {
       Future {
-        if (!transport.isOpen)
-          transport.open()
-        client.Log(submittedSpans)
+        try {
+          if (!transport.isOpen) {
+            transport.open()
+            TracingExtension(context.system).markCollectorAsAvailable()
+            log.warning("Successfully reconnected to collector")
+          }
+          client.Log(submittedSpans)
+        } finally {
+          scheduleNextBatch()
+        }
       }.onComplete {
         case Success(thrift.ResultCode.OK) =>
           submittedSpans.clear()
-          scheduleNextBatch()
-        case f =>
-          if (submittedSpans.size > maxSubmissionBufferSize)
-            submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
-          f match {
-            case Failure(e) =>
-              log.warning("Zipkin collector is unreachable: " + e.getMessage)
-            case Success(response) =>
-              log.debug("Zipkin collector is busy: " + response)
+
+        case Success(response) =>
+          log.warning(s"Zipkin collector is busy: $response. Failed to send ${submittedSpans.size} spans.")
+          limitSubmittedSpansSize()
+
+        case Failure(e) =>
+          e match {
+            case te: TTransportException =>
+              te.getCause match {
+                case e: ConnectException =>
+                  log.error("Can't connect to Zipkin: " + e.getMessage)
+                case e: NoRouteToHostException =>
+                  log.error("No route to Zipkin: " + e.getMessage)
+                case e: SocketException =>
+                  log.error("Socket error: " + TracingExtension.getStackTrace(e))
+                case t: Throwable =>
+                  log.error("Unknown transport error: " + TracingExtension.getStackTrace(t))
+              }
+              TracingExtension(context.system).markCollectorAsUnavailable()
+            case t: Throwable =>
+              log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
           }
+          limitSubmittedSpansSize()
           // reconnect next time
           transport.close()
-          scheduleNextBatch()
       }
     } else
       scheduleNextBatch()
   }
+
+  private def limitSubmittedSpansSize(): Unit =
+    if (submittedSpans.size > maxSubmissionBufferSize)
+      submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     val buffer = new TMemoryBuffer(1024)
@@ -206,6 +229,12 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     endpoints.get(spanId).getOrElse(unknownEndpoint)
 
   private def scheduleNextBatch(): Unit =
-    context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
+    if (TracingExtension(context.system).enabled) {
+      context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
+    } else {
+      log.error("Retrying to recover connection in 10 seconds")
+      context.system.scheduler.scheduleOnce(10.seconds, self, SendEnqueued)
+    }
+
 
 }
