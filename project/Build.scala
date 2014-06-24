@@ -1,5 +1,6 @@
 import sbt._
 import Keys._
+import scoverage.ScoverageSbtPlugin
 
 object AkkaTracingBuild extends Build {
 
@@ -14,8 +15,8 @@ object AkkaTracingBuild extends Build {
     )
 
   lazy val compilationSettings =
-//    ScoverageSbtPlugin.instrumentSettings ++
-//    CoverallsPlugin.coverallsSettings ++
+    ScoverageSbtPlugin.instrumentSettings ++
+    CoverallsPlugin.coverallsSettings ++
     Seq(
       scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
       scalacOptions in Test ++= Seq("-Yrangepos")

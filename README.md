@@ -1,4 +1,4 @@
-Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing)
+Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png?branch=master)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://coveralls.io/repos/levkhomich/akka-tracing/badge.png?branch=master)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
