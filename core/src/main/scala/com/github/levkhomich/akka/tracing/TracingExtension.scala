@@ -167,7 +167,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def sample(ts: BaseTracingSupport, service: String): Unit =
     sample(ts, service, ts.getClass.getSimpleName)
 
-  private[tracing] def recordServerSend(ts: BaseTracingSupport): Unit =
+  def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   private def getStackTrace(e: Throwable): String = {

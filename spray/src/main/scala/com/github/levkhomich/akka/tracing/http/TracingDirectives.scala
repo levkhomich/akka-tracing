@@ -125,7 +125,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
         m.apply(result, new DelegatingToResponseMarshallingContext(ctx) {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
-            trace.recordServerSend(ts)
+            trace.finish(ts)
           }
         })
       }

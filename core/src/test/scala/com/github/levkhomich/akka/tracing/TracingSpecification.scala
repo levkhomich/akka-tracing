@@ -44,7 +44,7 @@ class TestActor extends TracingActorLogging with ActorTracing {
       trace.recordKeyValue(msg, "content", content)
       log.info("received message " + msg)
       Thread.sleep(100)
-      trace.recordServerSend(msg)
+      trace.finish(msg)
   }
 }
 
@@ -66,7 +66,7 @@ class TracingSpecification extends Specification {
     for (_ <- 1 to count) {
       val msg = StringMessage(UUID.randomUUID().toString)
       trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
-      trace.recordServerSend(msg)
+      trace.finish(msg)
     }
   }
 
@@ -155,7 +155,7 @@ class TracingSpecification extends Specification {
         trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
         trace.recordKeyValue(msg, "keyLong", Random.nextLong())
         trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
-        trace.recordServerSend(msg)
+        trace.finish(msg)
       }
       val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
       Thread.sleep(10000)

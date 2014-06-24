@@ -70,7 +70,7 @@ class ResponseTracingSupport[T](val msg: T) extends AnyVal {
    */
   def asResponseTo(request: BaseTracingSupport)(implicit trace: TracingExtensionImpl): T = {
     trace.record(request, "response: " + msg)
-    trace.recordServerSend(request)
+    trace.finish(request)
     msg
   }
 }
