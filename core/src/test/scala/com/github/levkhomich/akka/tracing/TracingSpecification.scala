@@ -16,6 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
+import java.nio.ByteBuffer
 import java.util
 import java.util.UUID
 import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
@@ -33,7 +34,6 @@ import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
 import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
-import java.nio.charset.Charset
 
 case class StringMessage(content: String) extends TracingSupport
 
@@ -164,6 +164,39 @@ class TracingSpecification extends Specification {
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
       results.size() must beEqualTo(SpanCount / BenchmarkSampleRate)
     }.pendingUntilFixed("Ignored due to performance issues of travis-ci")
+
+    "support recording of different value types" in {
+      import scala.collection.JavaConversions._
+      trace.setSampleRate(1)
+      results.clear()
+
+      val msg = StringMessage(UUID.randomUUID().toString)
+      trace.sample(msg, "test")
+      trace.recordKeyValue(msg, "boolean", true)
+      trace.recordKeyValue(msg, "short", 15.toShort)
+      trace.recordKeyValue(msg, "int", 451)
+      trace.recordKeyValue(msg, "long", 100L)
+      trace.recordKeyValue(msg, "double", 2.0)
+      trace.recordKeyValue(msg, "string", "value")
+      trace.recordKeyValue(msg, "byteBuffer", ByteBuffer.wrap("bb".getBytes))
+      trace.recordKeyValue(msg, "array", Array(7.toByte))
+      trace.finish(msg)
+
+      Thread.sleep(5000)
+
+      results.size() must beEqualTo(1)
+      val msgTrace = decodeSpan(results.peek().message)
+      msgTrace.binary_annotations.exists(a => a.key == "boolean" && a.value.array()(0) == 1.toByte) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "short" && a.value.asShortBuffer().get == 15.toShort) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "int" && a.value.asIntBuffer().get == 451) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "long" && a.value.asLongBuffer().get == 100L) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "double" && a.value.asDoubleBuffer().get == 2.0) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "string" && new String(a.value.array()) == "value") must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "byteBuffer" &&
+        a.value.array().size == 2 && a.value.array()(0) == 'b'.toByte && a.value.array()(1) == 'b'.toByte) must beTrue
+      msgTrace.binary_annotations.exists(a => a.key == "array" &&
+        a.value.array().size == 1 && a.value.array()(0) == 7.toByte) must beTrue
+    }
 
     "handle collector connectivity problems" in {
       traceMessages(1)

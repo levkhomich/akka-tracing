@@ -73,7 +73,7 @@ class SpanIdSpecification extends Specification {
 
       success
     }
-    "serialization faster than naive implementation" in {
+    "serialize faster than naive implementation" in {
       def naiveLongToString(x: Long): String = {
         val s = java.lang.Long.toHexString(x)
         "0" * (16 - s.length) + s
