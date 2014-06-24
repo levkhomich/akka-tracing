@@ -25,7 +25,8 @@ trait BaseTracingSupport extends Serializable {
 
   def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type
 
-  private[tracing] def setTraceId(newTraceId: Option[Long]): Unit
+  private[tracing] def sample(): Unit
+  private[tracing] def isSampled: Boolean
 }
 
 /**
@@ -42,18 +43,25 @@ trait TracingSupport extends BaseTracingSupport {
    * @param ts parent message
    * @return child message with required tracing headers
    */
-  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+    require(!isSampled)
     tracer.createChildSpan(spanId, ts)
     parentId = Some(ts.spanId)
     traceId = ts.traceId
     this
   }
 
-  def setTraceId(newTraceId: Option[Long]): Unit = {
-    traceId = newTraceId
+  override private[tracing] def sample(): Unit = {
+    if (traceId.isEmpty)
+      traceId = Some(Random.nextLong())
+  }
+
+  @inline override private[tracing] def isSampled: Boolean = {
+    traceId.isDefined
   }
 
   private[tracing] def init(spanId: Long, traceId: Long, parentId: Option[Long]): Unit = {
+    require(!isSampled)
     this.spanId = spanId
     this.traceId = Some(traceId)
     this.parentId = parentId

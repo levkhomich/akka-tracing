@@ -23,8 +23,13 @@ public abstract class TracingSupport implements BaseTracingSupport {
     }
 
     @Override
-    public void setTraceId(Option<Object> newTraceId) {
-        traceId = newTraceId;
+    public void sample() {
+        traceId = scala.Option.apply((Object) new Random().nextLong());
+    }
+
+    @Override
+    public boolean isSampled() {
+        return traceId.isDefined();
     }
 
     @Override

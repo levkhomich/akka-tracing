@@ -62,7 +62,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param msg recorded string
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
-    if (ts.traceId.isDefined)
+    if (ts.isSampled)
       record(ts.spanId, msg)
 
   /**
@@ -158,8 +158,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    */
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     if (enabled && msgCounter.incrementAndGet() % sampleRate == 0) {
-      if (ts.traceId.isEmpty)
-        ts.setTraceId(Some(Random.nextLong()))
+      ts.sample()
       holder ! Sample(ts, service, rpc, System.nanoTime)
     }
 
@@ -177,16 +176,16 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    if (enabled && ts.traceId.isDefined)
+    if (enabled && ts.isSampled)
       holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
-    if (enabled && ts.traceId.isDefined)
+    if (enabled && ts.isSampled)
       holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
-    if (enabled && ts.traceId.isDefined)
+    if (enabled && ts.isSampled)
       holder ! CreateChildSpan(spanId, ts.spanId, ts.traceId)
 
   def setSampleRate(newSampleRate: Int): Unit =

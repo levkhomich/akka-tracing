@@ -83,10 +83,6 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           createSpan(ts.spanId, ts.parentId, ts.traceId.get, rpcName, annotations)
           endpoints.put(ts.spanId, endpoint)
 
-        // TODO: check if it really needed
-        case Some(spanInt) if spanInt.name != rpcName =>
-          spanInt.set_name(rpcName)
-
         case _ =>
       }
 
