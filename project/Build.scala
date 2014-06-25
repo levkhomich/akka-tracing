@@ -6,6 +6,8 @@ object AkkaTracingBuild extends Build {
 
   lazy val commonSettings =
     Defaults.defaultSettings ++
+    compilationSettings ++
+    testSettings ++
     Seq (
       organization := "com.github.levkhomich",
       version := "0.4-SNAPSHOT",
@@ -15,11 +17,17 @@ object AkkaTracingBuild extends Build {
     )
 
   lazy val compilationSettings =
+    Seq(
+      scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_")
+    )
+
+  lazy val testSettings =
     ScoverageSbtPlugin.instrumentSettings ++
     CoverallsPlugin.coverallsSettings ++
     Seq(
-      scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_"),
-      scalacOptions in Test ++= Seq("-Yrangepos")
+      parallelExecution in Test := false,
+      scalacOptions in Test ++= Seq("-Yrangepos"),
+      testOptions in Test := Seq(Tests.Filter(!"true".equals(System.getenv("CI")) || !_.contains("Performance")))
     )
 
   lazy val publicationSettings = Seq(
@@ -73,7 +81,6 @@ object AkkaTracingBuild extends Build {
     base = file("core"),
     settings =
       commonSettings ++
-      compilationSettings ++
       publicationSettings ++ Seq(
         name := "Akka Tracing: Core",
         libraryDependencies ++=
@@ -94,7 +101,6 @@ object AkkaTracingBuild extends Build {
     base = file("spray"),
     settings =
       commonSettings ++
-      compilationSettings ++
       publicationSettings ++ Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=

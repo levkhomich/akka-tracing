@@ -166,23 +166,21 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     }
     if (!submittedSpans.isEmpty) {
       Future {
-        try {
-          if (!transport.isOpen) {
-            transport.open()
-            TracingExtension(context.system).markCollectorAsAvailable()
-            log.warning("Successfully reconnected to collector")
-          }
-          client.Log(submittedSpans)
-        } finally {
-          scheduleNextBatch()
+        if (!transport.isOpen) {
+          transport.open()
+          TracingExtension(context.system).markCollectorAsAvailable()
+          log.warning("Successfully reconnected to collector")
         }
+        client.Log(submittedSpans)
       }.onComplete {
         case Success(thrift.ResultCode.OK) =>
           submittedSpans.clear()
+          scheduleNextBatch()
 
         case Success(response) =>
           log.warning(s"Zipkin collector is busy: $response. Failed to send ${submittedSpans.size} spans.")
           limitSubmittedSpansSize()
+          scheduleNextBatch()
 
         case Failure(e) =>
           e match {
@@ -204,6 +202,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           limitSubmittedSpansSize()
           // reconnect next time
           transport.close()
+          scheduleNextBatch()
       }
     } else
       scheduleNextBatch()

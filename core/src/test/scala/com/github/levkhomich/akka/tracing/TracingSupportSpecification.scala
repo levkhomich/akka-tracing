@@ -16,9 +16,12 @@
 
 package com.github.levkhomich.akka.tracing
 
-import org.specs2.mutable.Specification
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import org.specs2.mutable.Specification
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration
+import java.util.concurrent.TimeoutException
 
 class TracingSupportSpecification extends Specification {
 
@@ -31,6 +34,7 @@ class TracingSupportSpecification extends Specification {
     new TracingSupport {}
 
   "TracingSupport" should {
+
     "allow message sampling" in {
       val msg = newMessage
       msg.isSampled must beFalse
@@ -41,6 +45,7 @@ class TracingSupportSpecification extends Specification {
       msg.init(0L, 0L, Some(0L)) must throwAn[IllegalArgumentException]
       msg.asChildOf(newMessage) must throwAn[IllegalArgumentException]
     }
+
     "propagate context for child requests" in {
       val parent = newMessage
       parent.sample()
@@ -52,6 +57,7 @@ class TracingSupportSpecification extends Specification {
       child.spanId mustNotEqual parent.spanId
       child.parentId mustEqual Some(parent.spanId)
     }
+
     "support external contexts" in {
       val parent = newMessage
       parent.sample()
@@ -64,6 +70,12 @@ class TracingSupportSpecification extends Specification {
       child.traceId mustEqual childClone.traceId
       child.parentId mustEqual childClone.parentId
     }
+
+  }
+
+  "shutdown correctly" in {
+    system.shutdown()
+    system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
   }
 
 }

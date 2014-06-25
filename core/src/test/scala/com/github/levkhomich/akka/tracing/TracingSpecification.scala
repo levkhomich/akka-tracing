@@ -16,24 +16,18 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.nio.ByteBuffer
-import java.util
 import java.util.UUID
-import java.util.concurrent.{TimeoutException, ConcurrentLinkedQueue}
-import javax.xml.bind.DatatypeConverter
+import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Random
 
 import akka.actor.{ActorRef, Props, ActorSystem}
-import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TFramedTransport, TServerSocket, TMemoryBuffer}
-import org.apache.thrift.server.{TThreadPoolServer, TServer}
 import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
 
 import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
+import java.util
 
 case class StringMessage(content: String) extends TracingSupport
 
@@ -48,15 +42,10 @@ class TestActor extends TracingActorLogging with ActorTracing {
   }
 }
 
-class TracingSpecification extends Specification {
-
-
-  var collector: TServer = startCollector()
+class TracingSpecification extends Specification with MockCollector {
 
   val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
   implicit val trace = TracingExtension(system)
-
-  val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
   sequential
 
@@ -71,6 +60,7 @@ class TracingSpecification extends Specification {
   }
 
   "TracingExtension" should {
+
     "sample traces" in {
       traceMessages(2, 1)
       traceMessages(60, 2)
@@ -84,7 +74,7 @@ class TracingSpecification extends Specification {
       results.clear()
       trace.setSampleRate(1)
 
-      val testActor: ActorRef = system.actorOf(Props[TestActor])
+      val testActor = system.actorOf(Props[TestActor])
 
       testActor ! StringMessage("1")
       testActor ! StringMessage("2")
@@ -143,71 +133,18 @@ class TracingSpecification extends Specification {
       parentMsg.traceId must beEqualTo(childMsg.traceId)
     }
 
-    val ExpectedTPS = 70000
-    val BenchmarkSampleRate = 10
-    s"process more than $ExpectedTPS traces per second using single thread" in {
-      val SpanCount = ExpectedTPS * 4
-      trace.setSampleRate(BenchmarkSampleRate)
-
-      val startingTime = System.currentTimeMillis()
-      for (_ <- 1 to SpanCount) {
-        val msg = StringMessage(UUID.randomUUID().toString)
-        trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
-        trace.recordKeyValue(msg, "keyLong", Random.nextLong())
-        trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
-        trace.finish(msg)
-      }
-      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-      Thread.sleep(10000)
-      println(s"benchmark: TPS = $tracesPerSecond")
-
-      tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
-      results.size() must beEqualTo(SpanCount / BenchmarkSampleRate)
-    }.pendingUntilFixed("Ignored due to performance issues of travis-ci")
-
-    "support recording of different value types" in {
-      import scala.collection.JavaConversions._
-      trace.setSampleRate(1)
-      results.clear()
-
-      val msg = StringMessage(UUID.randomUUID().toString)
-      trace.sample(msg, "test")
-      trace.recordKeyValue(msg, "boolean", true)
-      trace.recordKeyValue(msg, "short", 15.toShort)
-      trace.recordKeyValue(msg, "int", 451)
-      trace.recordKeyValue(msg, "long", 100L)
-      trace.recordKeyValue(msg, "double", 2.0)
-      trace.recordKeyValue(msg, "string", "value")
-      trace.recordKeyValue(msg, "byteBuffer", ByteBuffer.wrap("bb".getBytes))
-      trace.recordKeyValue(msg, "array", Array(7.toByte))
-      trace.finish(msg)
-
-      Thread.sleep(5000)
-
-      results.size() must beEqualTo(1)
-      val msgTrace = decodeSpan(results.peek().message)
-      msgTrace.binary_annotations.exists(a => a.key == "boolean" && a.value.array()(0) == 1.toByte) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "short" && a.value.asShortBuffer().get == 15.toShort) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "int" && a.value.asIntBuffer().get == 451) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "long" && a.value.asLongBuffer().get == 100L) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "double" && a.value.asDoubleBuffer().get == 2.0) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "string" && new String(a.value.array()) == "value") must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "byteBuffer" &&
-        a.value.array().size == 2 && a.value.array()(0) == 'b'.toByte && a.value.array()(1) == 'b'.toByte) must beTrue
-      msgTrace.binary_annotations.exists(a => a.key == "array" &&
-        a.value.array().size == 1 && a.value.array()(0) == 7.toByte) must beTrue
-    }
-
     "handle collector connectivity problems" in {
-      traceMessages(1)
+      // collector won't stop until some message's arrival
+      traceMessages(1, 1)
       collector.stop()
 
       Thread.sleep(3000)
       results.clear()
 
       traceMessages(100)
+
       // wait for submission while collector is down
-      Thread.sleep(5000)
+      Thread.sleep(3000)
 
       collector = startCollector()
       Thread.sleep(3000)
@@ -215,7 +152,7 @@ class TracingSpecification extends Specification {
       // extension should wait for some time before retrying
       results.size() must beEqualTo(0)
 
-      Thread.sleep(10000)
+      Thread.sleep(7000)
 
       results.size() must beEqualTo(100)
     }
@@ -225,43 +162,6 @@ class TracingSpecification extends Specification {
     system.shutdown()
     collector.stop()
     system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
-  }
-
-  private def startCollector(): TServer = {
-
-    val handler = new thrift.Scribe.Iface {
-      override def Log(messages: util.List[LogEntry]): ResultCode = {
-        println(s"collector: received ${messages.size} messages")
-        results.addAll(messages)
-        thrift.ResultCode.OK
-      }
-    }
-    val processor = new thrift.Scribe.Processor(handler)
-
-    val transport = new TServerSocket(9410)
-    val collector = new TThreadPoolServer(
-      new TThreadPoolServer.Args(transport).processor(processor).
-        transportFactory(new TFramedTransport.Factory).protocolFactory(new TBinaryProtocol.Factory).minWorkerThreads(3)
-    )
-    new Thread(new Runnable() {
-      override def run(): Unit = {
-        println("collector: started")
-        collector.serve()
-        println("collector: stopped")
-      }
-    }).start()
-    Thread.sleep(3000)
-    collector
-  }
-
-  private def decodeSpan(logEntryMessage: String): thrift.Span = {
-    val protocolFactory = new TBinaryProtocol.Factory()
-    val thriftBytes = DatatypeConverter.parseBase64Binary(logEntryMessage.dropRight(1))
-    val buffer = new TMemoryBuffer(1024)
-    buffer.write(thriftBytes, 0, thriftBytes.length)
-    val span = new thrift.Span
-    span.read(protocolFactory.getProtocol(buffer))
-    span
   }
 
 }

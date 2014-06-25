@@ -16,16 +16,18 @@
 
 package com.github.levkhomich.akka.tracing
 
-import org.specs2.mutable.Specification
 import scala.util.Random
+
+import org.specs2.mutable.Specification
 
 class SpanIdSpecification extends Specification {
 
   sequential
 
-  val IterationsCount = 5000000L
-
   "SpanId" should {
+
+    val IterationsCount = 1000000L
+
     "provide serialization conforming to Finagle's implementation" in {
       def checkValue(x: Long): Unit = {
         val actual = Span.asString(x)
@@ -49,6 +51,7 @@ class SpanIdSpecification extends Specification {
 
       success
     }
+
     "provide deserialization conforming to Finagle's implementation" in {
       def checkValue(x: String): Unit = {
         val actual = Span.fromString(x)
@@ -73,30 +76,6 @@ class SpanIdSpecification extends Specification {
 
       success
     }
-    "serialize faster than naive implementation" in {
-      def naiveLongToString(x: Long): String = {
-        val s = java.lang.Long.toHexString(x)
-        "0" * (16 - s.length) + s
-      }
-
-      def benchmark(f: Long => String): Long = {
-        val nanos = System.nanoTime
-        for (i <- 1L to IterationsCount) {
-          val _ = f(i)
-        }
-        IterationsCount * 100000000 / (System.nanoTime - nanos)
-      }
-
-      // warm up
-      benchmark(Span.asString)
-      benchmark(naiveLongToString)
-
-      val originalCPS = benchmark(Span.asString)
-      val naiveCPS = benchmark(naiveLongToString)
-      val percentDelta = originalCPS * 100 / naiveCPS - 100
-      println(s"benchmark: spanId serialization performance delta = $percentDelta%" )
-      percentDelta must beGreaterThan(-10L)
-    }.pendingUntilFixed("Ignored due to performance issues of travis-ci")
 
     "handle invalid input" in {
       Span.fromString(null) must throwAn[NumberFormatException]
