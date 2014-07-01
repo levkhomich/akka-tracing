@@ -35,7 +35,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   private def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
       case Right(value) :: optSpan :: request :: HNil =>
-        optSpan.foreach(s => value.init(s.spanId, s.traceId.get, s.parentId))
+        optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
         trace.sample(value, service)
         addHttpAnnotations(value, request)
         hprovide(value :: optSpan.getOrElse(value) :: HNil)

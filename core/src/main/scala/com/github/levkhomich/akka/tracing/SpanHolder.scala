@@ -73,15 +73,15 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
 
   override def receive: Receive = {
     case Sample(ts, serviceName, rpcName, timestamp) =>
-      lookup(ts.spanId) match {
+      lookup(ts.$spanId) match {
         case None =>
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
           val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(timestamp), thrift.zipkinConstants.SERVER_RECV)
           serverRecvAnn.set_host(endpoint)
           val annotations = new util.ArrayList[thrift.Annotation]()
           annotations.add(serverRecvAnn)
-          createSpan(ts.spanId, ts.parentId, ts.traceId.get, rpcName, annotations)
-          endpoints.put(ts.spanId, endpoint)
+          createSpan(ts.$spanId, ts.$parentId, ts.$traceId.get, rpcName, annotations)
+          endpoints.put(ts.$spanId, endpoint)
 
         case _ =>
       }

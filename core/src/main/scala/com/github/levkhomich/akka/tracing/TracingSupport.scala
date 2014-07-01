@@ -19,9 +19,9 @@ package com.github.levkhomich.akka.tracing
 import scala.util.Random
 
 trait BaseTracingSupport extends Serializable {
-  private[tracing] def spanId: Long
-  private[tracing] def traceId: Option[Long]
-  private[tracing] def parentId: Option[Long]
+  private[tracing] def $spanId: Long
+  private[tracing] def $traceId: Option[Long]
+  private[tracing] def $parentId: Option[Long]
 
   def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type
 
@@ -34,9 +34,9 @@ trait BaseTracingSupport extends Serializable {
  */
 trait TracingSupport extends BaseTracingSupport {
 
-  private[tracing] var spanId = Random.nextLong()
-  private[tracing] var traceId: Option[Long] = None
-  private[tracing] var parentId: Option[Long] = None
+  private[tracing] var $spanId = Random.nextLong()
+  private[tracing] var $traceId: Option[Long] = None
+  private[tracing] var $parentId: Option[Long] = None
 
   /**
    * Declares message as a child of another message.
@@ -45,26 +45,26 @@ trait TracingSupport extends BaseTracingSupport {
    */
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
     require(!isSampled)
-    tracer.createChildSpan(spanId, ts)
-    parentId = Some(ts.spanId)
-    traceId = ts.traceId
+    tracer.createChildSpan($spanId, ts)
+    $parentId = Some(ts.$spanId)
+    $traceId = ts.$traceId
     this
   }
 
   override private[tracing] def sample(): Unit = {
-    if (traceId.isEmpty)
-      traceId = Some(Random.nextLong())
+    if ($traceId.isEmpty)
+      $traceId = Some(Random.nextLong())
   }
 
   @inline override private[tracing] def isSampled: Boolean = {
-    traceId.isDefined
+    $traceId.isDefined
   }
 
   private[tracing] def init(spanId: Long, traceId: Long, parentId: Option[Long]): Unit = {
     require(!isSampled)
-    this.spanId = spanId
-    this.traceId = Some(traceId)
-    this.parentId = parentId
+    this.$spanId = spanId
+    this.$traceId = Some(traceId)
+    this.$parentId = parentId
   }
 
 }

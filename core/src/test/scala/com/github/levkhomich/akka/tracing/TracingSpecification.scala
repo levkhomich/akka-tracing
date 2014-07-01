@@ -122,15 +122,15 @@ class TracingSpecification extends Specification with MockCollector {
         }
       }.get
 
-      parentSpan.id must beEqualTo(parentMsg.spanId)
+      parentSpan.id must beEqualTo(parentMsg.$spanId)
       parentSpan.is_set_parent_id must beFalse
-      parentSpan.trace_id must beEqualTo(parentMsg.traceId.get)
+      parentSpan.trace_id must beEqualTo(parentMsg.$traceId.get)
 
-      childSpan.id must beEqualTo(childMsg.spanId)
-      childSpan.parent_id must beEqualTo(parentMsg.spanId)
-      childSpan.trace_id must beEqualTo(parentMsg.traceId.get)
+      childSpan.id must beEqualTo(childMsg.$spanId)
+      childSpan.parent_id must beEqualTo(parentMsg.$spanId)
+      childSpan.trace_id must beEqualTo(parentMsg.$traceId.get)
 
-      parentMsg.traceId must beEqualTo(childMsg.traceId)
+      parentMsg.$traceId must beEqualTo(childMsg.$traceId)
     }
 
     "handle collector connectivity problems" in {

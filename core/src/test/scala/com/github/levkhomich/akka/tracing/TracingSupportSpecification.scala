@@ -53,9 +53,9 @@ class TracingSupportSpecification extends Specification {
       val child = newMessage.asChildOf(parent)
       child.isSampled must beTrue
 
-      child.traceId mustEqual parent.traceId
-      child.spanId mustNotEqual parent.spanId
-      child.parentId mustEqual Some(parent.spanId)
+      child.$traceId mustEqual parent.$traceId
+      child.$spanId mustNotEqual parent.$spanId
+      child.$parentId mustEqual Some(parent.$spanId)
     }
 
     "support external contexts" in {
@@ -64,11 +64,11 @@ class TracingSupportSpecification extends Specification {
       val child = newMessage.asChildOf(parent)
 
       val childClone = newMessage
-      childClone.init(child.spanId, child.traceId.get, child.parentId)
+      childClone.init(child.$spanId, child.$traceId.get, child.$parentId)
 
-      child.spanId mustEqual childClone.spanId
-      child.traceId mustEqual childClone.traceId
-      child.parentId mustEqual childClone.parentId
+      child.$spanId mustEqual childClone.$spanId
+      child.$traceId mustEqual childClone.$traceId
+      child.$parentId mustEqual childClone.$parentId
     }
 
   }

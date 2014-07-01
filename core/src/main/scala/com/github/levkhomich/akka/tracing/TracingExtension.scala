@@ -63,7 +63,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
     if (ts.isSampled)
-      record(ts.spanId, msg)
+      record(ts.$spanId, msg)
 
   /**
    * Records exception's stack trace to trace.
@@ -177,16 +177,16 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
     if (enabled && ts.isSampled)
-      holder ! AddAnnotation(ts.spanId, System.nanoTime, value)
+      holder ! AddAnnotation(ts.$spanId, System.nanoTime, value)
 
   private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
     if (enabled && ts.isSampled)
-      holder ! AddBinaryAnnotation(ts.spanId, key, value, valueType)
+      holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
     if (enabled && ts.isSampled)
-      holder ! CreateChildSpan(spanId, ts.spanId, ts.traceId)
+      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId)
 
   def setSampleRate(newSampleRate: Int): Unit =
     sampleRate = newSampleRate
