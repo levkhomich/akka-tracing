@@ -25,11 +25,13 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
+import scala.util.control.ControlThrowable
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TTransportException, TTransport, TMemoryBuffer}
-import scala.util.control.ControlThrowable
+import org.apache.thrift.transport.{TTransportException, TTransport}
+
+import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 
 private[tracing] object SpanHolderInternalAction {
   final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
@@ -60,6 +62,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
   private[this] val maxSubmissionBufferSize = 1000
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
+  private[this] val thriftBuffer = new TReusableTransport()
 
   private[this] val endpoints = mutable.Map[Long, thrift.Endpoint]()
   private[this] val localAddress = ByteBuffer.wrap(InetAddress.getLocalHost.getAddress).getInt
@@ -213,9 +216,9 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
       submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
 
   private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
-    val buffer = new TMemoryBuffer(1024)
-    spanInt.write(protocolFactory.getProtocol(buffer))
-    val thriftBytes = buffer.getArray.take(buffer.length)
+    spanInt.write(protocolFactory.getProtocol(thriftBuffer))
+    val thriftBytes = thriftBuffer.getArray.take(thriftBuffer.length)
+    thriftBuffer.reset()
     val encodedSpan = DatatypeConverter.printBase64Binary(thriftBytes) + '\n'
     new thrift.LogEntry("zipkin", encodedSpan)
   }
