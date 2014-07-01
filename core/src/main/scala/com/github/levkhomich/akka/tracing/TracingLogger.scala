@@ -16,8 +16,6 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.util.UUID
-
 import akka.actor.{Actor, DiagnosticActorLogging}
 import akka.event.Logging.{InitializeLogger, LogEvent, LoggerInitialized, MDC, emptyMDC}
 

@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import akka.actor.{ActorLogging, Actor}
+import akka.actor.Actor
 import shapeless._
 import spray.http.{HttpRequest, HttpResponse}
 import spray.httpx.marshalling._

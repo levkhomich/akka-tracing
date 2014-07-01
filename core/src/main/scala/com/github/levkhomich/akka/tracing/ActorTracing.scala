@@ -16,8 +16,9 @@
 
 package com.github.levkhomich.akka.tracing
 
-import akka.actor.Actor
 import scala.language.implicitConversions
+
+import akka.actor.Actor
 
 /**
  * Scala API: Mix in ActorTracing into your Actor to easily obtain a reference to a tracer,

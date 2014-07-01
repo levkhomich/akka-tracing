@@ -19,7 +19,6 @@ package com.github.levkhomich.akka.tracing
 import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import scala.util.Random
 
 import akka.actor._
 import org.apache.thrift.transport.{TSocket, TFramedTransport}

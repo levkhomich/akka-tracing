@@ -16,12 +16,12 @@
 
 package com.github.levkhomich.akka.tracing
 
+import java.util.concurrent.TimeoutException
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 import org.specs2.mutable.Specification
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration
-import java.util.concurrent.TimeoutException
 
 class TracingSupportSpecification extends Specification {
 
@@ -75,7 +75,7 @@ class TracingSupportSpecification extends Specification {
 
   "shutdown correctly" in {
     system.shutdown()
-    system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
+    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
 }

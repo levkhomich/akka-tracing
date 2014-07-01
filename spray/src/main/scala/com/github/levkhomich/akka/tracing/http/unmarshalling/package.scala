@@ -18,8 +18,8 @@ package com.github.levkhomich.akka.tracing.http
 
 import spray.httpx.unmarshalling.{Deserialized, Deserializer, FromMessageUnmarshaller, Unmarshaller}
 import spray.http.HttpMessage
+
 import com.github.levkhomich.akka.tracing.TracingSupport
-import TracingHeaders._
 
 package object unmarshalling {
 
@@ -30,7 +30,7 @@ package object unmarshalling {
     new Deserializer[HttpMessage, T] {
       override def apply(message: HttpMessage): Deserialized[T] =
         um(message.entity).right.map { result =>
-          extractSpan(message).foreach(s => result.init(s.$spanId, s.$traceId.get, s.$parentId))
+          TracingHeaders.extractSpan(message).foreach(s => result.init(s.$spanId, s.$traceId.get, s.$parentId))
           result
         }
     }

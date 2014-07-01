@@ -17,14 +17,13 @@
 package com.github.levkhomich.akka.tracing
 
 import java.util.UUID
+import java.util.concurrent.TimeoutException
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.util.Random
 
 import akka.actor.ActorSystem
-import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration
-import java.util.concurrent.TimeoutException
+import org.specs2.mutable.Specification
 
 class PerformanceSpecification extends Specification with MockCollector {
 
@@ -94,7 +93,7 @@ class PerformanceSpecification extends Specification with MockCollector {
   "shutdown correctly" in {
     system.shutdown()
     collector.stop()
-    system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
+    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
 }

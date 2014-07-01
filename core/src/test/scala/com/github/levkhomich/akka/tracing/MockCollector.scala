@@ -26,7 +26,6 @@ import org.apache.thrift.server.{TThreadPoolServer, TServer}
 
 import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
 
-
 trait MockCollector {
 
   var collector: TServer = startCollector()

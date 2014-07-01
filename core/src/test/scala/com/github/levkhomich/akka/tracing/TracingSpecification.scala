@@ -23,11 +23,8 @@ import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.{ActorRef, Props, ActorSystem}
-import org.specs2.mutable.Specification
 import com.typesafe.config.ConfigFactory
-
-import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
-import java.util
+import org.specs2.mutable.Specification
 
 case class StringMessage(content: String) extends TracingSupport
 

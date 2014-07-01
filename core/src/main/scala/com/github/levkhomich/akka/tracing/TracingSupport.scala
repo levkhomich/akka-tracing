@@ -19,6 +19,8 @@ package com.github.levkhomich.akka.tracing
 import scala.util.Random
 
 trait BaseTracingSupport extends Serializable {
+
+  // use $ to provide better compatibility with spray-json
   private[tracing] def $spanId: Long
   private[tracing] def $traceId: Option[Long]
   private[tracing] def $parentId: Option[Long]
