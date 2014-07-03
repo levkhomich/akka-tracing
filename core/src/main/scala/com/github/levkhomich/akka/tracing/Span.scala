@@ -19,7 +19,7 @@ package com.github.levkhomich.akka.tracing
 import java.io.{ByteArrayInputStream, DataInputStream}
 import scala.util.Random
 
-private[tracing] final case class Span($traceId: Option[Long], $spanId: Long, $parentId: Option[Long]) extends BaseTracingSupport {
+private[tracing] final case class Span($traceId: Option[Long], $spanId: Long, $parentId: Option[Long], forceSampling: Boolean) extends BaseTracingSupport {
   override private[tracing] def sample(): Unit = throw new UnsupportedOperationException
   override private[tracing] def isSampled: Boolean = throw new UnsupportedOperationException
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = this
@@ -37,9 +37,6 @@ private[tracing] object Span {
 
   private def asChars(b: Long) =
     lookup((b & 0xffff).toShort - Short.MinValue)
-
-  private[tracing] def random: Span =
-    Span(Some(Random.nextLong()), Random.nextLong(), None)
 
   def asString(x: Long): String = {
     val b = new StringBuilder(16)

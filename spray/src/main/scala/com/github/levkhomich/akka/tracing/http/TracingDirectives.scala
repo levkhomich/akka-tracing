@@ -36,7 +36,10 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
       case Right(value) :: optSpan :: request :: HNil =>
         optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
-        trace.sample(value, service)
+        if (optSpan.map(_.forceSampling).getOrElse(false))
+          trace.forcedSample(value, service)
+        else
+          trace.sample(value, service)
         addHttpAnnotations(value, request)
         hprovide(value :: optSpan.getOrElse(value) :: HNil)
       case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
@@ -100,7 +103,10 @@ trait TracingDirectives { this: Actor with ActorTracing =>
           case Some(span) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
-            trace.sample(span, service, rpc)
+            if (span.forceSampling)
+              trace.forcedSample(span, service, rpc)
+            else
+              trace.sample(span, service, rpc)
             addHttpAnnotations(span, ctx.request)
             ctx.complete(value)(traceServerSend(span))
 

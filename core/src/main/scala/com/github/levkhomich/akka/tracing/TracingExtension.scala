@@ -162,6 +162,19 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     }
 
   /**
+   * Enables message tracing, names and samples it. Message will be traced ignoring
+   * akka.tracing.sample-rate setting.
+   * @param ts traced message
+   * @param service service name
+   * @param rpc RPC name
+   */
+  def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
+    if (enabled) {
+      ts.sample()
+      holder ! Sample(ts, service, rpc, System.nanoTime)
+    }
+
+  /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
    * and samples it. After sampling any nth message (defined by akka.tracing.sample-rate setting)
    * will be actually traced.
@@ -170,6 +183,15 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    */
   def sample(ts: BaseTracingSupport, service: String): Unit =
     sample(ts, service, ts.getClass.getSimpleName)
+
+  /**
+   * Enables message tracing, names (rpc name is assumed to be message's class name)
+   * and samples it. Message will be traced ignoring akka.tracing.sample-rate setting.
+   * @param ts traced message
+   * @param service service name
+   */
+  def forcedSample(ts: BaseTracingSupport, service: String): Unit =
+    forcedSample(ts, service, ts.getClass.getSimpleName)
 
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)

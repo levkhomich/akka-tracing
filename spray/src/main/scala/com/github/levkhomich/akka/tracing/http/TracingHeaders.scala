@@ -16,6 +16,8 @@
 
 package com.github.levkhomich.akka.tracing.http
 
+import scala.util.Random
+
 import spray.http.HttpMessage
 
 import com.github.levkhomich.akka.tracing.{BaseTracingSupport, Span}
@@ -28,23 +30,46 @@ object TracingHeaders {
   val Sampled = "X-B3-Sampled"
   val Flags = "X-B3-Flags"
 
+  private[this] val DebugFlag = 1L
+
   private[tracing] def headerByName(message: HttpMessage, name: String): Option[String] =
     message.headers.find(_.name == name).map(_.value)
 
-  private[tracing] def extractSpan(message: HttpMessage): Option[BaseTracingSupport] = {
-    headerByName(message, TraceId) -> headerByName(message, SpanId) match {
-      case (Some(traceId), Some(spanId)) =>
-        try {
+  private[tracing] def extractSpan(message: HttpMessage): Option[Span] = {
+    def extractSpanId: Long =
+      headerByName(message, SpanId).map(Span.fromString).getOrElse(Random.nextLong)
+    def isFlagSet(v: String, flag: Long): Boolean =
+      (java.lang.Long.parseLong(v) & flag) == flag
+
+    val traceIdOpt = headerByName(message, TraceId)
+    // debug flag forces sampling (see http://git.io/hdEVug)
+    val forceSampling =
+      if (headerByName(message, Flags).map(isFlagSet(_, DebugFlag)) == Some(true))
+        true
+      else
+        headerByName(message, Sampled).map(_ == "true").getOrElse(false)
+
+    try {
+      traceIdOpt.map(traceId =>
+        Span(
+          Some(Span.fromString(traceId)),
+          extractSpanId,
+          headerByName(message, ParentSpanId).map(Span.fromString),
+          forceSampling
+        )
+      ).orElse(
+        if (forceSampling)
           Some(Span(
-            Some(Span.fromString(traceId)),
-            Span.fromString(spanId),
-            headerByName(message, ParentSpanId).map(Span.fromString)
+            Some(Random.nextLong),
+            extractSpanId,
+            None,
+            forceSampling
           ))
-        } catch {
-          case e: NumberFormatException =>
-            None
-        }
-      case _ =>
+        else
+          None
+      )
+    } catch {
+      case e: NumberFormatException =>
         None
     }
   }
