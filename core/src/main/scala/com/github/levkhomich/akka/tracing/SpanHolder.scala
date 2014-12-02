@@ -20,6 +20,7 @@ import java.net.{SocketException, NoRouteToHostException, ConnectException, Inet
 import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
+
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
@@ -28,6 +29,7 @@ import scala.util.{Failure, Success}
 import scala.util.control.ControlThrowable
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
+import org.apache.thrift.TApplicationException
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TTransportException, TTransport}
 
@@ -189,6 +191,8 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           e match {
             case te: TTransportException =>
               te.getCause match {
+                case null =>
+                  log.error("Thrift transport error: " + te.getMessage)
                 case e: ConnectException =>
                   log.error("Can't connect to Zipkin: " + e.getMessage)
                 case e: NoRouteToHostException =>
@@ -199,6 +203,8 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
                   log.error("Unknown transport error: " + TracingExtension.getStackTrace(t))
               }
               TracingExtension(context.system).markCollectorAsUnavailable()
+            case t: TApplicationException =>
+              log.error("Thrift client error: " + t.getMessage)
             case t: Throwable =>
               log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
           }
