@@ -110,6 +110,9 @@ project/plugins/project/
 ### Linux ###
 *~
 
+### Mac OS ###
+.DS_Store
+
 
 ### Windows ###
 # Windows image file caches
