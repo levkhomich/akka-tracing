@@ -74,7 +74,7 @@ object AkkaTracingBuild extends Build {
         // workaround for sbt-pgp
         packagedArtifacts := Map.empty
       )
-  ).aggregate(core, spray)
+  ).aggregate(core, spray, play)
 
   lazy val core = Project(
     id = "akka-tracing-core",
@@ -108,6 +108,20 @@ object AkkaTracingBuild extends Build {
             Dependencies.test
       )
   ).dependsOn(core)
+
+  lazy val play = Project(
+    id = "akka-tracing-play",
+    base = file("play"),
+    settings =
+      commonSettings ++
+      publicationSettings ++ Seq(
+        name := "Akka Tracing: Play",
+        libraryDependencies ++=
+            Dependencies.play ++
+            Dependencies.test,
+        resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
+      )
+  ).dependsOn(core)
 }
 
 object Dependencies {
@@ -115,6 +129,7 @@ object Dependencies {
   object Compile {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % "2.3.7"
     val sprayRouting = "io.spray"          %% "spray-routing"       % "1.3.2"
+    val play         = "com.typesafe.play" %% "play"                % "2.3.7"
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
     val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
@@ -128,6 +143,7 @@ object Dependencies {
 
   val akka = Seq(Compile.akkaActor, Compile.config)
   val spray = Seq(Compile.sprayRouting)
+  val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
   val test = Seq(Test.specs, Test.finagle, Test.sprayCan)
 }
