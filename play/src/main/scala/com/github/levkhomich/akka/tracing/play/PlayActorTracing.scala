@@ -40,7 +40,7 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
   override private[tracing] def $traceId: Option[Long] =
     headers.tags.get(TracingHeaders.TraceId).map(java.lang.Long.parseLong(_))
 
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): AnyRef =
+  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport =
     throw new IllegalStateException()
 
   override private[tracing] def $parentId: Option[Long] =

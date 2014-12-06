@@ -25,7 +25,7 @@ trait BaseTracingSupport extends Any {
   private[tracing] def $traceId: Option[Long]
   private[tracing] def $parentId: Option[Long]
 
-  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): AnyRef
+  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
 
   private[tracing] def sample(): Unit
   private[tracing] def isSampled: Boolean
@@ -45,7 +45,7 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
    * @param ts parent message
    * @return child message with required tracing headers
    */
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): AnyRef = {
+  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
     require(!isSampled)
     tracer.createChildSpan($spanId, ts)
     $parentId = Some(ts.$spanId)
