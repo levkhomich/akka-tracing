@@ -1,5 +1,6 @@
 New features:
 
+* Play framework support;
 * tracing flags support;
 * reusable thrift transport to reduce GC overhead;
 * better interoperation with spray-json formats for messages with `TracingSupport`;

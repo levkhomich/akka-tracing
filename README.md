@@ -4,7 +4,8 @@ Akka Tracing  [![Build Status](https://travis-ci.org/levkhomich/akka-tracing.png
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
 
 It allows you to:
-- trace distributed hierarchy calls (akka-remote, akka-cluster, Finagle services, etc.);
+- debug requests in your Play, Spray and Finagle projects;
+- trace distributed hierarchy calls (akka-remote, akka-cluster, finagle services, etc.);
 - find slow requests in your system;
 - debug request processing pipeline (you can log to trace, annotate it with custom key-value pairs).
 
