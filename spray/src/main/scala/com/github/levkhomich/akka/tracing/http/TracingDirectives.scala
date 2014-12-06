@@ -31,6 +31,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   import spray.routing.directives.RouteDirectives._
   import spray.routing.directives.MiscDirectives._
   import TracingHeaders._
+  import TracingDirectivesHelper._
 
   private def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {

@@ -1,12 +1,13 @@
 package com.github.levkhomich.akka.tracing.japi;
 
-import com.github.levkhomich.akka.tracing.BaseTracingSupport;
-import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
+import java.util.Random;
+import java.io.Serializable;
 import scala.Option;
 
-import java.util.Random;
+import com.github.levkhomich.akka.tracing.BaseTracingSupport;
+import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
 
-public abstract class TracingSupport implements BaseTracingSupport {
+public abstract class TracingSupport implements BaseTracingSupport, Serializable {
 
     private long spanId = new Random().nextLong();
     private Option<Object> traceId = Option.empty();

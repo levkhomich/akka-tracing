@@ -22,20 +22,16 @@ import spray.http.HttpMessage
 
 import com.github.levkhomich.akka.tracing.{BaseTracingSupport, Span}
 
-// see https://github.com/twitter/finagle/blob/master/finagle-http/src/main/scala/com/twitter/finagle/http/Codec.scala
-object TracingHeaders {
-  val TraceId = "X-B3-TraceId"
-  val SpanId = "X-B3-SpanId"
-  val ParentSpanId = "X-B3-ParentSpanId"
-  val Sampled = "X-B3-Sampled"
-  val Flags = "X-B3-Flags"
+private[http] object TracingDirectivesHelper {
+
+  import TracingHeaders._
 
   private[this] val DebugFlag = 1L
 
-  private[tracing] def headerByName(message: HttpMessage, name: String): Option[String] =
+  def headerByName(message: HttpMessage, name: String): Option[String] =
     message.headers.find(_.name == name).map(_.value)
 
-  private[tracing] def extractSpan(message: HttpMessage): Option[Span] = {
+  def extractSpan(message: HttpMessage): Option[Span] = {
     def extractSpanId: Long =
       headerByName(message, SpanId).map(Span.fromString).getOrElse(Random.nextLong)
     def isFlagSet(v: String, flag: Long): Boolean =

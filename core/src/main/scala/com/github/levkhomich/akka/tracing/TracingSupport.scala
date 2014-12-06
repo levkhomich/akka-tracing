@@ -18,14 +18,14 @@ package com.github.levkhomich.akka.tracing
 
 import scala.util.Random
 
-trait BaseTracingSupport extends Serializable {
+trait BaseTracingSupport extends Any {
 
   // use $ to provide better compatibility with spray-json
   private[tracing] def $spanId: Long
   private[tracing] def $traceId: Option[Long]
   private[tracing] def $parentId: Option[Long]
 
-  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type
+  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): AnyRef
 
   private[tracing] def sample(): Unit
   private[tracing] def isSampled: Boolean
@@ -34,7 +34,7 @@ trait BaseTracingSupport extends Serializable {
 /**
  * Trait to be mixed with messages that should support tracing.
  */
-trait TracingSupport extends BaseTracingSupport {
+trait TracingSupport extends BaseTracingSupport with Serializable {
 
   private[tracing] var $spanId = Random.nextLong()
   private[tracing] var $traceId: Option[Long] = None
@@ -45,7 +45,7 @@ trait TracingSupport extends BaseTracingSupport {
    * @param ts parent message
    * @return child message with required tracing headers
    */
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): AnyRef = {
     require(!isSampled)
     tracer.createChildSpan($spanId, ts)
     $parentId = Some(ts.$spanId)
