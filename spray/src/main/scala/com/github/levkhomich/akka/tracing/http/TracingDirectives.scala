@@ -119,9 +119,15 @@ trait TracingDirectives { this: Actor with ActorTracing =>
 
   private def addHttpAnnotations(ts: BaseTracingSupport, request: HttpRequest): Unit = {
     // TODO: use batching
-    trace.recordKeyValue(ts, "http.uri", request.uri.toString())
+    trace.recordKeyValue(ts, "request.uri", request.uri.toString())
+    trace.recordKeyValue(ts, "request.path", request.uri.path.toString())
+    trace.recordKeyValue(ts, "request.method", request.method.name)
+    trace.recordKeyValue(ts, "request.proto", request.protocol.value)
+    request.uri.query.toMultiMap.foreach { case (key, values) =>
+      values.foreach(trace.recordKeyValue(ts, "request.query." + key, _))
+    }
     request.headers.foreach { header =>
-      trace.recordKeyValue(ts, "http.header." + header.name, header.value)
+      trace.recordKeyValue(ts, "request.headers." + header.name, header.value)
     }
   }
 
