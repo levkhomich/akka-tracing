@@ -27,19 +27,13 @@ import com.github.levkhomich.akka.tracing.{TracingExtension, TracingExtensionImp
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 
-trait TracingSettings extends GlobalSettings {
-
-  protected implicit def requestHeader2TracingSupport(headers: RequestHeader): PlayRequestTracingSupport =
-    new PlayRequestTracingSupport(headers)
-
-  protected def trace: TracingExtensionImpl = TracingExtension(play.libs.Akka.system)
+trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   protected def sample(request: RequestHeader): Unit =
     trace.sample(request, play.libs.Akka.system.name, request.path)
 
   protected def requestTraced(request: RequestHeader): Boolean =
     !request.path.startsWith("/assets")
-
 
   protected def extractTracingTags(request: RequestHeader): Map[String, String] = {
     val spanId = TracingHeaders.SpanId -> Random.nextLong.toString
