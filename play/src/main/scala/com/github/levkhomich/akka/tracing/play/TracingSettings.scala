@@ -30,6 +30,10 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   protected def sample(request: RequestHeader): Unit = {
     trace.sample(request, play.libs.Akka.system.name, request.method + " " + request.path)
+  }
+
+  protected def addHttpAnnotations(request: RequestHeader): Unit = {
+    // TODO: use batching
     trace.recordKeyValue(request, "request.path", request.path)
     trace.recordKeyValue(request, "request.method", request.method)
     trace.recordKeyValue(request, "request.secure", request.secure)
@@ -58,8 +62,10 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
     override def apply(request: RequestHeader) = {
-      if (requestTraced(request))
+      if (requestTraced(request)) {
         sample(request)
+        addHttpAnnotations(request)
+      }
       delegateAction(request)
     }
     
@@ -87,6 +93,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
           if (requestTraced(request)) {
             val taggedRequest = request.copy(tags = request.tags ++ extractTracingTags(request))
             sample(taggedRequest)
+            addHttpAnnotations(taggedRequest)
             trace.finish(taggedRequest)
             ws.f(taggedRequest)
           } else
