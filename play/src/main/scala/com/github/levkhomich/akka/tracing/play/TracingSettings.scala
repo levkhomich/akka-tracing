@@ -23,14 +23,25 @@ import scala.util.Random
 import play.api.GlobalSettings
 import play.api.mvc._
 
-import com.github.levkhomich.akka.tracing.{TracingExtension, TracingExtensionImpl}
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
-  protected def sample(request: RequestHeader): Unit =
-    trace.sample(request, play.libs.Akka.system.name, request.path)
+  protected def sample(request: RequestHeader): Unit = {
+    trace.sample(request, play.libs.Akka.system.name, request.method + " " + request.path)
+    trace.recordKeyValue(request, "request.path", request.path)
+    trace.recordKeyValue(request, "request.method", request.method)
+    trace.recordKeyValue(request, "request.secure", request.secure)
+    trace.recordKeyValue(request, "request.proto", request.version)
+    trace.recordKeyValue(request, "client.address", request.remoteAddress)
+    request.queryString.foreach { case (key, values) =>
+      values.foreach(trace.recordKeyValue(request, "request.query." + key, _))
+    }
+    request.headers.toMap.foreach { case (key, values) =>
+      values.foreach(trace.recordKeyValue(request, "request.headers." + key, _))
+    }
+  }
 
   protected def requestTraced(request: RequestHeader): Boolean =
     !request.path.startsWith("/assets")
@@ -74,8 +85,10 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
       case ws @ WebSocket(f) =>
         WebSocket[ws.FramesIn, ws.FramesOut](request =>
           if (requestTraced(request)) {
-            sample(request)
-            ws.f(request.copy(tags = request.tags ++ extractTracingTags(request)))
+            val taggedRequest = request.copy(tags = request.tags ++ extractTracingTags(request))
+            sample(taggedRequest)
+            trace.finish(taggedRequest)
+            ws.f(taggedRequest)
           } else
             ws.f(request)
         )(ws.inFormatter, ws.outFormatter)
