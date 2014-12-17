@@ -7,20 +7,21 @@ import scoverage.ScoverageSbtPlugin
 object AkkaTracingBuild extends Build {
 
   lazy val commonSettings =
-    Defaults.defaultSettings ++
     compilationSettings ++
     testSettings ++
+    publicationSettings ++
     Seq (
       organization := "com.github.levkhomich",
       version := "0.4-SNAPSHOT",
-      scalaVersion := "2.11.4",
-      crossScalaVersions := Seq("2.10.4", "2.11.4"),
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
+      startYear := Some(2014),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
     )
 
   lazy val compilationSettings =
     Seq(
+      scalaVersion := "2.11.4",
+      crossScalaVersions := Seq("2.10.4", "2.11.4"),
       javacOptions ++= Seq(
         "-Xlint:all"
       ),
@@ -33,7 +34,8 @@ object AkkaTracingBuild extends Build {
         "-Xcheckinit",
         "-Xlint",
         "-Xlog-reflective-calls"
-      )
+      ),
+      updateOptions := updateOptions.value.withCachedResolution(true)
     )
 
   lazy val testSettings =
@@ -67,7 +69,6 @@ object AkkaTracingBuild extends Build {
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
     pomExtra :=
-      <inceptionYear>2014</inceptionYear>
       <scm>
         <url>https://github.com/levkhomich/akka-tracing.git</url>
         <connection>scm:git:git@github.com:levkhomich/akka-tracing.git</connection>
@@ -91,7 +92,6 @@ object AkkaTracingBuild extends Build {
     base = file("."),
     settings =
       commonSettings ++
-      publicationSettings ++
       Seq(
         publish := (),
         publishLocal := (),
@@ -106,7 +106,7 @@ object AkkaTracingBuild extends Build {
     base = file("core"),
     settings =
       commonSettings ++
-      publicationSettings ++ Seq(
+      Seq(
         name := "Akka Tracing: Core",
         libraryDependencies ++=
           Dependencies.thrift ++
@@ -126,7 +126,7 @@ object AkkaTracingBuild extends Build {
     base = file("spray"),
     settings =
       commonSettings ++
-      publicationSettings ++ Seq(
+      Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=
             Dependencies.spray ++
@@ -139,7 +139,7 @@ object AkkaTracingBuild extends Build {
     base = file("play"),
     settings =
       commonSettings ++
-      publicationSettings ++ Seq(
+      Seq(
         name := "Akka Tracing: Play",
         libraryDependencies ++=
             Dependencies.play ++
