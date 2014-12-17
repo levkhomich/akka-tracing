@@ -1,5 +1,7 @@
 import sbt._
 import Keys._
+import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
+import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import scoverage.ScoverageSbtPlugin
 
 object AkkaTracingBuild extends Build {
@@ -12,6 +14,7 @@ object AkkaTracingBuild extends Build {
       organization := "com.github.levkhomich",
       version := "0.4-SNAPSHOT",
       scalaVersion := "2.11.4",
+      crossScalaVersions := Seq("2.10.4", "2.11.4"),
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
     )
@@ -36,15 +39,17 @@ object AkkaTracingBuild extends Build {
   lazy val testSettings =
     ScoverageSbtPlugin.instrumentSettings ++
     CoverallsPlugin.coverallsSettings ++
+    mimaDefaultSettings ++
     Seq(
       parallelExecution in Test := false,
+      // TODO: check why %% doesn't work
+      previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4-SNAPSHOT"),
       scalacOptions in Test ++= Seq("-Yrangepos"),
       testOptions in Test := Seq(Tests.Filter(!"true".equals(System.getenv("CI")) || !_.contains("Performance")))
     )
 
   lazy val publicationSettings = Seq(
     publishMavenStyle := true,
-    crossScalaVersions := Seq("2.10.4", "2.11.4"),
     javacOptions ++= Seq(
       "-source", "1.6",
       "-target", "1.6"
@@ -91,7 +96,8 @@ object AkkaTracingBuild extends Build {
         publish := (),
         publishLocal := (),
         // workaround for sbt-pgp
-        packagedArtifacts := Map.empty
+        packagedArtifacts := Map.empty,
+        previousArtifact := None
       )
   ).aggregate(core, spray, play)
 
@@ -138,6 +144,7 @@ object AkkaTracingBuild extends Build {
         libraryDependencies ++=
             Dependencies.play ++
             Dependencies.test,
+        previousArtifact := None,
         resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
       )
   ).dependsOn(core)
