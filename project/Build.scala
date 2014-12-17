@@ -18,7 +18,16 @@ object AkkaTracingBuild extends Build {
 
   lazy val compilationSettings =
     Seq(
-      scalacOptions in GlobalScope ++= Seq("-Xcheckinit", "-Xlint", "-deprecation", "-unchecked", "-feature", "-language:_")
+      scalacOptions in GlobalScope ++= Seq(
+        "-encoding", "utf8",
+        "-deprecation",
+        "-unchecked",
+        "-feature",
+        "-language:_",
+        "-Xcheckinit",
+        "-Xlint",
+        "-Xlog-reflective-calls"
+      )
     )
 
   lazy val testSettings =
@@ -33,6 +42,13 @@ object AkkaTracingBuild extends Build {
   lazy val publicationSettings = Seq(
     publishMavenStyle := true,
     crossScalaVersions := Seq("2.10.4", "2.11.1"),
+    javacOptions ++= Seq(
+      "-source", "1.6",
+      "-target", "1.6"
+    ),
+    scalacOptions ++= Seq(
+      "-target:jvm-1.6"
+    ),
     publishTo <<= version { v =>
       val nexus = "https://oss.sonatype.org/"
       if (v.trim.endsWith("SNAPSHOT"))
