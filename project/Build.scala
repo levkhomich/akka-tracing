@@ -18,6 +18,9 @@ object AkkaTracingBuild extends Build {
 
   lazy val compilationSettings =
     Seq(
+      javacOptions ++= Seq(
+        "-Xlint:all"
+      ),
       scalacOptions in GlobalScope ++= Seq(
         "-encoding", "utf8",
         "-deprecation",
