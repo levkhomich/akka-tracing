@@ -11,7 +11,7 @@ object AkkaTracingBuild extends Build {
     Seq (
       organization := "com.github.levkhomich",
       version := "0.4-SNAPSHOT",
-      scalaVersion := "2.11.1",
+      scalaVersion := "2.11.4",
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
     )
@@ -41,7 +41,7 @@ object AkkaTracingBuild extends Build {
 
   lazy val publicationSettings = Seq(
     publishMavenStyle := true,
-    crossScalaVersions := Seq("2.10.4", "2.11.1"),
+    crossScalaVersions := Seq("2.10.4", "2.11.4"),
     javacOptions ++= Seq(
       "-source", "1.6",
       "-target", "1.6"
