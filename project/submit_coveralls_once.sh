@@ -3,7 +3,8 @@
 DONE="./coveralls_done"
 
 if [ ! -f $DONE ]; then
-  sbt 'project akka-tracing-core' 'coveralls'
+  sbt clean coverage test coverageReport
+  sbt coverageAggregate 'project akka-tracing-root' coveralls
   if [ $? -eq 0 ]; then
     touch $DONE
   fi

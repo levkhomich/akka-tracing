@@ -2,7 +2,8 @@ import sbt._
 import Keys._
 import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import scoverage.ScoverageSbtPlugin
+import org.scoverage.coveralls.CoverallsPlugin
+import org.scoverage.coveralls.CoverallsPlugin.CoverallsKeys._
 
 object AkkaTracingBuild extends Build {
 
@@ -39,8 +40,7 @@ object AkkaTracingBuild extends Build {
     )
 
   lazy val testSettings =
-    ScoverageSbtPlugin.instrumentSettings ++
-    CoverallsPlugin.coverallsSettings ++
+    CoverallsPlugin.projectSettings ++
     mimaDefaultSettings ++
     Seq(
       parallelExecution in Test := false,
@@ -95,6 +95,9 @@ object AkkaTracingBuild extends Build {
       Seq(
         publish := (),
         publishLocal := (),
+        // aggregation is performed by coverageAggregate, so we can skip regular one
+        aggregate in coveralls := false,
+        childCoberturaFiles := Seq.empty,
         // workaround for sbt-pgp
         packagedArtifacts := Map.empty,
         previousArtifact := None

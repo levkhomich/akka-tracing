@@ -24,4 +24,4 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq thrift-compiler
 
-#script: "sbt clean scoverage:test coveralls"
+after_script: "project/submit_coveralls_once.sh"
