@@ -207,9 +207,9 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (enabled && ts.isSampled)
       holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
 
-  private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
+  private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport, spanName: String): Unit =
     if (enabled && ts.isSampled)
-      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, ts.spanName)
+      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, spanName)
 
   def setSampleRate(newSampleRate: Int): Unit =
     sampleRate = newSampleRate

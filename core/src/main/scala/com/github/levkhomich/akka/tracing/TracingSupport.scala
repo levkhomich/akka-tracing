@@ -52,7 +52,7 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
    */
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
     require(!isSampled)
-    tracer.createChildSpan($spanId, ts)
+    tracer.createChildSpan($spanId, ts, spanName)
     $parentId = Some(ts.$spanId)
     $traceId = ts.$traceId
     this
