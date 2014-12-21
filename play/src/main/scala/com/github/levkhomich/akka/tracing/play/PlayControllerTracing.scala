@@ -26,6 +26,6 @@ trait PlayControllerTracing {
   protected implicit def requestHeader2TracingSupport(headers: RequestHeader): PlayRequestTracingSupport =
     new PlayRequestTracingSupport(headers)
 
-  protected def trace: TracingExtensionImpl = TracingExtension(play.libs.Akka.system)
+  protected implicit def trace: TracingExtensionImpl = TracingExtension(play.libs.Akka.system)
 
 }
