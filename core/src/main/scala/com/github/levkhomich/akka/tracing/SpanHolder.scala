@@ -37,6 +37,7 @@ import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 
 private[tracing] object SpanHolderInternalAction {
   final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
+  final case class Receive(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
   final case class Enqueue(spanId: Long, cancelJob: Boolean)
   case object SendEnqueued
   final case class AddAnnotation(spanId: Long, timestamp: Long, msg: String)
@@ -81,11 +82,18 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
       lookup(ts.$spanId) match {
         case None =>
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
-          val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(timestamp), thrift.zipkinConstants.SERVER_RECV)
-          serverRecvAnn.set_host(endpoint)
-          val annotations = new util.ArrayList[thrift.Annotation]()
-          annotations.add(serverRecvAnn)
+          val annotations = recvAnnotationList(timestamp, endpoint)
           createSpan(ts.$spanId, ts.$parentId, ts.$traceId.get, rpcName, annotations)
+          endpoints.put(ts.$spanId, endpoint)
+
+        case _ =>
+      }
+
+    case Receive(ts, serviceName, rpcName, timestamp) =>
+      lookup(ts.$spanId) match {
+        case Some(span) if span.get_annotations_size() == 0 =>
+          val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
+          span.set_annotations(recvAnnotationList(timestamp, endpoint))
           endpoints.put(ts.$spanId, endpoint)
 
         case _ =>
@@ -231,6 +239,14 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
 
   private def endpointFor(spanId: Long): thrift.Endpoint =
     endpoints.get(spanId).getOrElse(unknownEndpoint)
+
+  private def recvAnnotationList(nanoTime: Long, endpont: thrift.Endpoint): util.ArrayList[thrift.Annotation] = {
+    val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), thrift.zipkinConstants.SERVER_RECV)
+    serverRecvAnn.set_host(endpont)
+    val annotations = new util.ArrayList[thrift.Annotation]()
+    annotations.add(serverRecvAnn)
+    annotations
+  }
 
   private def scheduleNextBatch(): Unit =
     if (TracingExtension(context.system).enabled) {
