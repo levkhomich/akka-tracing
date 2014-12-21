@@ -196,12 +196,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     forcedSample(ts, service, ts.spanName)
 
   /**
-   * Marks request processing start. Should be used on pair with span.asChildOf on
-   * receiving actor side.
+   * Marks request processing start.
    * @param ts traced message
    * @param service service name
    */
-  def start(ts: BaseTracingSupport, service: String): Unit =
+  private[tracing] def start(ts: BaseTracingSupport, service: String): Unit =
     if (enabled && ts.isSampled)
       holder ! Receive(ts, service, ts.spanName, System.nanoTime)
 

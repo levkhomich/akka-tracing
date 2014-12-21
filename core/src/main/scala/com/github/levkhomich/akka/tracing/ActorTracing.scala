@@ -16,6 +16,8 @@
 
 package com.github.levkhomich.akka.tracing
 
+import akka.AroundReceiveOverrideHack
+
 import scala.language.implicitConversions
 
 import akka.actor.Actor
@@ -32,10 +34,21 @@ import akka.actor.Actor
  * }
  * }}}
  */
-trait ActorTracing { self: Actor =>
+trait ActorTracing extends AroundReceiveOverrideHack { self: Actor =>
 
-  implicit def any2response[T](msg: T): ResponseTracingSupport[T] = new ResponseTracingSupport(msg)
+  protected def serviceName: String =
+    this.self.path.toString
 
-  implicit lazy val trace: TracingExtensionImpl = TracingExtension(context.system)
+  implicit def any2response[T](msg: T): ResponseTracingSupport[T] =
+    new ResponseTracingSupport(msg)
 
+  implicit lazy val trace: TracingExtensionImpl =
+    TracingExtension(context.system)
+
+  override protected final def aroundReceiveInt(receive: Receive, msg: Any): Unit =
+    msg match {
+      case ts: BaseTracingSupport if receive.isDefinedAt(msg) =>
+        trace.start(ts, serviceName)
+      case _ =>
+    }
 }
