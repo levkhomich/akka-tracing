@@ -19,12 +19,14 @@ package com.github.levkhomich.akka.tracing
 import akka.actor.{Actor, DiagnosticActorLogging}
 import akka.event.Logging.{InitializeLogger, LogEvent, LoggerInitialized, MDC, emptyMDC}
 
+import com.github.levkhomich.akka.tracing.http.TracingHeaders
+
 trait TracingActorLogging extends DiagnosticActorLogging {
 
   override def mdc(currentMessage: Any): MDC =
     currentMessage match {
       case ts: BaseTracingSupport =>
-        Map(TracingLogger.SpanIdField -> ts.$spanId)
+        Map(TracingHeaders.SpanId -> ts.$spanId)
       case _ =>
         emptyMDC
     }
@@ -38,7 +40,7 @@ class TracingLogger extends Actor with ActorTracing {
       sender() ! LoggerInitialized
 
     case e: LogEvent =>
-      e.mdc.get(TracingLogger.SpanIdField) match {
+      e.mdc.get(TracingHeaders.SpanId) match {
         case Some(spanId: Long) =>
           trace.record(spanId, e.getClass.getSimpleName + ": " + e.message)
         case _ =>
@@ -46,8 +48,4 @@ class TracingLogger extends Actor with ActorTracing {
       }
   }
 
-}
-
-private[this] object TracingLogger {
-  val SpanIdField = "spanId"
 }
