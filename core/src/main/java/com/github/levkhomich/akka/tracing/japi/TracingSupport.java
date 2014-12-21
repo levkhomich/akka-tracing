@@ -39,6 +39,11 @@ public abstract class TracingSupport implements BaseTracingSupport, Serializable
     }
 
     @Override
+    public String spanName() {
+        return this.getClass().getSimpleName();
+    }
+
+    @Override
     public BaseTracingSupport asChildOf(BaseTracingSupport ts, TracingExtensionImpl tracer) {
         tracer.createChildSpan(spanId, ts);
         parentId = scala.Option.apply((Object) ts.$spanId());

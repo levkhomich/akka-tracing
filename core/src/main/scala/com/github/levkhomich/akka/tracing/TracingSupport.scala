@@ -25,6 +25,8 @@ trait BaseTracingSupport extends Any {
   private[tracing] def $traceId: Option[Long]
   private[tracing] def $parentId: Option[Long]
 
+  protected[tracing] def spanName: String
+
   def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
 
   private[tracing] def sample(): Unit
@@ -39,6 +41,9 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
   private[tracing] var $spanId = Random.nextLong()
   private[tracing] var $traceId: Option[Long] = None
   private[tracing] var $parentId: Option[Long] = None
+
+  override def spanName: String =
+    this.getClass.getSimpleName
 
   /**
    * Declares message as a child of another message.

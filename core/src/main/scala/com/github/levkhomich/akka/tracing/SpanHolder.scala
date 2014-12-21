@@ -41,7 +41,7 @@ private[tracing] object SpanHolderInternalAction {
   case object SendEnqueued
   final case class AddAnnotation(spanId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(spanId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
-  final case class CreateChildSpan(spanId: Long, parentId: Long, optTraceId: Option[Long])
+  final case class CreateChildSpan(spanId: Long, parentId: Long, optTraceId: Option[Long], spanName: String)
 }
 
 /**
@@ -114,10 +114,10 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
         spanInt.add_to_binary_annotations(a)
       }
 
-    case CreateChildSpan(spanId, parentId, optTraceId) =>
+    case CreateChildSpan(spanId, parentId, optTraceId, spanName) =>
       optTraceId match {
         case Some(traceId) =>
-          createSpan(spanId, Some(parentId), traceId)
+          createSpan(spanId, Some(parentId), traceId, spanName)
         case _ =>
           // do not sample if parent was not sampled
           None
@@ -149,7 +149,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
   private def lookup(id: Long): Option[thrift.Span] =
     spans.get(id)
 
-  private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String = null,
+  private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String,
                          annotations: util.List[thrift.Annotation] = null): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
     val span = new thrift.Span(traceId, name, id, annotations, null)

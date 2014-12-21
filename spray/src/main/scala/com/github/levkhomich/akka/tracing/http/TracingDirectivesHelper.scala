@@ -17,10 +17,8 @@
 package com.github.levkhomich.akka.tracing.http
 
 import scala.util.Random
-
 import spray.http.HttpMessage
-
-import com.github.levkhomich.akka.tracing.{BaseTracingSupport, Span}
+import com.github.levkhomich.akka.tracing.Span
 
 private[http] object TracingDirectivesHelper {
 

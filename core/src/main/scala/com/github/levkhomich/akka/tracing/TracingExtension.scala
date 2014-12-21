@@ -155,6 +155,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
+  @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     if (enabled && msgCounter.incrementAndGet() % sampleRate == 0) {
       ts.sample()
@@ -168,6 +169,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
+  @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
   def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     if (enabled) {
       ts.sample()
@@ -182,7 +184,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   def sample(ts: BaseTracingSupport, service: String): Unit =
-    sample(ts, service, ts.getClass.getSimpleName)
+    sample(ts, service, ts.spanName)
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -191,7 +193,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   def forcedSample(ts: BaseTracingSupport, service: String): Unit =
-    forcedSample(ts, service, ts.getClass.getSimpleName)
+    forcedSample(ts, service, ts.spanName)
 
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
@@ -207,7 +209,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport): Unit =
     if (enabled && ts.isSampled)
-      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId)
+      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, ts.spanName)
 
   def setSampleRate(newSampleRate: Int): Unit =
     sampleRate = newSampleRate

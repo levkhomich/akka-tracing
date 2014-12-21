@@ -29,7 +29,7 @@ import com.github.levkhomich.akka.tracing.http.TracingHeaders
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   protected def sample(request: RequestHeader): Unit = {
-    trace.sample(request, play.libs.Akka.system.name, request.method + " " + request.path)
+    trace.sample(request, play.libs.Akka.system.name)
   }
 
   protected def addHttpAnnotations(request: RequestHeader): Unit = {
