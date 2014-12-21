@@ -16,6 +16,9 @@
 
 package com.github.levkhomich.akka.tracing
 
+import java.io.IOException
+import java.lang.Thread.UncaughtExceptionHandler
+import java.net.ServerSocket
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
@@ -28,10 +31,12 @@ import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
 
 trait MockCollector {
 
+  val collectorPort = 9410
   var collector: TServer = startCollector()
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
   def startCollector(): TServer = {
+    checkIfPortIsAvalable(collectorPort)
 
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
@@ -42,7 +47,7 @@ trait MockCollector {
     }
     val processor = new thrift.Scribe.Processor(handler)
 
-    val transport = new TServerSocket(9410)
+    val transport = new TServerSocket(collectorPort)
     val collector = new TThreadPoolServer(
       new TThreadPoolServer.Args(transport).processor(processor).
         transportFactory(new TFramedTransport.Factory).protocolFactory(new TBinaryProtocol.Factory).minWorkerThreads(3)
@@ -56,6 +61,26 @@ trait MockCollector {
     }).start()
     Thread.sleep(3000)
     collector
+  }
+
+  def checkIfPortIsAvalable(port: Int): Unit = {
+    var socket: ServerSocket = null
+    try {
+      socket = new ServerSocket(port)
+    } catch {
+      case e: IOException =>
+        println("Can't start mock collector: " + e.getMessage)
+        throw new RuntimeException("Can't start mock collector", e)
+    } finally {
+      if (socket != null)
+        try {
+          socket.close()
+        } catch {
+          case e: IOException =>
+            println("Can't start mock collector: " + e.getMessage)
+            throw new RuntimeException("Can't start mock collector", e)
+        }
+    }
   }
 
   def decodeSpan(logEntryMessage: String): thrift.Span = {
