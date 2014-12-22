@@ -35,7 +35,7 @@ trait TracingActorLogging extends DiagnosticActorLogging {
 
 class TracingLogger extends Actor with ActorTracing {
 
-  def receive = {
+  def receive: Receive = {
     case InitializeLogger(_) =>
       sender() ! LoggerInitialized
 

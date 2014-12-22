@@ -32,7 +32,7 @@ private[tracing] final case class Span($traceId: Option[Long], $spanId: Long, $p
 
 private[tracing] object Span {
 
-  private val lookup: Array[Array[Char]] = (
+  private[this] val lookup: Array[Array[Char]] = (
     for (b <- Short.MinValue to Short.MaxValue) yield {
       val bb = if (b < 0) b - Short.MinValue * 2 else b
       val s = "%04x".format(bb)
@@ -40,7 +40,7 @@ private[tracing] object Span {
     }
   ).toArray
 
-  private def asChars(b: Long) =
+  private[this] def asChars(b: Long) =
     lookup((b & 0xffff).toShort - Short.MinValue)
 
   def asString(x: Long): String = {

@@ -241,10 +241,10 @@ object TracingExtension extends ExtensionId[TracingExtensionImpl] with Extension
   private[tracing] val AkkaTracingSampleRate = "akka.tracing.sample-rate"
   private[tracing] val AkkaTracingEnabled = "akka.tracing.enabled"
 
-  override def lookup() =
+  override def lookup(): this.type =
     TracingExtension
 
-  override def createExtension(system: ExtendedActorSystem) =
+  override def createExtension(system: ExtendedActorSystem): TracingExtensionImpl =
     new TracingExtensionImpl(system)
 
   override def get(system: ActorSystem): TracingExtensionImpl =
