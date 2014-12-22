@@ -20,12 +20,11 @@ import java.net.{SocketException, NoRouteToHostException, ConnectException, Inet
 import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
-
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Success}
+import scala.util.{Success, Try}
 import scala.util.control.ControlThrowable
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
@@ -139,13 +138,14 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     spans.keys.foreach(id =>
       enqueue(id, cancelJob = true)
     )
-    try {
+    Try {
       client.Log(nextBatch.map(spanToLogEntry))
       if (transport.isOpen)
         transport.close()
-    } catch {
-      case e: Throwable =>
+    } recover {
+      case e =>
         handleSubmissionError(e)
+        log.error(s"Zipkin collector is unavailable. Failed to send ${nextBatch.size} spans during postStop.")
     }
     super.postStop()
   }
@@ -182,33 +182,36 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
         if (!transport.isOpen) {
           transport.open()
           TracingExtension(context.system).markCollectorAsAvailable()
-          log.warning("Successfully reconnected to collector")
+          log.warning("Successfully connected to Zipkin collector.")
         }
         client.Log(submittedSpans)
-      }.onComplete {
+      } recover {
+        case e =>
+          handleSubmissionError(e)
+          // reconnect next time
+          transport.close()
+          thrift.ResultCode.TRY_LATER
+      } onComplete {
         case Success(thrift.ResultCode.OK) =>
           submittedSpans.clear()
           scheduleNextBatch()
 
-        case Success(response) =>
-          log.warning(s"Zipkin collector is busy: $response. Failed to send ${submittedSpans.size} spans.")
+        case _ =>
+          log.warning(s"Zipkin collector unavailable. Failed to send ${submittedSpans.size} spans.")
           limitSubmittedSpansSize()
-          scheduleNextBatch()
-
-        case Failure(e) =>
-          handleSubmissionError(e)
-          limitSubmittedSpansSize()
-          // reconnect next time
-          transport.close()
           scheduleNextBatch()
       }
     } else
       scheduleNextBatch()
   }
 
-  private[this] def limitSubmittedSpansSize(): Unit =
-    if (submittedSpans.size > maxSubmissionBufferSize)
+  private[this] def limitSubmittedSpansSize(): Unit = {
+    val delta = submittedSpans.size - maxSubmissionBufferSize
+    if (delta > 0) {
+      log.error(s"Dropping $delta spans because of maxSubmissionBufferSize policy.")
       submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
+    }
+  }
 
   private[this] def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     spanInt.write(protocolFactory.getProtocol(thriftBuffer))
@@ -257,7 +260,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     if (TracingExtension(context.system).enabled) {
       context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
     } else {
-      log.error("Retrying to recover connection in 10 seconds")
+      log.error("Trying to reconnect in 10 seconds")
       context.system.scheduler.scheduleOnce(10.seconds, self, SendEnqueued)
     }
 
