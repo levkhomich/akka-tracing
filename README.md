@@ -22,7 +22,7 @@ Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tr
 Development
 -----------
 
-[![Build Status](https://travis-ci.org/levkhomich/akka-tracing.svg?branch=master)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
+[![Build Status](https://travis-ci.org/levkhomich/akka-tracing.svg?branch=master)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
 
 Any contributions are welcome. [Issue tracker](https://github.com/levkhomich/akka-tracing/issues) is the place to report bugs to or take the tickets to work on.
 
