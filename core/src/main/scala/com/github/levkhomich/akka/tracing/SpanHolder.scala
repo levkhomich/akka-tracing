@@ -144,8 +144,8 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
       if (transport.isOpen)
         transport.close()
     } catch {
-      case ct: ControlThrowable => throw ct
-      case _: Throwable => // ignore
+      case e: Throwable =>
+        handleSubmissionError(e)
     }
     super.postStop()
   }
@@ -196,26 +196,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           scheduleNextBatch()
 
         case Failure(e) =>
-          e match {
-            case te: TTransportException =>
-              te.getCause match {
-                case null =>
-                  log.error("Thrift transport error: " + te.getMessage)
-                case e: ConnectException =>
-                  log.error("Can't connect to Zipkin: " + e.getMessage)
-                case e: NoRouteToHostException =>
-                  log.error("No route to Zipkin: " + e.getMessage)
-                case e: SocketException =>
-                  log.error("Socket error: " + TracingExtension.getStackTrace(e))
-                case t: Throwable =>
-                  log.error("Unknown transport error: " + TracingExtension.getStackTrace(t))
-              }
-              TracingExtension(context.system).markCollectorAsUnavailable()
-            case t: TApplicationException =>
-              log.error("Thrift client error: " + t.getMessage)
-            case t: Throwable =>
-              log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
-          }
+          handleSubmissionError(e)
           limitSubmittedSpansSize()
           // reconnect next time
           transport.close()
@@ -247,6 +228,30 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     annotations.add(serverRecvAnn)
     annotations
   }
+
+  private[this] def handleSubmissionError(e: Throwable): Unit =
+    e match {
+      case te: TTransportException =>
+        te.getCause match {
+          case null =>
+            log.error("Thrift transport error: " + te.getMessage)
+          case e: ConnectException =>
+            log.error("Can't connect to Zipkin: " + e.getMessage)
+          case e: NoRouteToHostException =>
+            log.error("No route to Zipkin: " + e.getMessage)
+          case e: SocketException =>
+            log.error("Socket error: " + TracingExtension.getStackTrace(e))
+          case t: Throwable =>
+            log.error("Unknown transport error: " + TracingExtension.getStackTrace(t))
+        }
+        TracingExtension(context.system).markCollectorAsUnavailable()
+      case t: TApplicationException =>
+        log.error("Thrift client error: " + t.getMessage)
+      case ct: ControlThrowable =>
+        throw ct
+      case t: Throwable =>
+        log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
+    }
 
   private[this] def scheduleNextBatch(): Unit =
     if (TracingExtension(context.system).enabled) {
