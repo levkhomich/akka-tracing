@@ -1,4 +1,4 @@
-Akka Tracing [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.levkhomich/akka-tracing-core_2.11/badge.svg?style=flat)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.github.levkhomich%22%20akka-tracing)
+Akka Tracing [![Maven Central](https://img.shields.io/maven-central/v/com.github.levkhomich/akka-tracing-core_2.11.svg?style=flat-square)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.github.levkhomich%22%20akka-tracing)
 ============
 
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
@@ -22,7 +22,7 @@ Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tr
 Development
 -----------
 
-[![Build Status](https://travis-ci.org/levkhomich/akka-tracing.svg?branch=master)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master)
+[![Build Status](https://img.shields.io/travis/levkhomich/akka-tracing/master.svg?style=flat-square)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat-square)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master) [![Issues](https://img.shields.io/github/issues/levkhomich/akka-tracing.svg?style=flat-square)](https://github.com/levkhomich/akka-tracing/issues)
 
-Any contributions are welcome. [Issue tracker](https://github.com/levkhomich/akka-tracing/issues) is the place to report bugs to or take the tickets to work on.
+Any contributions are welcome. [Issue tracker](https://github.com/levkhomich/akka-tracing/issues) is the place to report bugs or search for tickets to work on.
 
