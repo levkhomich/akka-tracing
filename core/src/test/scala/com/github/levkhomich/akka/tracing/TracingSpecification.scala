@@ -63,7 +63,7 @@ class TracingSpecification extends Specification with MockCollector {
       traceMessages(60, 2)
       traceMessages(500, 5)
 
-      Thread.sleep(7000)
+      Thread.sleep(10000)
       results.size() must beEqualTo(132)
     }
 
