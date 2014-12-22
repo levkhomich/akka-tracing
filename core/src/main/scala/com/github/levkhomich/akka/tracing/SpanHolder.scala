@@ -150,14 +150,14 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     super.postStop()
   }
 
-  private def adjustedMicroTime(nanoTime: Long): Long =
+  private[this] def adjustedMicroTime(nanoTime: Long): Long =
     microTimeAdjustment + nanoTime / 1000
 
   @inline
-  private def lookup(id: Long): Option[thrift.Span] =
+  private[this] def lookup(id: Long): Option[thrift.Span] =
     spans.get(id)
 
-  private def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String,
+  private[this] def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String,
                          annotations: util.List[thrift.Annotation] = null): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
     val span = new thrift.Span(traceId, name, id, annotations, null)
@@ -165,13 +165,13 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     spans.put(id, span)
   }
 
-  private def enqueue(id: Long, cancelJob: Boolean): Unit = {
+  private[this] def enqueue(id: Long, cancelJob: Boolean): Unit = {
     sendJobs.remove(id).foreach(job => if (cancelJob) job.cancel())
     spans.remove(id).foreach(span => nextBatch.append(span))
     endpoints.remove(id)
   }
 
-  private def send(): Unit = {
+  private[this] def send(): Unit = {
     import scala.collection.JavaConversions._
     if (!nextBatch.isEmpty) {
       submittedSpans ++= nextBatch.map(spanToLogEntry)
@@ -225,11 +225,11 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
       scheduleNextBatch()
   }
 
-  private def limitSubmittedSpansSize(): Unit =
+  private[this] def limitSubmittedSpansSize(): Unit =
     if (submittedSpans.size > maxSubmissionBufferSize)
       submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
 
-  private def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
+  private[this] def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     spanInt.write(protocolFactory.getProtocol(thriftBuffer))
     val thriftBytes = thriftBuffer.getArray.take(thriftBuffer.length)
     thriftBuffer.reset()
@@ -237,10 +237,10 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     new thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private def endpointFor(spanId: Long): thrift.Endpoint =
+  private[this] def endpointFor(spanId: Long): thrift.Endpoint =
     endpoints.get(spanId).getOrElse(unknownEndpoint)
 
-  private def recvAnnotationList(nanoTime: Long, endpont: thrift.Endpoint): util.ArrayList[thrift.Annotation] = {
+  private[this] def recvAnnotationList(nanoTime: Long, endpont: thrift.Endpoint): util.ArrayList[thrift.Annotation] = {
     val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), thrift.zipkinConstants.SERVER_RECV)
     serverRecvAnn.set_host(endpont)
     val annotations = new util.ArrayList[thrift.Annotation]()
@@ -248,7 +248,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     annotations
   }
 
-  private def scheduleNextBatch(): Unit =
+  private[this] def scheduleNextBatch(): Unit =
     if (TracingExtension(context.system).enabled) {
       context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
     } else {

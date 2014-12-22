@@ -33,7 +33,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   import TracingHeaders._
   import TracingDirectivesHelper._
 
-  private def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
+  private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
       case Right(value) :: optSpan :: request :: HNil =>
         optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
@@ -117,7 +117,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
       }
     }
 
-  private def addHttpAnnotations(ts: BaseTracingSupport, request: HttpRequest): Unit = {
+  private[this] def addHttpAnnotations(ts: BaseTracingSupport, request: HttpRequest): Unit = {
     // TODO: use batching
     trace.recordKeyValue(ts, "request.uri", request.uri.toString())
     trace.recordKeyValue(ts, "request.path", request.uri.path.toString())
@@ -131,7 +131,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     }
   }
 
-  private def traceServerSend[T](ts: BaseTracingSupport)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
+  private[this] def traceServerSend[T](ts: BaseTracingSupport)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
     new ToResponseMarshaller[T] {
       override def apply(value: T, ctx: ToResponseMarshallingContext): Unit = {
         val result = value

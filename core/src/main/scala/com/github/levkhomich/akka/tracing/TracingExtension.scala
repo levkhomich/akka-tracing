@@ -207,11 +207,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
-  private def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
+  private[this] def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
     if (enabled && ts.isSampled)
       holder ! AddAnnotation(ts.$spanId, System.nanoTime, value)
 
-  private def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
+  private[this] def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
     if (enabled && ts.isSampled)
       holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
