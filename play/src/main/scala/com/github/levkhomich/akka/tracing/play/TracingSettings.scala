@@ -20,7 +20,8 @@ import scala.collection.Map
 import scala.concurrent.Future
 import scala.util.Random
 
-import play.api.GlobalSettings
+import play.api.{GlobalSettings, Routes}
+import play.api.libs.iteratee.Iteratee
 import play.api.mvc._
 
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
@@ -39,6 +40,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     trace.recordKeyValue(request, "request.secure", request.secure)
     trace.recordKeyValue(request, "request.proto", request.version)
     trace.recordKeyValue(request, "client.address", request.remoteAddress)
+    // TODO: separate cookie records
     request.queryString.foreach { case (key, values) =>
       values.foreach(trace.recordKeyValue(request, "request.query." + key, _))
     }
@@ -61,7 +63,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   }
 
   protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
-    override def apply(request: RequestHeader) = {
+    override def apply(request: RequestHeader): Iteratee[Array[Byte], Result] = {
       if (requestTraced(request)) {
         sample(request)
         addHttpAnnotations(request)

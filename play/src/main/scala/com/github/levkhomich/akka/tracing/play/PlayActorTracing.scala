@@ -17,6 +17,7 @@
 package com.github.levkhomich.akka.tracing.play
 
 import akka.actor.Actor
+import play.api.Routes
 import play.api.mvc.RequestHeader
 
 import com.github.levkhomich.akka.tracing.{TracingExtensionImpl, BaseTracingSupport, ActorTracing}
@@ -40,8 +41,10 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
   override private[tracing] def $traceId: Option[Long] =
     headers.tags.get(TracingHeaders.TraceId).map(java.lang.Long.parseLong(_))
 
-  override protected[tracing] def spanName: String =
-    headers.method + " " + headers.path
+  override protected[tracing] def spanName: String = {
+    val route = headers.tags.get(Routes.ROUTE_PATTERN).getOrElse(headers.path)
+    headers.method + " " + route
+  }
 
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport =
     throw new IllegalStateException()
