@@ -30,7 +30,7 @@ import org.apache.thrift.transport.{TSocket, TFramedTransport}
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   import TracingExtension._
-  import SpanHolderInternalAction._
+  import SpanHolder._
 
   private[tracing] var enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
   private[this] val msgCounter = new AtomicLong()

@@ -21,9 +21,9 @@ import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Try}
 import scala.util.control.ControlThrowable
 
@@ -34,7 +34,7 @@ import org.apache.thrift.transport.{TTransportException, TTransport}
 
 import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 
-private[tracing] object SpanHolderInternalAction {
+private[tracing] object SpanHolder {
   final case class Sample(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
   final case class Receive(ts: BaseTracingSupport, serviceName: String, rpcName: String, timestamp: Long)
   final case class Enqueue(spanId: Long, cancelJob: Boolean)
@@ -49,7 +49,7 @@ private[tracing] object SpanHolderInternalAction {
  */
 private[tracing] class SpanHolder(transport: TTransport) extends Actor with ActorLogging {
 
-  import SpanHolderInternalAction._
+  import SpanHolder._
 
   // map of spanId -> span for uncompleted traces
   private[this] val spans = mutable.Map[Long, thrift.Span]()
@@ -84,7 +84,6 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           val annotations = recvAnnotationList(timestamp, endpoint)
           createSpan(ts.$spanId, ts.$parentId, ts.$traceId.get, rpcName, annotations)
           endpoints.put(ts.$spanId, endpoint)
-
         case _ =>
       }
 
@@ -94,7 +93,6 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
           span.set_annotations(recvAnnotationList(timestamp, endpoint))
           endpoints.put(ts.$spanId, endpoint)
-
         case _ =>
       }
 
@@ -121,14 +119,11 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
         spanInt.add_to_binary_annotations(a)
       }
 
-    case CreateChildSpan(spanId, parentId, optTraceId, spanName) =>
-      optTraceId match {
-        case Some(traceId) =>
-          createSpan(spanId, Some(parentId), traceId, spanName)
-        case _ =>
-          // do not sample if parent was not sampled
-          None
-      }
+    case CreateChildSpan(spanId, parentId, maybeTraceId, spanName) =>
+      // do not sample if parent was not sampled
+      maybeTraceId.foreach(
+        createSpan(spanId, Some(parentId), _, spanName)
+      )
   }
 
   override def postStop(): Unit = {
@@ -140,8 +135,9 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     )
     Try {
       client.Log(nextBatch.map(spanToLogEntry))
-      if (transport.isOpen)
+      if (transport.isOpen) {
         transport.close()
+      }
     } recover {
       case e =>
         handleSubmissionError(e)
@@ -158,7 +154,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     spans.get(id)
 
   private[this] def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String,
-                         annotations: util.List[thrift.Annotation] = null): Unit = {
+                               annotations: util.List[thrift.Annotation] = null): Unit = {
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
     val span = new thrift.Span(traceId, name, id, annotations, null)
     parentId.foreach(span.set_parent_id)
@@ -195,14 +191,14 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
         case Success(thrift.ResultCode.OK) =>
           submittedSpans.clear()
           scheduleNextBatch()
-
         case _ =>
           log.warning(s"Zipkin collector unavailable. Failed to send ${submittedSpans.size} spans.")
           limitSubmittedSpansSize()
           scheduleNextBatch()
       }
-    } else
+    } else {
       scheduleNextBatch()
+    }
   }
 
   private[this] def limitSubmittedSpansSize(): Unit = {
@@ -263,6 +259,5 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
       log.error("Trying to reconnect in 10 seconds")
       context.system.scheduler.scheduleOnce(10.seconds, self, SendEnqueued)
     }
-
 
 }
