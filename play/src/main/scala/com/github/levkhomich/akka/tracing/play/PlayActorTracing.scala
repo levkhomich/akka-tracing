@@ -34,7 +34,14 @@ trait PlayActorTracing extends ActorTracing { self: Actor =>
 class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with BaseTracingSupport {
 
   override private[tracing] def $spanId: Long =
-    headers.tags.get(TracingHeaders.SpanId).map(java.lang.Long.parseLong(_)).get
+    headers.tags.get(TracingHeaders.SpanId).map(java.lang.Long.parseLong(_)) match {
+      case Some(spanId) =>
+        spanId
+      case _ =>
+        throw new IllegalStateException(
+          "Traced request was not properly tagged. Probably, TracingSettings was not mixed into global Play config."
+        )
+    }
 
   override private[tracing] def sample(): Unit = {}
 
