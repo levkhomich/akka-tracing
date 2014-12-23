@@ -34,7 +34,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] var enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
   private[this] val msgCounter = new AtomicLong()
-  @volatile private[this] var sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
+  private[this] val sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
   private[tracing] val holder = {
     val config = system.settings.config
@@ -220,8 +220,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (enabled && ts.isSampled)
       holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, spanName)
 
-  def setSampleRate(newSampleRate: Int): Unit =
-    sampleRate = newSampleRate
 }
 
 /**

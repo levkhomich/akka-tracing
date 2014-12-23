@@ -17,7 +17,6 @@
 package com.github.levkhomich.akka.tracing
 
 import java.io.IOException
-import java.lang.Thread.UncaughtExceptionHandler
 import java.net.ServerSocket
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue

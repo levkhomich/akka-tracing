@@ -21,14 +21,7 @@ import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.util.Random
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import org.specs2.mutable.Specification
-
-class PerformanceSpecification extends Specification with MockCollector {
-
-  val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
-  implicit val trace = TracingExtension(system)
+class PerformanceSpecification extends AkkaTracingSpecification with MockCollector {
 
   sequential
 
@@ -37,9 +30,11 @@ class PerformanceSpecification extends Specification with MockCollector {
     val ExpectedTPS = 70000
     val BenchmarkSampleRate = 10
 
+    val system = testActorSystem(BenchmarkSampleRate)
+    implicit val trace = TracingExtension(system)
+
     s"process more than $ExpectedTPS traces per second using single thread" in {
       val SpanCount = ExpectedTPS * 4
-      trace.setSampleRate(BenchmarkSampleRate)
 
       val startingTime = System.currentTimeMillis()
       for (_ <- 1 to SpanCount) {
@@ -55,6 +50,12 @@ class PerformanceSpecification extends Specification with MockCollector {
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
       results.size() must beEqualTo(SpanCount / BenchmarkSampleRate)
+    }
+
+    "shutdown correctly" in {
+      system.shutdown()
+      collector.stop()
+      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
     }
 
   }
@@ -88,12 +89,6 @@ class PerformanceSpecification extends Specification with MockCollector {
       percentDelta must beGreaterThan(-10L)
     }
 
-  }
-
-  "shutdown correctly" in {
-    system.shutdown()
-    collector.stop()
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
 }

@@ -16,17 +16,17 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.util.UUID
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.{ActorRef, Props, ActorSystem}
-import com.typesafe.config.ConfigFactory
-import org.specs2.mutable.Specification
 
-case class StringMessage(content: String) extends TracingSupport
+case class StringMessage(content: String) extends TracingSupport {
+  override def spanName: String =
+    "message-" + Math.abs(content.hashCode) % 50
+}
 
 class TestActor extends TracingActorLogging with ActorTracing {
   override def receive: Receive = {
@@ -39,37 +39,33 @@ class TestActor extends TracingActorLogging with ActorTracing {
   }
 }
 
-class TracingSpecification extends Specification with MockCollector {
+class TracingSpecification extends AkkaTracingSpecification with MockCollector {
 
-  val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
+  val system: ActorSystem = testActorSystem()
   implicit val trace = TracingExtension(system)
 
   sequential
 
-  def traceMessages(count: Int, sampleRate: Int = 1): Unit = {
-    trace.setSampleRate(sampleRate)
-    println(s"test: sending $count messages (sample rate = $sampleRate)")
-    for (_ <- 1 to count) {
-      val msg = StringMessage(UUID.randomUUID().toString)
-      trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
-      trace.finish(msg)
-    }
-  }
-
   "TracingExtension" should {
 
-    "sample traces" in {
-      traceMessages(2, 1)
-      traceMessages(60, 2)
-      traceMessages(500, 5)
+    "sample at specified rate" in {
+      def generateTracesWithSampleRate(count: Int, sampleRate: Int): Unit = {
+        val system = testActorSystem(sampleRate)
+        generateTraces(count, TracingExtension(system))
+        Thread.sleep(3000)
+        system.shutdown()
+        system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
+      }
 
-      Thread.sleep(10000)
+      generateTracesWithSampleRate(2, 1)
+      generateTracesWithSampleRate(60, 2)
+      generateTracesWithSampleRate(500, 5)
+
       results.size() must beEqualTo(132)
     }
 
     "pipe logs to traces" in {
       results.clear()
-      trace.setSampleRate(1)
 
       val testActor = system.actorOf(Props[TestActor])
 
@@ -88,7 +84,6 @@ class TracingSpecification extends Specification with MockCollector {
 
     "track call hierarchy" in {
       results.clear()
-      trace.setSampleRate(1)
 
       val testActor: ActorRef = system.actorOf(Props[TestActor])
 
@@ -132,13 +127,13 @@ class TracingSpecification extends Specification with MockCollector {
 
     "handle collector connectivity problems" in {
       // collector won't stop until some message's arrival
-      traceMessages(1, 1)
+      generateTraces(1, trace)
       collector.stop()
 
       Thread.sleep(3000)
       results.clear()
 
-      traceMessages(100)
+      generateTraces(100, trace)
 
       // wait for submission while collector is down
       Thread.sleep(3000)

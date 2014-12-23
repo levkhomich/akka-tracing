@@ -19,13 +19,9 @@ package com.github.levkhomich.akka.tracing
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import org.specs2.mutable.Specification
+class TracingSupportSpecification extends AkkaTracingSpecification {
 
-class TracingSupportSpecification extends Specification {
-
-  val system: ActorSystem = ActorSystem("TestSystem", ConfigFactory.empty())
+  val system = testActorSystem()
   implicit val trace = TracingExtension(system)
 
   sequential
