@@ -34,22 +34,19 @@ trait PlayActorTracing extends ActorTracing { self: Actor =>
 class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with BaseTracingSupport {
 
   override private[tracing] def $spanId: Long =
-    headers.tags.get(TracingHeaders.SpanId).map(java.lang.Long.parseLong(_)) match {
-      case Some(spanId) =>
-        spanId
-      case _ =>
-        throw new IllegalStateException(
-          "Traced request was not properly tagged. Probably, TracingSettings was not mixed into global Play config."
-        )
-    }
+    headers.tags.get(TracingHeaders.SpanId).map(java.lang.Long.parseLong).getOrElse(
+      throw new IllegalStateException(
+        "Traced request was not properly tagged. Probably, TracingSettings was not mixed into global Play config."
+      )
+    )
 
   override private[tracing] def sample(): Unit = {}
 
   override private[tracing] def $traceId: Option[Long] =
-    headers.tags.get(TracingHeaders.TraceId).map(java.lang.Long.parseLong(_))
+    headers.tags.get(TracingHeaders.TraceId).map(java.lang.Long.parseLong)
 
   override protected[tracing] def spanName: String = {
-    val route = headers.tags.get(Routes.ROUTE_PATTERN).getOrElse(headers.path)
+    val route = headers.tags.getOrElse(Routes.ROUTE_PATTERN, headers.path)
     headers.method + " " + route
   }
 
@@ -57,7 +54,7 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
     throw new IllegalStateException()
 
   override private[tracing] def $parentId: Option[Long] =
-    headers.tags.get(TracingHeaders.ParentSpanId).map(java.lang.Long.parseLong(_))
+    headers.tags.get(TracingHeaders.ParentSpanId).map(java.lang.Long.parseLong)
 
   override private[tracing] def isSampled: Boolean =
     headers.tags.get(TracingHeaders.TraceId).isDefined
