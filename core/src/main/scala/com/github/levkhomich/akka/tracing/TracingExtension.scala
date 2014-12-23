@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 import akka.actor._
 import org.apache.thrift.transport.{TSocket, TFramedTransport}
@@ -32,14 +32,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolder._
 
-  private[tracing] var enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+  private[this] val enabled = new AtomicBoolean(system.settings.config.getBoolean(AkkaTracingEnabled))
   private[this] val msgCounter = new AtomicLong()
   private[this] val sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
   private[tracing] val holder = {
     val config = system.settings.config
 
-    if (config.hasPath(AkkaTracingHost) && enabled) {
+    if (config.hasPath(AkkaTracingHost) && isEnabled) {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
@@ -49,11 +49,15 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     }
   }
 
+  @inline
+  private[tracing] def isEnabled: Boolean =
+    enabled.get()
+
   private[tracing] def markCollectorAsUnavailable(): Unit =
-    enabled = false
+    enabled.set(false)
 
   private[tracing] def markCollectorAsAvailable(): Unit =
-    if (!enabled) enabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+    if (!enabled.get()) enabled.set(system.settings.config.getBoolean(AkkaTracingEnabled))
 
   /**
    * Records string message and attaches it to timeline.
@@ -73,7 +77,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     record(ts, getStackTrace(e))
 
   private[tracing] def record(spanId: Long, msg: String): Unit =
-    if (enabled)
+    if (isEnabled)
       holder ! AddAnnotation(spanId, System.nanoTime, msg)
 
   /**
@@ -157,7 +161,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    */
   @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    if (enabled && msgCounter.incrementAndGet() % sampleRate == 0) {
+    if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
       ts.sample()
       holder ! Sample(ts, service, rpc, System.nanoTime)
     }
@@ -171,7 +175,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    */
   @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
   def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    if (enabled) {
+    if (isEnabled) {
       ts.sample()
       holder ! Sample(ts, service, rpc, System.nanoTime)
     }
@@ -201,23 +205,23 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   private[tracing] def start(ts: BaseTracingSupport, service: String): Unit =
-    if (enabled && ts.isSampled)
+    if (isEnabled && ts.isSampled)
       holder ! Receive(ts, service, ts.spanName, System.nanoTime)
 
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   private[this] def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    if (enabled && ts.isSampled)
+    if (isEnabled && ts.isSampled)
       holder ! AddAnnotation(ts.$spanId, System.nanoTime, value)
 
   private[this] def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                   valueType: thrift.AnnotationType): Unit =
-    if (enabled && ts.isSampled)
+    if (isEnabled && ts.isSampled)
       holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
 
   private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport, spanName: String): Unit =
-    if (enabled && ts.isSampled)
+    if (isEnabled && ts.isSampled)
       holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, spanName)
 
 }

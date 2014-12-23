@@ -253,7 +253,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     }
 
   private[this] def scheduleNextBatch(): Unit =
-    if (TracingExtension(context.system).enabled) {
+    if (TracingExtension(context.system).isEnabled) {
       context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
     } else {
       log.error("Trying to reconnect in 10 seconds")
