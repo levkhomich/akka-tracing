@@ -16,6 +16,8 @@
 
 package com.github.levkhomich.akka.tracing.http
 
+import scala.util.Success
+
 import akka.actor.Actor
 import shapeless._
 import spray.http.{HttpRequest, HttpResponse}
@@ -30,12 +32,11 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   import spray.routing.directives.BasicDirectives._
   import spray.routing.directives.RouteDirectives._
   import spray.routing.directives.MiscDirectives._
-  import TracingHeaders._
   import TracingDirectivesHelper._
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
-      case Right(value) :: optSpan :: request :: HNil =>
+      case Right(value) :: Success(optSpan) :: request :: HNil =>
         optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
         if (optSpan.map(_.forceSampling).getOrElse(false))
           trace.forcedSample(value, service)
@@ -43,6 +44,10 @@ trait TracingDirectives { this: Actor with ActorTracing =>
           trace.sample(value, service)
         addHttpAnnotations(value, request)
         hprovide(value :: optSpan.getOrElse(value) :: HNil)
+      case Right(value) :: _ :: request :: HNil =>
+        trace.sample(value, service)
+        addHttpAnnotations(value, request)
+        hprovide(value :: value :: HNil)
       case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
       case Left(UnsupportedContentType(supported)) :: _ => reject(UnsupportedRequestContentTypeRejection(supported))
       case Left(MalformedContent(errorMsg, cause)) :: _ => reject(MalformedRequestContentRejection(errorMsg, cause))
@@ -101,7 +106,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
         extractSpan(ctx.request) match {
-          case Some(span) =>
+          case Success(Some(span)) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             if (span.forceSampling)
@@ -111,7 +116,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
             addHttpAnnotations(span, ctx.request)
             ctx.complete(value)(traceServerSend(span))
 
-          case None =>
+          case _ =>
             ctx.complete(value)
         }
       }

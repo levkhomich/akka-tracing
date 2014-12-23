@@ -19,7 +19,9 @@ package com.github.levkhomich.akka.tracing
 import java.io.{ByteArrayInputStream, DataInputStream}
 import scala.util.Random
 
-private[tracing] final case class Span($traceId: Option[Long], $spanId: Long, $parentId: Option[Long], forceSampling: Boolean) extends BaseTracingSupport {
+private[tracing] final case class Span(traceId: Long, $spanId: Long, $parentId: Option[Long], forceSampling: Boolean) extends BaseTracingSupport {
+  override private[tracing] val $traceId: Option[Long] =
+    Some(traceId)
   override private[tracing] def sample(): Unit =
     throw new UnsupportedOperationException
   override private[tracing] def isSampled: Boolean =

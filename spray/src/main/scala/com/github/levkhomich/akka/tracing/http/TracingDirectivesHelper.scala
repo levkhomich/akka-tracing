@@ -16,8 +16,9 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import scala.util.Random
+import scala.util.{Random, Success, Try}
 import spray.http.HttpMessage
+
 import com.github.levkhomich.akka.tracing.Span
 
 private[http] object TracingDirectivesHelper {
@@ -26,45 +27,29 @@ private[http] object TracingDirectivesHelper {
 
   private[this] val DebugFlag = 1L
 
-  def headerByName(message: HttpMessage, name: String): Option[String] =
-    message.headers.find(_.name == name).map(_.value)
-
-  def extractSpan(message: HttpMessage): Option[Span] = {
-    def extractSpanId: Long =
-      headerByName(message, SpanId).map(Span.fromString).getOrElse(Random.nextLong)
+  def extractSpan(message: HttpMessage): Try[Option[Span]] = {
+    def headerStringValue(name: String): Option[String] =
+      message.headers.find(_.name == name).map(_.value)
+    def headerLongValue(name: String): Try[Option[Long]] =
+      Try(headerStringValue(name).map(Span.fromString))
     def isFlagSet(v: String, flag: Long): Boolean =
       (java.lang.Long.parseLong(v) & flag) == flag
-
-    val traceIdOpt = headerByName(message, TraceId)
     // debug flag forces sampling (see http://git.io/hdEVug)
-    val forceSampling =
-      if (headerByName(message, Flags).map(isFlagSet(_, DebugFlag)) == Some(true))
-        true
-      else
-        headerByName(message, Sampled).map(_ == "true").getOrElse(false)
+    def forceSampling: Boolean =
+      headerStringValue(Flags).exists(isFlagSet(_, DebugFlag)) ||
+        headerStringValue(Sampled).filter(_ == "true").isDefined
+    def spanId: Long =
+      headerLongValue(SpanId).toOption.flatten.getOrElse(Random.nextLong)
 
-    try {
-      traceIdOpt.map(traceId =>
-        Span(
-          Some(Span.fromString(traceId)),
-          extractSpanId,
-          headerByName(message, ParentSpanId).map(Span.fromString),
-          forceSampling
-        )
-      ).orElse(
-        if (forceSampling)
-          Some(Span(
-            Some(Random.nextLong),
-            extractSpanId,
-            None,
-            forceSampling
-          ))
-        else
-          None
-      )
-    } catch {
-      case e: NumberFormatException =>
-        None
+    headerLongValue(TraceId).flatMap {
+      case Some(traceId) =>
+        headerLongValue(ParentSpanId).map { parentId =>
+          Some(Span(traceId, spanId, parentId, forceSampling))
+        }
+      case None if forceSampling =>
+        Success(Some(Span(Random.nextLong, spanId, None, true)))
+      case _ =>
+        Success(None)
     }
   }
 
