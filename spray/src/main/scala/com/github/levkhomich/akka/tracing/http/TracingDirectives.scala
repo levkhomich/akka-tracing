@@ -16,11 +16,11 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import scala.util.Success
+import scala.util.{Random, Try, Success}
 
 import akka.actor.Actor
 import shapeless._
-import spray.http.{HttpRequest, HttpResponse}
+import spray.http.{HttpMessage, HttpRequest, HttpResponse}
 import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.routing._
@@ -32,7 +32,7 @@ trait TracingDirectives { this: Actor with ActorTracing =>
   import spray.routing.directives.BasicDirectives._
   import spray.routing.directives.RouteDirectives._
   import spray.routing.directives.MiscDirectives._
-  import TracingDirectivesHelper._
+  import TracingDirectives._
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
@@ -148,6 +148,41 @@ trait TracingDirectives { this: Actor with ActorTracing =>
         })
       }
     }
+
+}
+
+
+private[http] object TracingDirectives {
+
+  import TracingHeaders._
+
+  private[this] val DebugFlag = 1L
+
+  def extractSpan(message: HttpMessage): Try[Option[Span]] = {
+    def headerStringValue(name: String): Option[String] =
+      message.headers.find(_.name == name).map(_.value)
+    def headerLongValue(name: String): Try[Option[Long]] =
+      Try(headerStringValue(name).map(Span.fromString))
+    def isFlagSet(v: String, flag: Long): Boolean =
+      (java.lang.Long.parseLong(v) & flag) == flag
+    // debug flag forces sampling (see http://git.io/hdEVug)
+    def forceSampling: Boolean =
+      headerStringValue(Flags).exists(isFlagSet(_, DebugFlag)) ||
+        headerStringValue(Sampled).filter(_ == "true").isDefined
+    def spanId: Long =
+      headerLongValue(SpanId).toOption.flatten.getOrElse(Random.nextLong)
+
+    headerLongValue(TraceId).flatMap {
+      case Some(traceId) =>
+        headerLongValue(ParentSpanId).map { parentId =>
+          Some(Span(traceId, spanId, parentId, forceSampling))
+        }
+      case None if forceSampling =>
+        Success(Some(Span(Random.nextLong, spanId, None, true)))
+      case _ =>
+        Success(None)
+    }
+  }
 
 }
 
