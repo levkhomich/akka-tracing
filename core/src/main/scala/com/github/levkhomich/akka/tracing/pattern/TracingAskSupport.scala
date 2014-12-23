@@ -14,30 +14,38 @@
  * limitations under the License.
  */
 
-package com.github.levkhomich.akka.tracing
+package com.github.levkhomich.akka.tracing.pattern
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import akka.actor.{ActorSelection, ActorRef}
+import akka.actor.{ActorRef, ActorSelection}
 import akka.util.Timeout
+
+import com.github.levkhomich.akka.tracing.{BaseTracingSupport, TracingExtensionImpl}
+
 
 trait TracingAskSupport {
 
   implicit def ask(actorRef: ActorRef): TracedAskableActorRef =
     new TracedAskableActorRef(actorRef)
-  def ask(actorRef: ActorRef, message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
+
+  def ask(actorRef: ActorRef, message: BaseTracingSupport)
+         (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
     actorRef ? message
 
   implicit def ask(actorSelection: ActorSelection): TracedAskableActorSelection =
     new TracedAskableActorSelection(actorSelection)
-  def ask(actorSelection: ActorSelection, message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
+
+  def ask(actorSelection: ActorSelection, message: BaseTracingSupport)
+         (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
     actorSelection ? message
-  
+
 }
 
 final class TracedAskableActorRef(val actorRef: ActorRef) extends AnyVal {
 
-  def ask(message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] = {
+  def ask(message: BaseTracingSupport)
+         (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] = {
     import akka.pattern.{ask => akkaAsk}
     akkaAsk(actorRef, message).transform({ resp =>
       trace.record(message, "response: " + resp)
@@ -50,15 +58,16 @@ final class TracedAskableActorRef(val actorRef: ActorRef) extends AnyVal {
     })
   }
 
-
-  def ?(message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
+  def ?(message: BaseTracingSupport)
+       (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
     ask(message)(timeout, ec, trace)
 }
 
 
 final class TracedAskableActorSelection(val actorSel: ActorSelection) extends AnyVal {
 
-  def ask(message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] = {
+  def ask(message: BaseTracingSupport)
+         (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] = {
     import akka.pattern.{ask => akkaAsk}
     akkaAsk(actorSel, message).transform({ resp =>
       trace.record(message, "response: " + resp)
@@ -71,8 +80,8 @@ final class TracedAskableActorSelection(val actorSel: ActorSelection) extends An
     })
   }
 
-
-  def ?(message: BaseTracingSupport)(implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
+  def ?(message: BaseTracingSupport)
+       (implicit timeout: Timeout, ec: ExecutionContext, trace: TracingExtensionImpl): Future[Any] =
     ask(message)(timeout, ec, trace)
 }
 
