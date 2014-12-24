@@ -4,25 +4,26 @@ Akka Tracing [![Maven Central](https://img.shields.io/maven-central/v/com.github
 A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
 
 It allows you to:
-- debug requests in your Play, Spray and Finagle projects;
-- trace distributed hierarchy calls (akka-remote, akka-cluster, finagle services, etc.);
+- trace call hierarchies inside an actor system;
+- trace distributed calls (akka-remote, akka-cluster, finagle services, etc.);
+- debug request processing pipelines (you can log to trace, annotate it with custom key-value pairs).
 - find slow requests in your system;
-- debug request processing pipeline (you can log to trace, annotate it with custom key-value pairs).
 
-Extension is designed to run on production systems (reactive, minimal overhead, adjustable sample rate).
+Extension is designed to run on production systems (reactive, minimal overhead, adjustable sample rate) and
+provides integration with Play framework and Spray.
 
 See [wiki](https://github.com/levkhomich/akka-tracing/wiki) for more information.
 
 Getting started
 ---------------
 
-The best way is to use [project's activator template](https://typesafe.com/activator/template/activator-akka-tracing).
+The best way is to use project's activator templates:
+[general features, Scala and Java API, Spray integration](https://typesafe.com/activator/template/activator-akka-tracing),
+[Play integration](https://typesafe.com/activator/template/activator-play-tracing).
 Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tracing/wiki/Overview).
 
 Development
 -----------
 
 [![Build Status](https://img.shields.io/travis/levkhomich/akka-tracing/master.svg?style=flat-square)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat-square)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master) [![Issues](https://img.shields.io/github/issues/levkhomich/akka-tracing.svg?style=flat-square)](https://github.com/levkhomich/akka-tracing/issues)
-
-Any contributions are welcome. [Issue tracker](https://github.com/levkhomich/akka-tracing/issues) is the place to report bugs or search for tickets to work on.
 

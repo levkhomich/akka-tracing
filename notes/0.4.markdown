@@ -2,15 +2,23 @@ New features:
 
 * Play framework support;
 * tracing flags support;
+* `akka.pattern.ask` wrapper to simplify ask tracing;
+* collector unavailability handling preventing excessive memory usage.
+
+Improvements:
 * reusable thrift transport to reduce GC overhead;
-* better interoperation with spray-json formats for messages with `TracingSupport`;
-* greatly improved test coverage;
-* collector unavailability handling preventing excessive memory usage;
+* better interoperation with spray-json formats;
+* improved test coverage;
+* improved error handling and reporting;
 * now extension doesn't produce any (internal messaging) overhead if disabled;
+* improved automated http request annotating in Play and Spray integration modules;
 * [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=4&page=1&state=closed).
+
 
 API changes:
 
 * new method `trace.forcedSample` which allows to sample message independently of sampling rate;
-* new method `trace.finish(msg)` which can be used to explicitly finish trace;
-* `unmarshallerWithTracingSupport` was removed from Spray integration module.
+* new method `trace.finish(msg)` which can be used to explicitly finish trace (for example, in cases when you have no response to be marked by `.asResponseTo`);
+* `trace.setSampleRate` was removed, you still can use config to set sample rate;
+* `unmarshallerWithTracingSupport` was removed from Spray integration module;
+* `trace.sample(msg, service, spanName)` was deprecated, use `trace.sample(msg, service)` and override `msg.spanName` instead.
