@@ -37,7 +37,7 @@ import akka.actor.Actor
 trait ActorTracing extends AroundReceiveOverrideHack { self: Actor =>
 
   protected def serviceName: String =
-    this.self.path.toString
+    this.getClass.getSimpleName
 
   implicit def any2response[T](msg: T): ResponseTracingSupport[T] =
     new ResponseTracingSupport(msg)
@@ -49,6 +49,7 @@ trait ActorTracing extends AroundReceiveOverrideHack { self: Actor =>
     msg match {
       case ts: BaseTracingSupport if receive.isDefinedAt(msg) =>
         trace.start(ts, serviceName)
+        trace.record(ts, "request: " + msg.toString)
       case _ =>
     }
 }
