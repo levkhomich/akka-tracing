@@ -159,7 +159,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
-  @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
+  @deprecated("override BaseTracingSupport.spanName and use sample(ts, service) instead", "0.4")
   def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
       ts.sample()
@@ -173,8 +173,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    * @param rpc RPC name
    */
-  @deprecated("Override BaseTracingSupport.spanName instead", "0.4.0")
-  def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
+  private[tracing] def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
     if (isEnabled) {
       ts.sample()
       holder ! Sample(ts, service, rpc, System.nanoTime)
