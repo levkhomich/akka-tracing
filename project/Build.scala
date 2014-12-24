@@ -13,7 +13,7 @@ object AkkaTracingBuild extends Build {
     publicationSettings ++
     Seq (
       organization := "com.github.levkhomich",
-      version := "0.4-SNAPSHOT",
+      version := "0.4",
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       startYear := Some(2014),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
