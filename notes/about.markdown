@@ -1,1 +1,2 @@
-[akka-tracing](https://github.com/levkhomich/akka-tracing/wiki/Home) is a distributed tracing extension for Akka built on top of Twitter's [Zipkin](http://twitter.github.io/zipkin/).
+[akka-tracing](https://github.com/levkhomich/akka-tracing/wiki/Home) is a distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/), which can be used as performance diagnostics and debugging tool.
+It provides integration with [Play framework](https://github.com/levkhomich/akka-tracing/wiki/Play-integration) and [Spray toolkit](https://github.com/levkhomich/akka-tracing/wiki/Spray-integration).
