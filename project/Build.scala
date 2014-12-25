@@ -166,9 +166,11 @@ object Dependencies {
 
   object Compile {
 
-    def sprayRouting(scalaVersion: String) = scalaVersion match {
-      case "2.10.4" => "io.spray" % "spray-routing" % "1.3.1"
-      case "2.11.4" => "io.spray" %% "spray-routing" % "1.3.2"
+    def sprayRouting(scalaVersion: String) = {
+      if (scalaVersion.startsWith("2.10"))
+        "io.spray" % "spray-routing" % "1.3.1"
+      else
+        "io.spray" %% "spray-routing" % "1.3.2"
     }
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % "2.3.7"
@@ -180,9 +182,11 @@ object Dependencies {
 
   object Test {
 
-    def sprayTestkit(scalaVersion: String) = scalaVersion match {
-      case "2.10.4" => "io.spray" % "spray-testkit" % "1.3.1"
-      case "2.11.4" => "io.spray" %% "spray-testkit" % "1.3.2"
+    def sprayTestkit(scalaVersion: String) = {
+      if (scalaVersion.startsWith("2.10"))
+        "io.spray" % "spray-testkit" % "1.3.1"
+      else
+        "io.spray" %% "spray-testkit" % "1.3.2"
     }
 
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
