@@ -27,7 +27,9 @@ import spray.routing._
 
 import com.github.levkhomich.akka.tracing._
 
-trait TracingDirectives { this: Actor with ActorTracing =>
+trait BaseTracingDirectives {
+
+  protected def trace: TracingExtensionImpl
 
   import spray.routing.directives.BasicDirectives._
   import spray.routing.directives.RouteDirectives._
@@ -58,19 +60,6 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    * produced with the in-scope entity unmarshaller and the result value of the
    * function is marshalled with the in-scope marshaller. Unmarshalled entity is
    * sampled for tracing and can be used thereafter to add trace annotations.
-   * RPC name is set to unmarshalled entity simple class name. Service name is set to
-   * HTTP service actor's name. After marshalling step, trace is automatically closed
-   * and sent to collector service. tracedHandleWith can be a convenient method
-   * combining entity with complete.
-   */
-  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
-    tracedHandleWith(self.path.name)(f)
-
-  /**
-   * Completes the request using the given function. The input to the function is
-   * produced with the in-scope entity unmarshaller and the result value of the
-   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
-   * sampled for tracing and can be used thereafter to add trace annotations.
    * RPC name is set to unmarshalled entity simple class name.
    * After marshalling step, trace is automatically closed and sent to collector service.
    * tracedHandleWith can be a convenient method combining entity with complete.
@@ -85,15 +74,6 @@ trait TracingDirectives { this: Actor with ActorTracing =>
             ctx.complete(f(a))(traceServerSend(span))
         }
     }
-
-  /**
-   * Completes the request using the given argument(s). Traces server receive and
-   * send events, supports requests with tracing-specific headers. Service name is set to HTTP service actor's name.
-   *
-   * @param rpc RPC name to be added to trace
-   */
-  def tracedComplete[T](rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
-    tracedComplete(self.path.name, rpc)(value)
 
   /**
    * Completes the request using the given argument(s). Traces server receive and
@@ -149,6 +129,32 @@ trait TracingDirectives { this: Actor with ActorTracing =>
         })
       }
     }
+
+}
+
+trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTracing =>
+
+  /**
+   * Completes the request using the given function. The input to the function is
+   * produced with the in-scope entity unmarshaller and the result value of the
+   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
+   * sampled for tracing and can be used thereafter to add trace annotations.
+   * RPC name is set to unmarshalled entity simple class name. Service name is set to
+   * HTTP service actor's name. After marshalling step, trace is automatically closed
+   * and sent to collector service. tracedHandleWith can be a convenient method
+   * combining entity with complete.
+   */
+  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+    tracedHandleWith(self.path.name)(f)
+
+  /**
+   * Completes the request using the given argument(s). Traces server receive and
+   * send events, supports requests with tracing-specific headers. Service name is set to HTTP service actor's name.
+   *
+   * @param rpc RPC name to be added to trace
+   */
+  def tracedComplete[T](rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
+    tracedComplete(self.path.name, rpc)(value)
 
 }
 

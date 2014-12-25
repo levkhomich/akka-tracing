@@ -111,6 +111,8 @@ object AkkaTracingBuild extends Build {
       )
   ).aggregate(core, spray, play)
 
+  val passTestDeps = "test->test;compile->compile"
+
   lazy val core = Project(
     id = "akka-tracing-core",
     base = file("core"),
@@ -121,7 +123,7 @@ object AkkaTracingBuild extends Build {
         libraryDependencies ++=
           Dependencies.thrift ++
           Dependencies.akka ++
-          Dependencies.test,
+          Dependencies.test(scalaVersion.value),
         sourceGenerators in Compile += Def.task {
           val srcManaged = (sourceManaged in Compile).value
           val thriftSrc = (sourceDirectory in Compile).value / "thrift" / "zipkin.thrift"
@@ -139,10 +141,10 @@ object AkkaTracingBuild extends Build {
       Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=
-            Dependencies.spray ++
-            Dependencies.test
+            Dependencies.spray(scalaVersion.value) ++
+            Dependencies.test(scalaVersion.value)
       )
-  ).dependsOn(core)
+  ).dependsOn(core % passTestDeps)
 
   lazy val play = Project(
     id = "akka-tracing-play",
@@ -153,18 +155,23 @@ object AkkaTracingBuild extends Build {
         name := "Akka Tracing: Play",
         libraryDependencies ++=
             Dependencies.play ++
-            Dependencies.test,
+            Dependencies.test(scalaVersion.value),
         previousArtifact := None,
         resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
       )
-  ).dependsOn(core)
+  ).dependsOn(core % passTestDeps)
 }
 
 object Dependencies {
 
   object Compile {
+
+    def sprayRouting(scalaVersion: String) = scalaVersion match {
+      case "2.10.4" => "io.spray" % "spray-routing" % "1.3.1"
+      case "2.11.4" => "io.spray" %% "spray-routing" % "1.3.2"
+    }
+
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % "2.3.7"
-    val sprayRouting = "io.spray"          %% "spray-routing"       % "1.3.2"
     val play         = "com.typesafe.play" %% "play"                % "2.3.7"
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
@@ -172,14 +179,23 @@ object Dependencies {
   }
 
   object Test {
+
+    def sprayTestkit(scalaVersion: String) = scalaVersion match {
+      case "2.10.4" => "io.spray" % "spray-testkit" % "1.3.1"
+      case "2.11.4" => "io.spray" %% "spray-testkit" % "1.3.2"
+    }
+
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0" % "test"
-    val sprayCan     = "io.spray"          %% "spray-can"           % "1.3.2"  % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
-  val spray = Seq(Compile.sprayRouting)
   val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
-  val test = Seq(Test.specs, Test.finagle, Test.sprayCan)
+
+  def spray(scalaVersion: String) =
+    Seq(Compile.sprayRouting(scalaVersion))
+
+  def test(scalaVersion: String) =
+    Seq(Test.specs, Test.finagle, Test.sprayTestkit(scalaVersion))
 }
