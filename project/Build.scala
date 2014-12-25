@@ -52,7 +52,7 @@ object AkkaTracingBuild extends Build {
     Seq(
       parallelExecution in Test := false,
       // TODO: check why %% doesn't work
-      previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4-SNAPSHOT"),
+      previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4"),
       scalacOptions in Test ++= Seq("-Yrangepos"),
       testOptions in Test := Seq(Tests.Filter(!"true".equals(System.getenv("CI")) || !_.contains("Performance")))
     )
