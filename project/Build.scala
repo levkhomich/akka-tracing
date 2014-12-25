@@ -4,6 +4,8 @@ import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import org.scoverage.coveralls.CoverallsPlugin
 import org.scoverage.coveralls.CoverallsPlugin.CoverallsKeys._
+import com.typesafe.sbt.SbtScalariform._
+import scalariform.formatter.preferences._
 
 object AkkaTracingBuild extends Build {
 
@@ -11,12 +13,17 @@ object AkkaTracingBuild extends Build {
     compilationSettings ++
     testSettings ++
     publicationSettings ++
+    scalariformSettings ++
     Seq (
       organization := "com.github.levkhomich",
       version := "0.5-SNAPSHOT",
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       startYear := Some(2014),
-      licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+      licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+      ScalariformKeys.preferences := ScalariformKeys.preferences.value
+        .setPreference(DoubleIndentClassDeclaration, true)
+        .setPreference(PreserveDanglingCloseParenthesis, true)
+        .setPreference(AlignParameters, true)
     )
 
   lazy val compilationSettings =
