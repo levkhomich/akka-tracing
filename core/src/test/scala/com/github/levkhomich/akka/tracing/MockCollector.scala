@@ -23,10 +23,10 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
 
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TFramedTransport, TServerSocket, TMemoryBuffer}
-import org.apache.thrift.server.{TThreadPoolServer, TServer}
+import org.apache.thrift.transport.{ TFramedTransport, TServerSocket, TMemoryBuffer }
+import org.apache.thrift.server.{ TThreadPoolServer, TServer }
 
-import com.github.levkhomich.akka.tracing.thrift.{ResultCode, LogEntry}
+import com.github.levkhomich.akka.tracing.thrift.{ ResultCode, LogEntry }
 
 trait MockCollector {
 

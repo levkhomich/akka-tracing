@@ -16,11 +16,11 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import scala.util.{Random, Try, Success}
+import scala.util.{ Random, Try, Success }
 
 import akka.actor.Actor
 import shapeless._
-import spray.http.{HttpMessage, HttpRequest, HttpResponse}
+import spray.http.{ HttpMessage, HttpRequest, HttpResponse }
 import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.routing._
@@ -53,7 +53,6 @@ trait TracingDirectives { this: Actor with ActorTracing =>
       case Left(MalformedContent(errorMsg, cause)) :: _ => reject(MalformedRequestContentRejection(errorMsg, cause))
     } & cancelAllRejections(ofTypes(RequestEntityExpectedRejection.getClass, classOf[UnsupportedRequestContentTypeRejection]))
 
-
   /**
    * Completes the request using the given function. The input to the function is
    * produced with the in-scope entity unmarshaller and the result value of the
@@ -79,11 +78,12 @@ trait TracingDirectives { this: Actor with ActorTracing =>
    * @param service service name to be added to trace
    */
   def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
-    tracedEntity(service)(um) { case (a, span) =>
-      new StandardRoute {
-        def apply(ctx: RequestContext): Unit =
-          ctx.complete(f(a))(traceServerSend(span))
-      }
+    tracedEntity(service)(um) {
+      case (a, span) =>
+        new StandardRoute {
+          def apply(ctx: RequestContext): Unit =
+            ctx.complete(f(a))(traceServerSend(span))
+        }
     }
 
   /**
@@ -128,8 +128,9 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     trace.recordKeyValue(ts, "request.path", request.uri.path.toString())
     trace.recordKeyValue(ts, "request.method", request.method.name)
     trace.recordKeyValue(ts, "request.proto", request.protocol.value)
-    request.uri.query.toMultiMap.foreach { case (key, values) =>
-      values.foreach(trace.recordKeyValue(ts, "request.query." + key, _))
+    request.uri.query.toMultiMap.foreach {
+      case (key, values) =>
+        values.foreach(trace.recordKeyValue(ts, "request.query." + key, _))
     }
     request.headers.foreach { header =>
       trace.recordKeyValue(ts, "request.headers." + header.name, header.value)
@@ -150,7 +151,6 @@ trait TracingDirectives { this: Actor with ActorTracing =>
     }
 
 }
-
 
 private[http] object TracingDirectives {
 

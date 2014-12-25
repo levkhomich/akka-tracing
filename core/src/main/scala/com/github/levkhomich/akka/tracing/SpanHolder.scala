@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.net.{SocketException, NoRouteToHostException, ConnectException, InetAddress}
+import java.net.{ SocketException, NoRouteToHostException, ConnectException, InetAddress }
 import java.nio.ByteBuffer
 import java.util
 import javax.xml.bind.DatatypeConverter
@@ -24,13 +24,13 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.util.{Success, Try}
+import scala.util.{ Success, Try }
 import scala.util.control.ControlThrowable
 
-import akka.actor.{Actor, ActorLogging, Cancellable}
+import akka.actor.{ Actor, ActorLogging, Cancellable }
 import org.apache.thrift.TApplicationException
 import org.apache.thrift.protocol.TBinaryProtocol
-import org.apache.thrift.transport.{TTransportException, TTransport}
+import org.apache.thrift.transport.{ TTransportException, TTransport }
 
 import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 

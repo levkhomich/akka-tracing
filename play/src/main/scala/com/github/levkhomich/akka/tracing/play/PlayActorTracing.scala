@@ -20,7 +20,7 @@ import akka.actor.Actor
 import play.api.Routes
 import play.api.mvc.RequestHeader
 
-import com.github.levkhomich.akka.tracing.{TracingExtensionImpl, BaseTracingSupport, ActorTracing}
+import com.github.levkhomich.akka.tracing.{ TracingExtensionImpl, BaseTracingSupport, ActorTracing }
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 trait PlayActorTracing extends ActorTracing { self: Actor =>
@@ -29,7 +29,6 @@ trait PlayActorTracing extends ActorTracing { self: Actor =>
     new PlayRequestTracingSupport(headers)
 
 }
-
 
 class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with BaseTracingSupport {
 
@@ -59,5 +58,4 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
   override private[tracing] def isSampled: Boolean =
     headers.tags.get(TracingHeaders.TraceId).isDefined
 }
-
 

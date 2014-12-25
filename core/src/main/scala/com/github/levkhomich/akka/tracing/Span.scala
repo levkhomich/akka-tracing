@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.io.{ByteArrayInputStream, DataInputStream}
+import java.io.{ ByteArrayInputStream, DataInputStream }
 import scala.util.Random
 
 private[tracing] final case class Span(traceId: Long, $spanId: Long, $parentId: Option[Long], forceSampling: Boolean) extends BaseTracingSupport {

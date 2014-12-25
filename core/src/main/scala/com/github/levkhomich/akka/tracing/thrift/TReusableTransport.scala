@@ -25,7 +25,7 @@ private[tracing] class TReusableTransport extends TTransport {
   private[this] var readPos = 0
 
   override def open(): Unit = throw new UnsupportedOperationException
-  
+
   override def isOpen: Boolean = true
 
   override def close(): Unit = throw new UnsupportedOperationException

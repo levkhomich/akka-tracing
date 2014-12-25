@@ -21,7 +21,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
-import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.actor.{ ActorRef, Props, ActorSystem }
 
 case class StringMessage(content: String) extends TracingSupport {
   override def spanName: String =

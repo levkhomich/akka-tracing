@@ -17,7 +17,7 @@
 package com.github.levkhomich.akka.tracing
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 
 class TracingSupportSpecification extends AkkaTracingSpecification {
 

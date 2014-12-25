@@ -16,12 +16,12 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.io.{PrintWriter, StringWriter}
+import java.io.{ PrintWriter, StringWriter }
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
 
 import akka.actor._
-import org.apache.thrift.transport.{TSocket, TFramedTransport}
+import org.apache.thrift.transport.{ TSocket, TFramedTransport }
 
 /**
  * Tracer instance providing trace related methods.
@@ -140,7 +140,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param key recorded key
    * @param value recorded value
    */
-  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Array[Byte]): Unit =    
+  def recordKeyValue(ts: BaseTracingSupport, key: String, value: Array[Byte]): Unit =
     addBinaryAnnotation(ts, key, ByteBuffer.wrap(value), thrift.AnnotationType.BYTES)
 
   /**
@@ -215,7 +215,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       holder ! AddAnnotation(ts.$spanId, System.nanoTime, value)
 
   private[this] def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
-                                  valueType: thrift.AnnotationType): Unit =
+                                        valueType: thrift.AnnotationType): Unit =
     if (isEnabled && ts.isSampled)
       holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
 

@@ -1,6 +1,5 @@
 package com.github.levkhomich.akka.tracing.http
 
-
 // see https://github.com/twitter/finagle/blob/master/finagle-http/src/main/scala/com/twitter/finagle/http/Codec.scala
 object TracingHeaders {
   val TraceId = "X-B3-TraceId"

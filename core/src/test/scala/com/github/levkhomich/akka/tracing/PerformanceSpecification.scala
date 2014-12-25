@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.util.UUID
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
 class PerformanceSpecification extends AkkaTracingSpecification with MockCollector {
@@ -85,7 +85,7 @@ class PerformanceSpecification extends AkkaTracingSpecification with MockCollect
       val originalCPS = benchmark(Span.asString)
       val naiveCPS = benchmark(naiveLongToString)
       val percentDelta = originalCPS * 100 / naiveCPS - 100
-      println(s"benchmark: spanId serialization performance delta = $percentDelta%" )
+      println(s"benchmark: spanId serialization performance delta = $percentDelta%")
       percentDelta must beGreaterThan(-10L)
     }
 

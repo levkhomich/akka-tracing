@@ -16,8 +16,8 @@
 
 package com.github.levkhomich.akka.tracing
 
-import akka.actor.{Actor, DiagnosticActorLogging}
-import akka.event.Logging.{InitializeLogger, LogEvent, LoggerInitialized, MDC, emptyMDC}
+import akka.actor.{ Actor, DiagnosticActorLogging }
+import akka.event.Logging.{ InitializeLogger, LogEvent, LoggerInitialized, MDC, emptyMDC }
 
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
@@ -44,7 +44,7 @@ class TracingLogger extends Actor with ActorTracing {
         case Some(spanId: Long) =>
           trace.record(spanId, e.getClass.getSimpleName + ": " + e.message)
         case _ =>
-          // do nothing
+        // do nothing
       }
   }
 

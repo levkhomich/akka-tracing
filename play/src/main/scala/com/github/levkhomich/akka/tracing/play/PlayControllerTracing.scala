@@ -18,8 +18,7 @@ package com.github.levkhomich.akka.tracing.play
 
 import play.api.mvc._
 
-import com.github.levkhomich.akka.tracing.{TracingExtension, TracingExtensionImpl}
-
+import com.github.levkhomich.akka.tracing.{ TracingExtension, TracingExtensionImpl }
 
 trait PlayControllerTracing {
 
