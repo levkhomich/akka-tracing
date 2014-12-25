@@ -1,11 +1,12 @@
 New features:
 
-* Play framework support;
+* Play framework support (and [activator template](http://typesafe.com/activator/template/activator-play-tracing) to demonstrate it);
 * tracing flags support;
 * `akka.pattern.ask` wrapper to simplify ask tracing;
 * collector unavailability handling preventing excessive memory usage.
 
 Improvements:
+
 * reusable thrift transport to reduce GC overhead;
 * better interoperation with spray-json formats;
 * improved test coverage;
@@ -13,7 +14,6 @@ Improvements:
 * now extension doesn't produce any (internal messaging) overhead if disabled;
 * improved automated http request annotating in Play and Spray integration modules;
 * [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=4&page=1&state=closed).
-
 
 API changes:
 

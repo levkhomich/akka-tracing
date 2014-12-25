@@ -1,16 +1,16 @@
 Akka Tracing [![Maven Central](https://img.shields.io/maven-central/v/com.github.levkhomich/akka-tracing-core_2.11.svg?style=flat-square)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.github.levkhomich%22%20akka-tracing)
 ============
 
-A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/).
+A distributed tracing Akka extension based on Twitter's [Zipkin](http://twitter.github.io/zipkin/), which can be used as performance diagnostics and debugging tool.
 
 It allows you to:
 - trace call hierarchies inside an actor system;
-- trace distributed calls (akka-remote, akka-cluster, finagle services, etc.);
-- debug request processing pipelines (you can log to trace, annotate it with custom key-value pairs).
-- find slow requests in your system;
+- debug request processing pipelines (you can log to traces, annotate them with custom key-value pairs);
+- see dependencies between derived requests and their contribution to resulting response time;
+- find and analyse slowest requests in your system.
 
-Extension is designed to run on production systems (reactive, minimal overhead, adjustable sample rate) and
-provides integration with Play framework and Spray.
+Distributed tracing approach used by Zipkin synergise with akka-remote and akka-cluster.
+Extension provides integration with [Play framework](https://github.com/levkhomich/akka-tracing/wiki/Play-integration) and [Spray toolkit](https://github.com/levkhomich/akka-tracing/wiki/Spray-integration).
 
 See [wiki](https://github.com/levkhomich/akka-tracing/wiki) for more information.
 
