@@ -27,7 +27,15 @@ abstract class AkkaTracingSpecification extends Specification {
   def testActorSystem(sampleRate: Int = 1): ActorSystem =
     ActorSystem("AkkaTracingTestSystem" + sampleRate,
       ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
-        Map(TracingExtension.AkkaTracingSampleRate -> sampleRate)
+        Map(
+          TracingExtension.AkkaTracingSampleRate -> sampleRate,
+          TracingExtension.AkkaTracingPort -> (this match {
+            case mc: MockCollector =>
+              mc.collectorPort
+            case _ =>
+              9410
+          })
+        )
       ))
     )
 

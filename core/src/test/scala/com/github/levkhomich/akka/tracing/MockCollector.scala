@@ -21,6 +21,7 @@ import java.net.ServerSocket
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
+import scala.util.Try
 
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{ TFramedTransport, TServerSocket, TMemoryBuffer }
@@ -30,13 +31,12 @@ import com.github.levkhomich.akka.tracing.thrift.{ ResultCode, LogEntry }
 
 trait MockCollector {
 
-  val collectorPort = 9410
+  private[this] var socket = new ServerSocket(0)
+  val collectorPort = socket.getLocalPort
   var collector: TServer = startCollector()
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
   def startCollector(): TServer = {
-    checkIfPortIsAvalable(collectorPort)
-
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
         println(s"collector: received ${messages.size} messages")
@@ -46,7 +46,11 @@ trait MockCollector {
     }
     val processor = new thrift.Scribe.Processor(handler)
 
-    val transport = new TServerSocket(collectorPort)
+    // reuse port between collector start/stop cycles
+    if (socket.isClosed)
+      socket = new ServerSocket(collectorPort)
+
+    val transport = new TServerSocket(socket)
     val collector = new TThreadPoolServer(
       new TThreadPoolServer.Args(transport).processor(processor).
         transportFactory(new TFramedTransport.Factory).protocolFactory(new TBinaryProtocol.Factory).minWorkerThreads(3)
@@ -60,26 +64,6 @@ trait MockCollector {
     }).start()
     Thread.sleep(3000)
     collector
-  }
-
-  def checkIfPortIsAvalable(port: Int): Unit = {
-    var socket: ServerSocket = null
-    try {
-      socket = new ServerSocket(port)
-    } catch {
-      case e: IOException =>
-        println("Can't start mock collector: " + e.getMessage)
-        throw new RuntimeException("Can't start mock collector", e)
-    } finally {
-      if (socket != null)
-        try {
-          socket.close()
-        } catch {
-          case e: IOException =>
-            println("Can't start mock collector: " + e.getMessage)
-            throw new RuntimeException("Can't start mock collector", e)
-        }
-    }
   }
 
   def decodeSpan(logEntryMessage: String): thrift.Span = {
