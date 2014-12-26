@@ -166,7 +166,7 @@ object Dependencies {
 
   object Compile {
 
-    def sprayRouting(scalaVersion: String) = {
+    def sprayRouting(scalaVersion: String): ModuleID = {
       if (scalaVersion.startsWith("2.10"))
         "io.spray" % "spray-routing" % "1.3.1"
       else
@@ -182,11 +182,11 @@ object Dependencies {
 
   object Test {
 
-    def sprayTestkit(scalaVersion: String) = {
+    def sprayTestkit(scalaVersion: String): ModuleID = {
       if (scalaVersion.startsWith("2.10"))
-        "io.spray" % "spray-testkit" % "1.3.1"
+        "io.spray" % "spray-testkit" % "1.3.1" % "test"
       else
-        "io.spray" %% "spray-testkit" % "1.3.2"
+        "io.spray" %% "spray-testkit" % "1.3.2" % "test"
     }
 
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
@@ -197,9 +197,9 @@ object Dependencies {
   val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
 
-  def spray(scalaVersion: String) =
+  def spray(scalaVersion: String): Seq[ModuleID] =
     Seq(Compile.sprayRouting(scalaVersion))
 
-  def test(scalaVersion: String) =
+  def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.sprayTestkit(scalaVersion))
 }
