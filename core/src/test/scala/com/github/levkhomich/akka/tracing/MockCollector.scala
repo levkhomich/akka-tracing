@@ -39,7 +39,7 @@ trait MockCollector {
   def startCollector(): TServer = {
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
-        println(s"collector: received ${messages.size} messages")
+        println(s"collector: received ${messages.size} message${if (messages.size > 1) "s" else ""}")
         results.addAll(messages)
         thrift.ResultCode.OK
       }

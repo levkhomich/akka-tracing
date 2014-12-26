@@ -36,8 +36,8 @@ trait BaseTracingDirectives {
   import spray.routing.directives.MiscDirectives._
   import TracingDirectives._
 
-  private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: BaseTracingSupport :: HNil] =
-    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: BaseTracingSupport :: HNil] {
+  private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: HNil] =
+    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: HNil] {
       case Right(value) :: Success(optSpan) :: request :: HNil =>
         optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
         if (optSpan.map(_.forceSampling).getOrElse(false))
@@ -45,11 +45,11 @@ trait BaseTracingDirectives {
         else
           trace.sample(value, service)
         addHttpAnnotations(value, request)
-        hprovide(value :: optSpan.getOrElse(value) :: HNil)
+        hprovide(value :: HNil)
       case Right(value) :: _ :: request :: HNil =>
         trace.sample(value, service)
         addHttpAnnotations(value, request)
-        hprovide(value :: value :: HNil)
+        hprovide(value :: HNil)
       case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
       case Left(UnsupportedContentType(supported)) :: _ => reject(UnsupportedRequestContentTypeRejection(supported))
       case Left(MalformedContent(errorMsg, cause)) :: _ => reject(MalformedRequestContentRejection(errorMsg, cause))
@@ -68,10 +68,10 @@ trait BaseTracingDirectives {
    */
   def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
     tracedEntity(service)(um) {
-      case (a, span) =>
+      case ts =>
         new StandardRoute {
           def apply(ctx: RequestContext): Unit =
-            ctx.complete(f(a))(traceServerSend(span))
+            ctx.complete(f(ts))(traceServerSend(ts))
         }
     }
 
