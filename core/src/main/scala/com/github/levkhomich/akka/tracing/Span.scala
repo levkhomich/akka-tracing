@@ -22,10 +22,8 @@ import scala.util.Random
 private[tracing] final case class Span(traceId: Long, $spanId: Long, $parentId: Option[Long], forceSampling: Boolean) extends BaseTracingSupport {
   override private[tracing] val $traceId: Option[Long] =
     Some(traceId)
-  override private[tracing] def sample(): Unit =
-    throw new UnsupportedOperationException
-  override private[tracing] def isSampled: Boolean =
-    throw new UnsupportedOperationException
+  override private[tracing] def sample(): Unit = ()
+  override private[tracing] def isSampled: Boolean = true
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type =
     throw new UnsupportedOperationException
   override protected[tracing] def spanName: String =
