@@ -16,20 +16,21 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.io.IOException
 import java.net.ServerSocket
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
-import scala.util.Try
+import scala.collection.JavaConversions._
 
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{ TFramedTransport, TServerSocket, TMemoryBuffer }
 import org.apache.thrift.server.{ TThreadPoolServer, TServer }
+import org.specs2.matcher.MatchResult
+import org.specs2.mutable.Specification
 
 import com.github.levkhomich.akka.tracing.thrift.{ ResultCode, LogEntry }
 
-trait MockCollector {
+trait MockCollector { this: Specification =>
 
   private[this] var socket = new ServerSocket(0)
   val collectorPort = socket.getLocalPort
@@ -75,5 +76,31 @@ trait MockCollector {
     span.read(protocolFactory.getProtocol(buffer))
     span
   }
+
+  def receiveSpan(): thrift.Span = {
+    Thread.sleep(3000)
+    val spans = results.map(e => decodeSpan(e.message))
+    spans.size mustEqual 1
+    results.clear()
+    spans.head
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: String): MatchResult[Any] = {
+    span.binary_annotations.find(_.get_key == key) match {
+      case Some(ba) =>
+        val actualValue = new String(ba.get_value, "UTF-8")
+        actualValue mustEqual expValue
+      case _ =>
+        ko(key + " = " + expValue + " not found").orThrow
+    }
+  }
+
+  def printAnnotations(span: thrift.Span): Unit = {
+    span.binary_annotations.foreach { ba =>
+      val actualValue = new String(ba.get_value, "UTF-8")
+      println(ba.get_key + " -> " + actualValue)
+    }
+  }
+
 
 }
