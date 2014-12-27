@@ -102,5 +102,4 @@ trait MockCollector { this: Specification =>
     }
   }
 
-
 }

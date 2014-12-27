@@ -20,7 +20,7 @@ import akka.actor.Actor
 import play.api.Routes
 import play.api.mvc.RequestHeader
 
-import com.github.levkhomich.akka.tracing.{Span, TracingExtensionImpl, BaseTracingSupport, ActorTracing}
+import com.github.levkhomich.akka.tracing.{ Span, TracingExtensionImpl, BaseTracingSupport, ActorTracing }
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 trait PlayActorTracing extends ActorTracing { self: Actor =>

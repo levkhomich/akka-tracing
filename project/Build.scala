@@ -141,8 +141,8 @@ object AkkaTracingBuild extends Build {
       Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=
-            Dependencies.spray(scalaVersion.value) ++
-            Dependencies.test(scalaVersion.value)
+          Dependencies.spray(scalaVersion.value) ++
+          Dependencies.test(scalaVersion.value)
       )
   ).dependsOn(core % passTestDeps)
 
@@ -154,10 +154,10 @@ object AkkaTracingBuild extends Build {
       Seq(
         name := "Akka Tracing: Play",
         libraryDependencies ++=
-            Dependencies.play ++
-            Dependencies.test(scalaVersion.value),
+          Dependencies.play ++
+          Dependencies.test(scalaVersion.value),
         previousArtifact := None,
-        resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
+        resolvers += Resolver.typesafeRepo("releases")
       )
   ).dependsOn(core % passTestDeps)
 }
@@ -191,6 +191,7 @@ object Dependencies {
 
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0" % "test"
+    val playTest     = "com.typesafe.play" %% "play-test"           % "2.3.6"  % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
@@ -201,5 +202,5 @@ object Dependencies {
     Seq(Compile.sprayRouting(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.sprayTestkit(scalaVersion))
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.sprayTestkit(scalaVersion))
 }
