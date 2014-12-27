@@ -21,7 +21,9 @@ import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
-class PerformanceSpecification extends AkkaTracingSpecification with MockCollector {
+import org.specs2.mutable.Specification
+
+class PerformanceSpecification extends Specification with AkkaTracingSpecification with MockCollector {
 
   sequential
 

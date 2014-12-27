@@ -20,9 +20,8 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
-import org.specs2.mutable.Specification
 
-abstract class AkkaTracingSpecification extends Specification {
+trait AkkaTracingSpecification {
 
   def testActorSystem(sampleRate: Int = 1): ActorSystem =
     ActorSystem("AkkaTracingTestSystem" + sampleRate,

@@ -22,6 +22,7 @@ import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.{ ActorRef, Props, ActorSystem }
+import org.specs2.mutable.Specification
 
 case class StringMessage(content: String) extends TracingSupport {
   override def spanName: String =
@@ -39,7 +40,7 @@ class TestActor extends TracingActorLogging with ActorTracing {
   }
 }
 
-class TracingSpecification extends AkkaTracingSpecification with MockCollector {
+class TracingSpecification extends Specification with AkkaTracingSpecification with MockCollector {
 
   val system: ActorSystem = testActorSystem()
   implicit val trace = TracingExtension(system)

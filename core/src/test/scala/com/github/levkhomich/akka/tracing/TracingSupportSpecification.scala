@@ -19,7 +19,9 @@ package com.github.levkhomich.akka.tracing
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 
-class TracingSupportSpecification extends AkkaTracingSpecification {
+import org.specs2.mutable.Specification
+
+class TracingSupportSpecification extends Specification with AkkaTracingSpecification {
 
   val system = testActorSystem()
   implicit val trace = TracingExtension(system)

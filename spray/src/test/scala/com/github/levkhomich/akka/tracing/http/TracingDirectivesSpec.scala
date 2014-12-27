@@ -5,16 +5,18 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Random
 
-import org.specs2.matcher.MatchResult
 import spray.http._
 import spray.httpx.unmarshalling.{ Deserialized, FromRequestUnmarshaller }
 import spray.routing.HttpService
 import spray.testkit.Specs2RouteTest
 
+import org.specs2.matcher.MatchResult
+import org.specs2.mutable.Specification
+
 import com.github.levkhomich.akka.tracing._
 
-class TracingDirectivesSpec extends AkkaTracingSpecification with BaseTracingDirectives
-    with MockCollector with Specs2RouteTest with HttpService {
+class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
+    with BaseTracingDirectives with MockCollector with Specs2RouteTest with HttpService {
 
   sequential
 
