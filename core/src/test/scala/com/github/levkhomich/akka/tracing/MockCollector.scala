@@ -95,10 +95,23 @@ trait MockCollector { this: Specification =>
     }
   }
 
+  def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
+    span.annotations.find(_.get_value == expValue).isDefined mustEqual true
+  }
+
   def printAnnotations(span: thrift.Span): Unit = {
-    span.binary_annotations.foreach { ba =>
-      val actualValue = new String(ba.get_value, "UTF-8")
-      println(ba.get_key + " -> " + actualValue)
+    if (span.get_binary_annotations_size > 0) {
+      println("Binary annotations:")
+      span.binary_annotations.foreach { ba =>
+        val actualValue = new String(ba.get_value, "UTF-8")
+        println(ba.get_key + " -> " + actualValue)
+      }
+    }
+    if (span.get_annotations_size > 0) {
+      println("Annotations:")
+      span.annotations.foreach { a =>
+        println(a.get_value)
+      }
     }
   }
 

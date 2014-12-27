@@ -192,6 +192,7 @@ object Dependencies {
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0" % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % "2.3.7"  % "test"
+    val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % "2.3.7"  % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.config)
@@ -202,5 +203,5 @@ object Dependencies {
     Seq(Compile.sprayRouting(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.sprayTestkit(scalaVersion))
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.sprayTestkit(scalaVersion))
 }

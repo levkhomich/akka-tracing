@@ -94,14 +94,6 @@ class PlayTracingSpec extends PlaySpecification with AkkaTracingSpecification wi
     success
   }
 
-  private[this] def receiveSpan(): thrift.Span = {
-    Thread.sleep(3000)
-    val spans = results.map(e => decodeSpan(e.message))
-    spans.size mustEqual 1
-    results.clear()
-    spans.head
-  }
-
   // it seems that play-test doesn't call global.onRequestCompletion at all
   override def call[T](action: EssentialAction, rh: RequestHeader, body: T)(implicit w: Writeable[T]): Future[Result] = {
     val rhWithCt = w.contentType.map(ct => rh.copy(

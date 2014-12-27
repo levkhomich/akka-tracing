@@ -18,18 +18,24 @@ package com.github.levkhomich.akka.tracing
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
+import scala.util.Random
 
+import akka.actor.Actor
+import akka.testkit.TestActorRef
+import akka.util.Timeout
 import org.specs2.mutable.Specification
 
-class TracingSupportSpecification extends Specification with AkkaTracingSpecification {
+class TracingSupportSpecification extends Specification with AkkaTracingSpecification with MockCollector {
 
-  val system = testActorSystem()
+  implicit val system = testActorSystem()
   implicit val trace = TracingExtension(system)
 
   sequential
 
+  final case class TestMessage(value: String) extends TracingSupport
+
   def newMessage: TracingSupport =
-    new TracingSupport {}
+    TestMessage(Random.nextLong.toString)
 
   "TracingSupport" should {
 
@@ -54,6 +60,68 @@ class TracingSupportSpecification extends Specification with AkkaTracingSpecific
       child.$traceId mustEqual parent.$traceId
       child.$spanId mustNotEqual parent.$spanId
       child.$parentId mustEqual Some(parent.$spanId)
+    }
+
+    "instrument actor receive" in {
+      val actor = TestActorRef(new Actor with ActorTracing {
+        def receive = {
+          case _ =>
+        }
+      })
+
+      val message = newMessage
+
+      trace.sample(message, "testService")
+      actor ! message
+      trace.finish(message)
+
+      val span = receiveSpan()
+      checkAnnotation(span, "request: " + message)
+    }
+
+    "instrument ask pattern (ActorRef)" in {
+      import pattern.ask
+      val childActor = TestActorRef(new Actor {
+        def receive = {
+          case _: TracingSupport => sender ! "ok"
+        }
+      })
+
+      val parentMessage = newMessage
+      parentMessage.sample()
+      val childMessage = newMessage.asChildOf(parentMessage)
+      trace.sample(childMessage, "testService")
+
+      implicit val timeout = Timeout(5, SECONDS)
+      childActor ? childMessage
+
+      val span = receiveSpan()
+      span.get_parent_id mustEqual parentMessage.$spanId
+      checkAnnotation(span, "response: ok")
+    }
+
+    "instrument ask pattern (ActorSelection)" in {
+      import pattern.ask
+      val childActor = {
+        val ref = TestActorRef(new Actor {
+          def receive = { 
+            case _: TracingSupport => sender ! "ok"
+          }
+        })
+        system.actorSelection(ref.path)
+      }
+
+      val parentMessage = newMessage
+      parentMessage.sample()
+      val childMessage = newMessage.asChildOf(parentMessage)
+      trace.sample(childMessage, "testService")
+
+      implicit val timeout = Timeout(5, SECONDS)
+      childActor ? childMessage
+
+      val span = receiveSpan()
+      span.get_parent_id mustEqual parentMessage.$spanId
+      checkAnnotation(span, "response: ok")
     }
 
     "support external contexts" in {
