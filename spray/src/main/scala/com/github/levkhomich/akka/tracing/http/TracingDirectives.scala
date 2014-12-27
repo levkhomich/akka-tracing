@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing.http
 
-import scala.util.{ Random, Try, Success }
+import scala.util.{ Failure, Random, Try, Success }
 
 import akka.actor.Actor
 import shapeless._
@@ -38,7 +38,7 @@ trait BaseTracingDirectives {
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: HNil] {
-      case Right(value) :: Success(optSpan) :: request :: HNil =>
+      case Right(value) :: Right(optSpan) :: request :: HNil =>
         optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
         if (optSpan.map(_.forceSampling).getOrElse(false))
           trace.forcedSample(value, service)
@@ -46,10 +46,8 @@ trait BaseTracingDirectives {
           trace.sample(value, service)
         addHttpAnnotations(value, request)
         hprovide(value :: HNil)
-      case Right(value) :: _ :: request :: HNil =>
-        trace.sample(value, service)
-        addHttpAnnotations(value, request)
-        hprovide(value :: HNil)
+      case Right(value) :: Left(headerName) :: request :: HNil =>
+        reject(MalformedHeaderRejection(headerName, "invalid value"))
       case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
       case Left(UnsupportedContentType(supported)) :: _ => reject(UnsupportedRequestContentTypeRejection(supported))
       case Left(MalformedContent(errorMsg, cause)) :: _ => reject(MalformedRequestContentRejection(errorMsg, cause))
@@ -86,7 +84,7 @@ trait BaseTracingDirectives {
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
         extractSpan(ctx.request) match {
-          case Success(Some(span)) =>
+          case Right(Some(span)) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             if (span.forceSampling)
@@ -164,11 +162,16 @@ private[http] object TracingDirectives {
 
   private[this] val DebugFlag = 1L
 
-  def extractSpan(message: HttpMessage): Try[Option[Span]] = {
+  def extractSpan(message: HttpMessage): Either[String, Option[Span]] = {
     def headerStringValue(name: String): Option[String] =
       message.headers.find(_.name == name).map(_.value)
-    def headerLongValue(name: String): Try[Option[Long]] =
-      Try(headerStringValue(name).map(Span.fromString))
+    def headerLongValue(name: String): Either[String, Option[Long]] =
+      Try(headerStringValue(name).map(Span.fromString)) match {
+        case Failure(e) =>
+          Left(name)
+        case Success(v) =>
+          Right(v)
+      }
     def isFlagSet(v: String, flag: Long): Boolean =
       (java.lang.Long.parseLong(v) & flag) == flag
     // debug flag forces sampling (see http://git.io/hdEVug)
@@ -176,18 +179,18 @@ private[http] object TracingDirectives {
       headerStringValue(Flags).exists(isFlagSet(_, DebugFlag)) ||
         headerStringValue(Sampled).filter(_ == "true").isDefined
     def spanId: Long =
-      headerLongValue(SpanId).toOption.flatten.getOrElse(Random.nextLong)
+      headerLongValue(SpanId).right.toOption.flatten.getOrElse(Random.nextLong)
 
-    headerLongValue(TraceId).flatMap {
+    headerLongValue(TraceId).right.map({
       case Some(traceId) =>
-        headerLongValue(ParentSpanId).map { parentId =>
+        headerLongValue(ParentSpanId).right.map { parentId =>
           Some(Span(traceId, spanId, parentId, forceSampling))
         }
       case None if forceSampling =>
-        Success(Some(Span(Random.nextLong, spanId, None, true)))
+        Right(Some(Span(Random.nextLong, spanId, None, true)))
       case _ =>
-        Success(None)
-    }
+        Right(None)
+    }).joinRight
   }
 
 }

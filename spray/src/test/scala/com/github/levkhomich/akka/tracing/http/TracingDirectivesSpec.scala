@@ -5,13 +5,11 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Random
 
+import org.specs2.mutable.Specification
 import spray.http._
 import spray.httpx.unmarshalling.{ Deserialized, FromRequestUnmarshaller }
 import spray.routing.HttpService
 import spray.testkit.Specs2RouteTest
-
-import org.specs2.matcher.MatchResult
-import org.specs2.mutable.Specification
 
 import com.github.levkhomich.akka.tracing._
 
@@ -73,9 +71,9 @@ class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
         }
     }
 
-    val spanId = Random.nextLong
-    val parentId = Random.nextLong
     "propagate tracing headers" in {
+      val spanId = Random.nextLong
+      val parentId = Random.nextLong
       Get(testPath).withHeaders(
         HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
           HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, Span.asString(parentId)) ::
@@ -85,6 +83,28 @@ class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
           val span = receiveSpan()
           checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, Span.asString(spanId))
           checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, Span.asString(parentId))
+        }
+    }
+
+    val MalformedHeaderRejection = "The value of HTTP header '%s' was malformed:\ninvalid value"
+    "reject requests with malformed X-B3-TraceId header" in {
+      Get(testPath).withHeaders(
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, "malformed") :: Nil
+      ) ~> sealRoute(tracedHandleWithRoute) ~> check {
+          response.status mustEqual StatusCodes.BadRequest
+          responseAs[String] mustEqual (MalformedHeaderRejection format TracingHeaders.TraceId)
+        }
+    }
+
+    "reject requests with malformed X-B3-ParentTraceId header" in {
+      val spanId = Random.nextLong
+      Get(testPath).withHeaders(
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
+          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, "malformed") ::
+          Nil
+      ) ~> sealRoute(tracedHandleWithRoute) ~> check {
+          response.status mustEqual StatusCodes.BadRequest
+          responseAs[String] mustEqual (MalformedHeaderRejection format TracingHeaders.ParentSpanId)
         }
     }
   }

@@ -104,7 +104,7 @@ class TracingSupportSpecification extends Specification with AkkaTracingSpecific
       import pattern.ask
       val childActor = {
         val ref = TestActorRef(new Actor {
-          def receive = { 
+          def receive = {
             case _: TracingSupport => sender ! "ok"
           }
         })
