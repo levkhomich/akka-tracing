@@ -20,10 +20,11 @@ import scala.collection.Map
 import scala.concurrent.Future
 import scala.util.Random
 
-import play.api.{ GlobalSettings, Routes }
+import play.api.GlobalSettings
 import play.api.libs.iteratee.Iteratee
 import play.api.mvc._
 
+import com.github.levkhomich.akka.tracing.Span
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
@@ -54,9 +55,9 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     !request.path.startsWith("/assets")
 
   protected def extractTracingTags(request: RequestHeader): Map[String, String] = {
-    val spanId = TracingHeaders.SpanId -> Random.nextLong.toString
+    val spanId = TracingHeaders.SpanId -> Span.asString(Random.nextLong)
     if (request.headers.get(TracingHeaders.TraceId).isEmpty)
-      Map(TracingHeaders.TraceId -> Random.nextLong.toString) + spanId
+      Map(TracingHeaders.TraceId -> Span.asString(Random.nextLong)) + spanId
     else
       TracingHeaders.All.flatMap(header =>
         request.headers.get(header).map(header -> _)
