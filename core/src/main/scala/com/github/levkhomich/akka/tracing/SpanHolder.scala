@@ -133,15 +133,17 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     spans.keys.foreach(id =>
       enqueue(id, cancelJob = true)
     )
-    Try {
-      client.Log(nextBatch.map(spanToLogEntry))
-      if (transport.isOpen) {
-        transport.close()
+    if (!nextBatch.isEmpty) {
+      Try {
+        client.Log(nextBatch.map(spanToLogEntry))
+        if (transport.isOpen) {
+          transport.close()
+        }
+      } recover {
+        case e =>
+          handleSubmissionError(e)
+          log.error(s"Zipkin collector is unavailable. Failed to send ${nextBatch.size} spans during postStop.")
       }
-    } recover {
-      case e =>
-        handleSubmissionError(e)
-        log.error(s"Zipkin collector is unavailable. Failed to send ${nextBatch.size} spans during postStop.")
     }
     super.postStop()
   }
