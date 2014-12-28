@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
-import scala.concurrent.duration.{ FiniteDuration, SECONDS }
+import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
 import scala.util.Random
 
 import akka.testkit.TestActorRef
@@ -159,13 +159,20 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
       // extension should wait for some time before retrying
       results.size() must beEqualTo(0)
-
       Thread.sleep(7000)
 
       results.size() must beEqualTo(100)
     }
+
+    "flush traces before stop" in {
+      results.clear()
+      generateTraces(10, trace)
+      system.shutdown()
+      system.awaitTermination(FiniteDuration(200, MILLISECONDS)) must not(throwA[TimeoutException])
+      results.size() must beEqualTo(10)
+    }
   }
 
-  step(shutdown())
+  step(collector.stop())
 
 }
