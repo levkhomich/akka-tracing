@@ -18,32 +18,12 @@ package com.github.levkhomich.akka.tracing
 
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
-import scala.concurrent.duration
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 
-import akka.actor.{ ActorRef, Props, ActorSystem }
+import akka.testkit.TestActorRef
 import org.specs2.mutable.Specification
 
-case class StringMessage(content: String) extends TracingSupport {
-  override def spanName: String =
-    "message-" + Math.abs(content.hashCode) % 50
-}
-
-class TestActor extends TracingActorLogging with ActorTracing {
-  override def receive: Receive = {
-    case msg @ StringMessage(content) =>
-      trace.sample(msg, "test")
-      trace.recordKeyValue(msg, "content", content)
-      log.info("received message " + msg)
-      Thread.sleep(100)
-      trace.finish(msg)
-  }
-}
-
-class TracingSpecification extends Specification with AkkaTracingSpecification with MockCollector {
-
-  val system: ActorSystem = testActorSystem()
-  implicit val trace = TracingExtension(system)
+class TracingExtensionSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
 
   sequential
 
@@ -55,7 +35,7 @@ class TracingSpecification extends Specification with AkkaTracingSpecification w
         generateTraces(count, TracingExtension(system))
         Thread.sleep(3000)
         system.shutdown()
-        system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
+        system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       }
 
       generateTracesWithSampleRate(2, 1)
@@ -65,36 +45,25 @@ class TracingSpecification extends Specification with AkkaTracingSpecification w
       results.size() must beEqualTo(132)
     }
 
-    "pipe logs to traces" in {
-      results.clear()
-
-      val testActor = system.actorOf(Props[TestActor])
-
-      testActor ! StringMessage("1")
-      testActor ! StringMessage("2")
-      testActor ! StringMessage("3")
-
-      Thread.sleep(5000)
-
-      results.size() must beEqualTo(3)
-      results.forall { e =>
-        val span = decodeSpan(e.message)
-        span.annotations.size == 3 && span.annotations.get(1).value.startsWith("Info")
-      } must beTrue
-    }
-
     "track call hierarchy" in {
       results.clear()
 
-      val testActor: ActorRef = system.actorOf(Props[TestActor])
+      val testActor = TestActorRef(new ActorTracing {
+        override def receive: Receive = {
+          case msg @ TestMessage(content) =>
+            trace.sample(msg, "test")
+            trace.recordKeyValue(msg, "content", content)
+            trace.finish(msg)
+        }
+      })
 
-      val parentMsg = StringMessage("parent")
+      val parentMsg = nextRandomMessage
       testActor ! parentMsg
 
       // wait until parent msg span will be sent
       Thread.sleep(500)
 
-      val childMsg = StringMessage("child").asChildOf(parentMsg)
+      val childMsg = nextRandomMessage.asChildOf(parentMsg)
       testActor ! childMsg
 
       Thread.sleep(5000)
@@ -105,13 +74,13 @@ class TracingSpecification extends Specification with AkkaTracingSpecification w
       val parentSpan = spans.find { s =>
         s.binary_annotations != null && {
           val content = s.binary_annotations.find(_.key == "content").get.value
-          new String(content.array()) == "parent"
+          new String(content.array()) == parentMsg.value
         }
       }.get
       val childSpan = spans.find { s =>
         s.binary_annotations != null && {
           val content = s.binary_annotations.find(_.key == "content").get.value
-          new String(content.array()) == "child"
+          new String(content.array()) == childMsg.value
         }
       }.get
 
@@ -151,10 +120,6 @@ class TracingSpecification extends Specification with AkkaTracingSpecification w
     }
   }
 
-  "shutdown correctly" in {
-    system.shutdown()
-    collector.stop()
-    system.awaitTermination(FiniteDuration(5, duration.SECONDS)) must not(throwA[TimeoutException])
-  }
+  step(shutdown())
 
 }

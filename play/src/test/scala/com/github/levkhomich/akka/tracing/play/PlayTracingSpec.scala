@@ -16,10 +16,7 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import com.github.levkhomich.akka.tracing.http.TracingHeaders
-
 import scala.concurrent.{ Future, Await }
-import scala.collection.JavaConversions._
 import scala.util.Random
 
 import play.api.{ Play, GlobalSettings }
@@ -29,13 +26,14 @@ import play.api.mvc._
 import play.api.test._
 
 import com.github.levkhomich.akka.tracing._
+import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
-class PlayTracingSpec extends PlaySpecification with AkkaTracingSpecification with MockCollector with Results {
+class PlayTracingSpec extends PlaySpecification with TracingTestCommons with MockCollector with Results {
 
   sequential
 
   val testPath = "/request"
-  def fakeApplication = FakeApplication(
+  def fakeApplication: FakeApplication = FakeApplication(
     withRoutes = {
       case ("GET", testPath) =>
         Action {

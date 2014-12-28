@@ -16,12 +16,20 @@
 
 package com.github.levkhomich.akka.tracing
 
-import java.util.UUID
+import scala.concurrent.TimeoutException
+import scala.concurrent.duration.{ FiniteDuration, SECONDS }
+import scala.util.Random
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import org.specs2.mutable.Specification
 
-trait AkkaTracingSpecification {
+final case class TestMessage(value: String) extends TracingSupport
+
+trait TracingTestCommons {
+
+  def nextRandomMessage: TestMessage =
+    TestMessage(Random.nextLong.toString)
 
   def testActorSystem(sampleRate: Int = 1): ActorSystem =
     ActorSystem("AkkaTracingTestSystem" + sampleRate,
@@ -41,10 +49,28 @@ trait AkkaTracingSpecification {
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
     println(s"sending $count messages")
     for (_ <- 1 to count) {
-      val msg = StringMessage(UUID.randomUUID().toString)
+      val msg = nextRandomMessage
       trace.sample(msg, "test")
       trace.finish(msg)
     }
   }
 
+}
+
+trait TracingTestActorSystem { this: TracingTestCommons with Specification =>
+
+  val sampleRate = 1
+
+  implicit lazy val system = testActorSystem(sampleRate)
+  implicit lazy val trace = TracingExtension(system)
+
+  def shutdown(): Unit = {
+    system.shutdown()
+    this match {
+      case mc: MockCollector =>
+        mc.collector.stop()
+      case _ =>
+    }
+    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+  }
 }

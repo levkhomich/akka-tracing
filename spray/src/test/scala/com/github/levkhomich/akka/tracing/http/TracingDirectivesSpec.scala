@@ -13,7 +13,7 @@ import spray.testkit.Specs2RouteTest
 
 import com.github.levkhomich.akka.tracing._
 
-class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
+class TracingDirectivesSpec extends Specification with TracingTestCommons
     with BaseTracingDirectives with MockCollector with Specs2RouteTest with HttpService {
 
   sequential
@@ -29,7 +29,7 @@ class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
 
   val tracedHandleWithRoute =
     get {
-      tracedHandleWith(serviceName) { r: TestRequest =>
+      tracedHandleWith(serviceName) { r: TestMessage =>
         HttpResponse(StatusCodes.OK)
       }
     }
@@ -183,14 +183,10 @@ class TracingDirectivesSpec extends Specification with AkkaTracingSpecification
     system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
-  final case class TestRequest(text: String) extends TracingSupport
-
-  object TestRequest {
-    implicit def um: FromRequestUnmarshaller[TestRequest] =
-      new FromRequestUnmarshaller[TestRequest] {
-        override def apply(request: HttpRequest): Deserialized[TestRequest] =
-          Right(TestRequest(request.entity.asString))
-      }
-  }
+  implicit def um: FromRequestUnmarshaller[TestMessage] =
+    new FromRequestUnmarshaller[TestMessage] {
+      override def apply(request: HttpRequest): Deserialized[TestMessage] =
+        Right(TestMessage(request.entity.asString))
+    }
 
 }

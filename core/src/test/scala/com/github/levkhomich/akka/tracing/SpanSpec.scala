@@ -20,13 +20,13 @@ import scala.util.Random
 
 import org.specs2.mutable.Specification
 
-class SpanIdSpecification extends Specification {
+class SpanSpec extends Specification {
 
   sequential
 
-  "SpanId" should {
+  "Span" should {
 
-    val IterationsCount = 1000000L
+    val IterationsCount = 1000000
 
     "provide serialization conforming to Finagle's implementation" in {
       def checkValue(x: Long): Unit = {
@@ -46,8 +46,7 @@ class SpanIdSpecification extends Specification {
       checkValue(-100)
       checkValue(-100000)
 
-      for (_ <- 1L to IterationsCount)
-        checkValue(Random.nextLong())
+      (1 to IterationsCount).foreach(_ => checkValue(Random.nextLong()))
 
       success
     }

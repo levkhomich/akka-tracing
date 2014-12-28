@@ -17,31 +17,27 @@
 package com.github.levkhomich.akka.tracing
 
 import java.util.UUID
-import java.util.concurrent.TimeoutException
-import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
 import org.specs2.mutable.Specification
 
-class PerformanceSpecification extends Specification with AkkaTracingSpecification with MockCollector {
+class PerformanceSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
+
+  override val sampleRate = 10
 
   sequential
 
   "TracingExtension" should {
 
     val ExpectedTPS = 70000
-    val BenchmarkSampleRate = 10
-
-    val system = testActorSystem(BenchmarkSampleRate)
-    implicit val trace = TracingExtension(system)
 
     s"process more than $ExpectedTPS traces per second using single thread" in {
       val SpanCount = ExpectedTPS * 4
 
       val startingTime = System.currentTimeMillis()
       for (_ <- 1 to SpanCount) {
-        val msg = StringMessage(UUID.randomUUID().toString)
-        trace.sample(msg, "test", "message-" + Math.abs(msg.content.hashCode) % 50)
+        val msg = nextRandomMessage
+        trace.sample(msg, "test")
         trace.recordKeyValue(msg, "keyLong", Random.nextLong())
         trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
         trace.finish(msg)
@@ -51,18 +47,13 @@ class PerformanceSpecification extends Specification with AkkaTracingSpecificati
       println(s"benchmark: TPS = $tracesPerSecond")
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
-      results.size() must beEqualTo(SpanCount / BenchmarkSampleRate)
+      results.size() must beEqualTo(SpanCount / sampleRate)
     }
-
-    "shutdown correctly" in {
-      system.shutdown()
-      collector.stop()
-      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
-    }
-
   }
 
-  "SpanId" should {
+  step(shutdown())
+
+  "Span" should {
 
     val IterationsCount = 5000000L
 
