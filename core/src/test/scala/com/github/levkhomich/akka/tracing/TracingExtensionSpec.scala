@@ -47,7 +47,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       results.size() must beEqualTo(132)
     }
 
-    def testBinaryAnnotation(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {
+    def testTraceRecording(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {
       results.clear()
       TestActorRef(new ActorTracing {
         override def receive: Receive = {
@@ -61,34 +61,44 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     }
     val key = "key"
 
+    "support annotations (Throwable)" in {
+      val value = new NumberFormatException()
+      testTraceRecording(trace.record(_, value))(checkAnnotation(_, TracingExtension.getStackTrace(value)))
+    }
+
     "support binary annotations (String)" in {
       val value = Random.nextLong.toString
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Double)" in {
+      val value = Random.nextDouble
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "support binary annotations (Long)" in {
       val value = Random.nextLong
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "support binary annotations (Int)" in {
       val value = Random.nextInt
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "support binary annotations (Short)" in {
       val value = Random.nextInt.toShort
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "support binary annotations (Boolean)" in {
       val value = Random.nextBoolean
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "support binary annotations (Array[Byte])" in {
       val value = Random.nextLong.toString.getBytes
-      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 
     "trace nested calls" in {
@@ -168,7 +178,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       results.clear()
       generateTraces(10, trace)
       system.shutdown()
-      system.awaitTermination(FiniteDuration(200, MILLISECONDS)) must not(throwA[TimeoutException])
+      system.awaitTermination(FiniteDuration(500, MILLISECONDS)) must not(throwA[TimeoutException])
       results.size() must beEqualTo(10)
     }
   }
