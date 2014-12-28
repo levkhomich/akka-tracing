@@ -19,14 +19,13 @@ package com.github.levkhomich.akka.tracing.actor
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.util
+import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 
 import akka.actor.{ Props, Actor, ActorLogging, Cancellable }
-import com.github.levkhomich.akka.tracing.{ BaseTracingSupport, thrift }
 import org.apache.thrift.transport.TTransport
 
-import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
+import com.github.levkhomich.akka.tracing.{ BaseTracingSupport, thrift }
 
 private[tracing] object SpanHolder {
   private final case class Enqueue(spanId: Long, cancelJob: Boolean)
@@ -45,7 +44,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
 
   import com.github.levkhomich.akka.tracing.actor.SpanHolder._
 
-  private[this] val submitter = context.system.actorOf(Props(classOf[SpanSubmitter], transport))
+  private[this] val submitter = context.system.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
 
   // map of spanId -> span for uncompleted traces
   private[this] val spans = mutable.Map[Long, thrift.Span]()
@@ -121,6 +120,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
 
   private[this] def createSpan(id: Long, parentId: Option[Long], traceId: Long, name: String,
                                annotations: util.List[thrift.Annotation] = null): Unit = {
+    import context.dispatcher
     sendJobs.put(id, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(id, cancelJob = false)))
     val span = new thrift.Span(traceId, name, id, annotations, null)
     parentId.foreach(span.set_parent_id)
