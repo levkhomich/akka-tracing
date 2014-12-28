@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
 
 import akka.actor._
+import com.github.levkhomich.akka.tracing.actor.SpanHolder
 import org.apache.thrift.transport.{ TSocket, TFramedTransport }
 
 /**
