@@ -20,7 +20,7 @@ Getting started
 The best way is to use project's activator templates:
 [general features, Scala and Java API, Spray integration](https://typesafe.com/activator/template/activator-akka-tracing),
 [Play integration](https://typesafe.com/activator/template/activator-play-tracing).
-Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tracing/wiki/Overview).
+Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tracing/wiki/Tracing-overview).
 
 Development
 -----------
