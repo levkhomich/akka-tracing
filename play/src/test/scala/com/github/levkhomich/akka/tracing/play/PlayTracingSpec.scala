@@ -58,6 +58,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.path", testPath)
       checkBinaryAnnotation(span, "request.method", "GET")
+      checkBinaryAnnotation(span, "request.secure", false)
       checkBinaryAnnotation(span, "request.proto", "HTTP/1.1")
     }
 
