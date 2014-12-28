@@ -19,8 +19,10 @@ package com.github.levkhomich.akka.tracing
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
+import scala.util.Random
 
 import akka.testkit.TestActorRef
+import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 
 class TracingExtensionSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
@@ -45,7 +47,51 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       results.size() must beEqualTo(132)
     }
 
-    "track call hierarchy" in {
+    def testBinaryAnnotation(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {
+      results.clear()
+      TestActorRef(new ActorTracing {
+        override def receive: Receive = {
+          case msg @ TestMessage(content) =>
+            trace.sample(msg, "test")
+            f(msg)
+            trace.finish(msg)
+        }
+      }) ! TestMessage("")
+      check(receiveSpan())
+    }
+    val key = "key"
+
+    "support binary annotations (String)" in {
+      val value = Random.nextLong.toString
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Long)" in {
+      val value = Random.nextLong
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Int)" in {
+      val value = Random.nextInt
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Short)" in {
+      val value = Random.nextInt.toShort
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Boolean)" in {
+      val value = Random.nextBoolean
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (Array[Byte])" in {
+      val value = Random.nextLong.toString.getBytes
+      testBinaryAnnotation(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "trace nested calls" in {
       results.clear()
 
       val testActor = TestActorRef(new ActorTracing {

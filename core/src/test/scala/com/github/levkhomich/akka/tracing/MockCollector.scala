@@ -17,6 +17,7 @@
 package com.github.levkhomich.akka.tracing
 
 import java.net.ServerSocket
+import java.nio.ByteBuffer
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
@@ -85,14 +86,42 @@ trait MockCollector { this: Specification =>
     spans.head
   }
 
-  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: String): MatchResult[Any] = {
+  private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {
     span.binary_annotations.find(_.get_key == key) match {
       case Some(ba) =>
-        val actualValue = new String(ba.get_value, "UTF-8")
+        val actualValue = f(ba.get_value)
         actualValue mustEqual expValue
       case _ =>
         ko(key + " = " + expValue + " not found").orThrow
     }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: String): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => new String(bytes, "UTF-8") }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Short): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes).getShort }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Int): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes).getInt }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Long): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes).getLong }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Double): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes).getDouble }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Boolean): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes).get == 1 }
+  }
+
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: Array[Byte]): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => bytes }
   }
 
   def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
