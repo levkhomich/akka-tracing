@@ -92,17 +92,6 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
         }
       case action: EssentialAction =>
         new TracedAction(action)
-      case ws @ WebSocket(f) =>
-        WebSocket[ws.FramesIn, ws.FramesOut](request =>
-          if (requestTraced(request)) {
-            val taggedRequest = request.copy(tags = request.tags ++ extractTracingTags(request))
-            sample(taggedRequest)
-            addHttpAnnotations(taggedRequest)
-            trace.finish(taggedRequest)
-            ws.f(taggedRequest)
-          } else
-            ws.f(request)
-        )(ws.inFormatter, ws.outFormatter)
       case handler =>
         handler
     }
