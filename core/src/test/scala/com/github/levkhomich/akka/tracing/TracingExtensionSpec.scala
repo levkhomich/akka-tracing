@@ -35,7 +35,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       def generateTracesWithSampleRate(count: Int, sampleRate: Int): Unit = {
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
-        Thread.sleep(3000)
+        Thread.sleep(4000)
         system.shutdown()
         system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       }
@@ -45,6 +45,18 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTracesWithSampleRate(500, 5)
 
       results.size() must beEqualTo(132)
+    }
+
+    "allow forced sampling" in {
+      results.clear()
+
+      val system = testActorSystem(sampleRate = Int.MaxValue)
+      generateForcedTraces(100, TracingExtension(system))
+      Thread.sleep(3000)
+      system.shutdown()
+      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+
+      results.size() must beEqualTo(100)
     }
 
     def testTraceRecording(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {

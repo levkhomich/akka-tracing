@@ -160,8 +160,6 @@ private[http] object TracingDirectives {
 
   import TracingHeaders._
 
-  private[this] val DebugFlag = 1L
-
   def extractSpan(message: HttpMessage): Either[String, Option[Span]] = {
     def headerStringValue(name: String): Option[String] =
       message.headers.find(_.name == name).map(_.value)

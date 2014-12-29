@@ -177,7 +177,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     }
   }
 
-  "shutdown correctly" in {
+  step {
     system.shutdown()
     collector.stop()
     system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])

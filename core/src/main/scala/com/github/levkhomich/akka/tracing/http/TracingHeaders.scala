@@ -8,5 +8,7 @@ object TracingHeaders {
   val Sampled = "X-B3-Sampled"
   val Flags = "X-B3-Flags"
 
+  private[tracing] val DebugFlag = 1L
+
   private[tracing] val All = Seq(TraceId, SpanId, ParentSpanId, Sampled, Flags)
 }
