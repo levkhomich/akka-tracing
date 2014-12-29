@@ -35,6 +35,8 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   val TestPath = "/request"
   val TestErrorPath = "/error"
   val npe = new NullPointerException
+  implicit def trace: TracingExtensionImpl = TracingExtension(_root_.play.libs.Akka.system)
+
   def fakeApplication: FakeApplication = FakeApplication(
     withRoutes = {
       case ("GET", TestPath) =>
@@ -65,6 +67,12 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val request = FakeRequest("GET", TestPath)
       new PlayControllerTracing {
         request.asChildOf(parent)
+      } must throwA[IllegalStateException]
+    }
+
+    "throw IllegalStateException RequestHeader was not properly tagged" in new WithApplication(fakeApplication) {
+      new PlayControllerTracing {
+        new TracingSupport {}.asChildOf(FakeRequest("GET", TestPath))
       } must throwA[IllegalStateException]
     }
 

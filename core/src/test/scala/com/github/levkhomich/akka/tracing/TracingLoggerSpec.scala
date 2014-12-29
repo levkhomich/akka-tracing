@@ -53,6 +53,19 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
         span.annotations.size == 3 && span.annotations.get(1).value.startsWith("Info")
       } must beTrue
     }
+
+    "work as a normal logger outside of traced requests" in {
+      results.clear()
+      val testActor = TestActorRef(new ActorTracing with TracingActorLogging {
+        override def receive: Receive = {
+          case msg: String =>
+            log.info("received message " + msg)
+        }
+      })
+      testActor ! ""
+      Thread.sleep(100)
+      testActor.underlying.isTerminated mustEqual false
+    }
   }
 
   step(shutdown())
