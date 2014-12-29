@@ -16,6 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
+import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
@@ -31,6 +32,10 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
   sequential
 
   "TracingExtension" should {
+
+    "be obtainable using Akka Plugin API" in {
+      TracingExtension(system) mustEqual TracingExtension.get(system)
+    }
 
     "sample at specified rate" in {
       def generateTracesWithSampleRate(count: Int, sampleRate: Int): Unit = {
@@ -111,6 +116,11 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
     "support binary annotations (Array[Byte])" in {
       val value = Random.nextLong.toString.getBytes
+      testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
+    }
+
+    "support binary annotations (ByteBuffer)" in {
+      val value = ByteBuffer.wrap(Random.nextLong.toString.getBytes)
       testTraceRecording(trace.recordKeyValue(_, key, value))(checkBinaryAnnotation(_, key, value))
     }
 

@@ -124,6 +124,10 @@ trait MockCollector { this: Specification =>
     checkBinaryAnnotationInt(span, key, expValue) { bytes => bytes }
   }
 
+  def checkBinaryAnnotation(span: thrift.Span, key: String, expValue: ByteBuffer): MatchResult[Any] = {
+    checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes) }
+  }
+
   def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
     span.annotations.find(_.get_value == expValue).isDefined mustEqual true
   }

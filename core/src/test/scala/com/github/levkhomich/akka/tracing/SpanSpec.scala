@@ -83,6 +83,17 @@ class SpanSpec extends Specification {
       Span.fromString("11111111111111111") must throwAn[NumberFormatException]
       Span.fromString("11111111111111111") must throwAn[NumberFormatException]
     }
+
+    "provide span id data holder" in {
+      val traceId = Random.nextLong
+      val span = Span(traceId, Random.nextLong,
+        if (Random.nextLong > 0) Some(Random.nextLong) else None, Random.nextBoolean)
+      span.asChildOf(new TracingSupport {})(null) must throwA[UnsupportedOperationException]
+      span.spanName must throwA[UnsupportedOperationException]
+      span.isSampled mustEqual true
+      span.sample must not(throwA[Throwable])
+      span.$traceId mustEqual Some(traceId)
+    }
   }
 
 }
