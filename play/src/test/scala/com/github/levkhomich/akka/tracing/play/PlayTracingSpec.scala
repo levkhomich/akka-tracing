@@ -16,10 +16,10 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import scala.concurrent.{ Future, Await }
+import scala.concurrent.{ Await, Future }
 import scala.util.Random
 
-import play.api.{ Play, GlobalSettings }
+import play.api.{ GlobalSettings, Play }
 import play.api.http.Writeable
 import play.api.libs.iteratee.Enumerator
 import play.api.mvc._
@@ -32,12 +32,19 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
   sequential
 
-  val testPath = "/request"
+  val TestPath = "/request"
+  val TestErrorPath = "/error"
+  val npe = new NullPointerException
   def fakeApplication: FakeApplication = FakeApplication(
     withRoutes = {
-      case ("GET", testPath) =>
+      case ("GET", TestPath) =>
         Action {
-          Ok("response") as "text/html"
+          Ok("response") as "text/plain"
+        }
+      case ("GET", TestErrorPath) =>
+        Action {
+          throw npe
+          Ok("response") as "text/plain"
         }
     },
     withGlobal = Some(new GlobalSettings with TracingSettings),
@@ -48,22 +55,22 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", testPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       success
     }
 
     "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", testPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.path", testPath)
+      checkBinaryAnnotation(span, "request.path", TestPath)
       checkBinaryAnnotation(span, "request.method", "GET")
       checkBinaryAnnotation(span, "request.secure", false)
       checkBinaryAnnotation(span, "request.proto", "HTTP/1.1")
     }
 
     "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", testPath + "?key=value",
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
       )).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
@@ -75,7 +82,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val spanId = Random.nextLong
       val parentId = Random.nextLong
 
-      val result = route(FakeRequest("GET", testPath + "?key=value",
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(Span.asString(spanId)),
           TracingHeaders.ParentSpanId -> Seq(Span.asString(parentId))
@@ -86,21 +93,34 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, Span.asString(spanId))
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, Span.asString(parentId))
     }
+
+    "record server errors to traces" in new WithApplication(fakeApplication) {
+      val result = route(FakeRequest("GET", TestErrorPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val span = receiveSpan()
+      checkAnnotation(span, TracingExtension.getStackTrace(npe))
+    }
+
   }
 
-  "shutdown correctly" in {
+  step {
     collector.stop()
-    success
   }
 
-  // it seems that play-test doesn't call global.onRequestCompletion at all
+  // it seems that play-test doesn't call global.onRequestCompletion and global.onError
   override def call[T](action: EssentialAction, rh: RequestHeader, body: T)(implicit w: Writeable[T]): Future[Result] = {
     val rhWithCt = w.contentType.map(ct => rh.copy(
       headers = FakeHeaders((rh.headers.toMap + ("Content-Type" -> Seq(ct))).toSeq)
     )).getOrElse(rh)
     val requestBody = Enumerator(body) &> w.toEnumeratee
-    val result = requestBody |>>> action(rhWithCt)
-    result.onComplete(_ => Play.current.global.onRequestCompletion(rh))
+    val result = requestBody |>>> action(rhWithCt).recover {
+      case e =>
+        Play.current.global.onError(rh, e)
+        InternalServerError
+    }
+    result.onComplete {
+      case _ =>
+        Play.current.global.onRequestCompletion(rh)
+    }
     result
   }
 
