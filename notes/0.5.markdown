@@ -1,5 +1,5 @@
 Improvements:
 
 * spray integration: reject requests with broken tracing headers;
-* improved test coverage;
+* greatly improved test coverage;
 * [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=5&page=1&state=closed).
