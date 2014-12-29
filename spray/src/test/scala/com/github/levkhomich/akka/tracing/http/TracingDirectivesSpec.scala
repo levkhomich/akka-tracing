@@ -5,9 +5,10 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Random
 
+import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 import spray.http._
-import spray.httpx.unmarshalling.{ Deserialized, FromRequestUnmarshaller }
+import spray.httpx.unmarshalling._
 import spray.routing.HttpService
 import spray.testkit.Specs2RouteTest
 
@@ -107,6 +108,35 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
           responseAs[String] mustEqual (MalformedHeaderRejection format TracingHeaders.ParentSpanId)
         }
     }
+
+    def testRejection(error: DeserializationError, statusCode: StatusCode): MatchResult[_] = {
+      results.clear()
+      implicit def um: FromRequestUnmarshaller[TestMessage] =
+        new FromRequestUnmarshaller[TestMessage] {
+          override def apply(request: HttpRequest): Deserialized[TestMessage] =
+            Left(error)
+        }
+      Get(testPath) ~> sealRoute(tracedHandleWith(serviceName) { r: TestMessage =>
+        HttpResponse(StatusCodes.OK)
+      }) ~> check {
+        response.status mustEqual statusCode
+        Thread.sleep(3000)
+        results.size mustEqual 0
+      }
+    }
+
+    "not trace rejected requests (ContentExpected)" in {
+      testRejection(ContentExpected, StatusCodes.BadRequest)
+    }
+
+    "not trace rejected requests (UnsupportedContentType)" in {
+      testRejection(UnsupportedContentType(""), StatusCodes.UnsupportedMediaType)
+    }
+
+    "not trace rejected requests (MalformedContent)" in {
+      testRejection(MalformedContent("", new NumberFormatException()), StatusCodes.BadRequest)
+    }
+
   }
 
   "tracedComplete directive" should {
