@@ -48,7 +48,7 @@ trait TracingTestCommons {
 
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
     println(s"generating $count traces")
-    for (_ <- 1 to count) {
+    for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.sample(msg, "test")
       trace.finish(msg)
@@ -57,7 +57,7 @@ trait TracingTestCommons {
 
   def generateForcedTraces(count: Int, trace: TracingExtensionImpl): Unit = {
     println(s"generating $count forced traces")
-    for (_ <- 1 to count) {
+    for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.forcedSample(msg, "test")
       trace.finish(msg)

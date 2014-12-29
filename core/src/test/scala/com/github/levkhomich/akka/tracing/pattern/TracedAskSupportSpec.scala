@@ -28,7 +28,7 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
       trace.sample(childMessage, "testService")
 
       implicit val timeout = Timeout(5, SECONDS)
-      childActor ? childMessage
+      ask(childActor, childMessage)
 
       val span = receiveSpan()
       span.get_parent_id mustEqual parentMessage.$spanId
@@ -51,7 +51,7 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
       trace.sample(childMessage, "testService")
 
       implicit val timeout = Timeout(5, SECONDS)
-      childActor ? childMessage
+      ask(childActor, childMessage)
 
       val span = receiveSpan()
       span.get_parent_id mustEqual parentMessage.$spanId

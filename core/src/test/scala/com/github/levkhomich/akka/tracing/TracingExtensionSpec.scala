@@ -22,6 +22,7 @@ import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
 import scala.util.Random
 
 import akka.testkit.TestActorRef
+import akka.util.Timeout
 import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 
@@ -163,6 +164,25 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       parentMsg.$traceId must beEqualTo(childMsg.$traceId)
     }
 
+    "finish corresponding traces after calling asResponseTo" in {
+      import akka.pattern.ask
+      results.clear()
+      val testActor = TestActorRef(new ActorTracing {
+        override def receive: Receive = {
+          case msg @ TestMessage(content) =>
+            trace.sample(msg, "test")
+            sender ! None.asResponseTo(msg)
+        }
+      })
+      val messageCount = 100
+      implicit val timeout = Timeout(100, MILLISECONDS)
+      for (_ <- 0 until messageCount) {
+        testActor ? nextRandomMessage
+      }
+      Thread.sleep(5000)
+      results.size() must beEqualTo(messageCount)
+    }
+
     "handle collector connectivity problems" in {
       // collector won't stop until some message's arrival
       generateTraces(1, trace)
@@ -197,7 +217,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTraces(10000, trace)
 
       // wait for submission while collector is down
-      Thread.sleep(10000)
+      Thread.sleep(15000)
 
       collector = startCollector()
       Thread.sleep(10000)
