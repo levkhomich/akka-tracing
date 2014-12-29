@@ -35,7 +35,13 @@ class TReusableTransportSpec extends Specification {
     val dataset = new Array[Byte](DatasetSize)
     (0 until DatasetSize).foreach(dataset(_) = Random.nextInt.toByte)
 
-    "support writing" in {
+    "not support open() and close()" in {
+      transport.open() must throwA[UnsupportedOperationException]
+      transport.close() must throwA[UnsupportedOperationException]
+      transport.isOpen mustEqual true
+    }
+
+    "support write()" in {
       var offset = 0
       while (offset < DatasetSize) {
         transport.write(dataset, offset, WriteBatchSize min (DatasetSize - offset))
@@ -44,7 +50,7 @@ class TReusableTransportSpec extends Specification {
       transport.length mustEqual DatasetSize
     }
 
-    "support reading" in {
+    "support read()" in {
       val buffer = new Array[Byte](ReadBatchSize)
       var offset = 0
       while (offset < DatasetSize) {
