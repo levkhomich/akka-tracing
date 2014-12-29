@@ -186,6 +186,25 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       results.size() must beEqualTo(100)
     }
 
+    "limit size of span submission buffer" in {
+      // collector won't stop until some message's arrival
+      generateTraces(1, trace)
+      collector.stop()
+
+      Thread.sleep(3000)
+      results.clear()
+
+      generateTraces(10000, trace)
+
+      // wait for submission while collector is down
+      Thread.sleep(10000)
+
+      collector = startCollector()
+      Thread.sleep(10000)
+
+      results.size() must beEqualTo(1000)
+    }
+
     "flush traces before stop" in {
       results.clear()
       generateTraces(10, trace)
