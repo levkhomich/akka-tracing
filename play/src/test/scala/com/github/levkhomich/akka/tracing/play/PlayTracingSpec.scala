@@ -60,6 +60,14 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       success
     }
 
+    "not allow to use RequestHeaders as child of other request" in new WithApplication(fakeApplication) {
+      val parent = new TracingSupport {}
+      val request = FakeRequest("GET", TestPath)
+      new PlayControllerTracing {
+        request.asChildOf(parent)
+      } must throwA[IllegalStateException]
+    }
+
     "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
