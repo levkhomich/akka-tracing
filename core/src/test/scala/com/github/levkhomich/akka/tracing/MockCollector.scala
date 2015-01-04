@@ -86,6 +86,13 @@ trait MockCollector { this: Specification =>
     spans.head
   }
 
+  def receiveSpans(): List[thrift.Span] = {
+    Thread.sleep(3000)
+    val spans = results.map(e => decodeSpan(e.message))
+    results.clear()
+    spans.toList
+  }
+
   private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {
     span.binary_annotations.find(_.get_key == key) match {
       case Some(ba) =>

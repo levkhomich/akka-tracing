@@ -110,7 +110,6 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     }
 
     def testRejection(error: DeserializationError, statusCode: StatusCode): MatchResult[_] = {
-      results.clear()
       implicit def um: FromRequestUnmarshaller[TestMessage] =
         new FromRequestUnmarshaller[TestMessage] {
           override def apply(request: HttpRequest): Deserialized[TestMessage] =
@@ -120,8 +119,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
         HttpResponse(StatusCodes.OK)
       }) ~> check {
         response.status mustEqual statusCode
-        Thread.sleep(3000)
-        results.size mustEqual 0
+        receiveSpans().size mustEqual 0
       }
     }
 
@@ -143,8 +141,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "not sample requests without tracing headers" in {
       Get(testPath) ~> tracedCompleteRoute ~> check {
         response.status mustEqual StatusCodes.OK
-        Thread.sleep(3000)
-        results.size mustEqual 0
+        receiveSpans().size mustEqual 0
       }
     }
 

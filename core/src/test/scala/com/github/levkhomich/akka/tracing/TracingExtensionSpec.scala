@@ -50,23 +50,20 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTracesWithSampleRate(60, 2)
       generateTracesWithSampleRate(500, 5)
 
-      results.size() must beEqualTo(132)
+      receiveSpans().size must beEqualTo(132)
     }
 
     "allow forced sampling" in {
-      results.clear()
-
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
       Thread.sleep(3000)
       system.shutdown()
       system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
 
-      results.size() must beEqualTo(100)
+      receiveSpans().size must beEqualTo(100)
     }
 
     def testTraceRecording(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {
-      results.clear()
       TestActorRef(new ActorTracing {
         override def receive: Receive = {
           case msg @ TestMessage(content) =>
@@ -125,8 +122,6 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     }
 
     "trace nested calls" in {
-      results.clear()
-
       val testActor = TestActorRef(new ActorTracing {
         override def receive: Receive = {
           case msg @ TestMessage(content) =>
@@ -147,11 +142,9 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       trace.finish(parentMsg)
       trace.finish(childMsg)
 
-      Thread.sleep(5000)
+      val spans = receiveSpans()
+      spans.size must beEqualTo(2)
 
-      results.size() must beEqualTo(2)
-
-      val spans = results.map(e => decodeSpan(e.message))
       val parentSpan = spans.find { s =>
         s.binary_annotations != null && {
           val content = s.binary_annotations.find(_.key == "content").get.value
@@ -173,7 +166,6 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
     "finish corresponding traces after calling asResponseTo" in {
       import akka.pattern.ask
-      results.clear()
       val testActor = TestActorRef(new ActorTracing {
         override def receive: Receive = {
           case msg @ TestMessage(content) =>
@@ -186,8 +178,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       for (_ <- 0 until messageCount) {
         testActor ? nextRandomMessage
       }
-      Thread.sleep(5000)
-      results.size() must beEqualTo(messageCount)
+      receiveSpans().size must beEqualTo(messageCount)
     }
 
     "handle collector connectivity problems" in {
@@ -204,13 +195,12 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       Thread.sleep(3000)
 
       collector = startCollector()
-      Thread.sleep(3000)
 
       // extension should wait for some time before retrying
-      results.size() must beEqualTo(0)
-      Thread.sleep(7000)
+      receiveSpans().size must beEqualTo(0)
+      Thread.sleep(4000)
 
-      results.size() must beEqualTo(100)
+      receiveSpans().size must beEqualTo(100)
     }
 
     "limit size of span submission buffer" in {
@@ -227,13 +217,12 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       Thread.sleep(15000)
 
       collector = startCollector()
-      Thread.sleep(10000)
+      Thread.sleep(7000)
 
-      results.size() must beEqualTo(1000)
+      receiveSpans().size must beEqualTo(1000)
     }
 
     "flush traces before stop" in {
-      results.clear()
       generateTraces(10, trace)
       system.shutdown()
       system.awaitTermination(FiniteDuration(500, MILLISECONDS)) must not(throwA[TimeoutException])

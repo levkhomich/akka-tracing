@@ -37,7 +37,6 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
     val SpanCount = 100
 
     "force sampling of requests with X-B3-Sampled = true" in {
-      results.clear()
       for (_ <- 0 until SpanCount) {
         Get().withHeaders(
           HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
@@ -45,12 +44,10 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      Thread.sleep(3000)
-      results.size mustEqual SpanCount
+      receiveSpans().size mustEqual SpanCount
     }
 
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
-      results.clear()
       for (i <- 0 until SpanCount) {
         Get().withHeaders(
           HttpHeaders.RawHeader(TracingHeaders.Flags, (i | TracingHeaders.DebugFlag).toString)
@@ -58,8 +55,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      Thread.sleep(3000)
-      results.size mustEqual SpanCount
+      receiveSpans().size mustEqual SpanCount
     }
 
   }
@@ -68,7 +64,6 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
     val SpanCount = 100
 
     "force sampling of requests with X-B3-Sampled = true" in {
-      results.clear()
       for (_ <- 0 until SpanCount) {
         Get().withHeaders(
           HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
@@ -76,12 +71,10 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      Thread.sleep(3000)
-      results.size mustEqual SpanCount
+      receiveSpans().size mustEqual SpanCount
     }
 
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
-      results.clear()
       for (i <- 0 until SpanCount) {
         Get().withHeaders(
           HttpHeaders.RawHeader(TracingHeaders.Flags, (i | TracingHeaders.DebugFlag).toString)
@@ -89,8 +82,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      Thread.sleep(3000)
-      results.size mustEqual SpanCount
+      receiveSpans().size mustEqual SpanCount
     }
 
   }

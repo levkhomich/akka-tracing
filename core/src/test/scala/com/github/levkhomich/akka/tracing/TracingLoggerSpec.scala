@@ -16,8 +16,6 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.collection.JavaConversions._
-
 import akka.testkit.TestActorRef
 import org.specs2.mutable.Specification
 
@@ -28,8 +26,6 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
   "TracingLogger" should {
 
     "pipe logs to traces" in {
-      results.clear()
-
       val testActor = TestActorRef(new ActorTracing with TracingActorLogging {
         override def receive: Receive = {
           case msg @ TestMessage(content) =>
@@ -45,17 +41,15 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
         testActor ! nextRandomMessage
       }
 
-      Thread.sleep(5000)
+      val spans = receiveSpans()
 
-      results.size() must beEqualTo(3)
-      results.forall { e =>
-        val span = decodeSpan(e.message)
+      spans.size must beEqualTo(3)
+      spans.forall { span =>
         span.annotations.size == 3 && span.annotations.get(1).value.startsWith("Info")
       } must beTrue
     }
 
     "work as a normal logger outside of traced requests" in {
-      results.clear()
       val testActor = TestActorRef(new ActorTracing with TracingActorLogging {
         override def receive: Receive = {
           case msg: String =>

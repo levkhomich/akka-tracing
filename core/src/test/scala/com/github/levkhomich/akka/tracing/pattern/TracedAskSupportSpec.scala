@@ -17,7 +17,7 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
 
     "instrument ask pattern (ActorRef)" in {
       val childActor = TestActorRef(new Actor {
-        def receive = {
+        def receive: Receive = {
           case _: TracingSupport => sender ! "ok"
         }
       })
@@ -41,7 +41,7 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
     "instrument ask pattern (ActorSelection)" in {
       val childActor = {
         val ref = TestActorRef(new Actor {
-          def receive = {
+          def receive: Receive = {
             case _: TracingSupport => sender ! "ok"
           }
         })

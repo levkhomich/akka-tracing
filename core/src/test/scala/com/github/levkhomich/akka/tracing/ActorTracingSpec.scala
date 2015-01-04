@@ -28,7 +28,7 @@ class ActorTracingSpec extends Specification with TracingTestCommons with Tracin
 
     "instrument actor receive" in {
       val actor = TestActorRef(new Actor with ActorTracing {
-        def receive = {
+        def receive: Receive = {
           case _ =>
         }
       })

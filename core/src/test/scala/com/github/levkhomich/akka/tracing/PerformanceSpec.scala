@@ -43,11 +43,10 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
         trace.finish(msg)
       }
       val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-      Thread.sleep(10000)
       println(s"benchmark: TPS = $tracesPerSecond")
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
-      results.size() must beEqualTo(SpanCount / sampleRate)
+      receiveSpans().size must beEqualTo(SpanCount / sampleRate)
     }
   }
 
