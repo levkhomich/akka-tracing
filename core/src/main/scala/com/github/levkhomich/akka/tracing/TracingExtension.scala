@@ -19,10 +19,12 @@ package com.github.levkhomich.akka.tracing
 import java.io.{ PrintWriter, StringWriter }
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
+import scala.util.Random
 
 import akka.actor._
-import com.github.levkhomich.akka.tracing.actor.SpanHolder
 import org.apache.thrift.transport.{ TSocket, TFramedTransport }
+
+import com.github.levkhomich.akka.tracing.actor.SpanHolder
 
 /**
  * Tracer instance providing trace related methods.
@@ -66,8 +68,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param msg recorded string
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
-    if (ts.isSampled)
-      record(ts.$spanId, msg)
+    record(ts.tracingId, msg)
 
   /**
    * Records exception's stack trace to trace.
@@ -77,9 +78,9 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def record(ts: BaseTracingSupport, e: Throwable): Unit =
     record(ts, getStackTrace(e))
 
-  private[tracing] def record(spanId: Long, msg: String): Unit =
+  private[tracing] def record(tracingId: Long, msg: String): Unit =
     if (isEnabled)
-      holder ! AddAnnotation(spanId, System.nanoTime, msg)
+      holder ! AddAnnotation(tracingId, System.nanoTime, msg)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -154,33 +155,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addBinaryAnnotation(ts, key, value, thrift.AnnotationType.BYTES)
 
   /**
-   * Enables message tracing, names and samples it. After sampling any nth message
-   * (defined by akka.tracing.sample-rate setting) will be actually traced.
-   * @param ts traced message
-   * @param service service name
-   * @param rpc RPC name
-   */
-  @deprecated("override BaseTracingSupport.spanName and use sample(ts, service) instead", "0.4")
-  def sample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
-      ts.sample()
-      holder ! Sample(ts, service, rpc, System.nanoTime)
-    }
-
-  /**
-   * Enables message tracing, names and samples it. Message will be traced ignoring
-   * akka.tracing.sample-rate setting.
-   * @param ts traced message
-   * @param service service name
-   * @param rpc RPC name
-   */
-  private[tracing] def forcedSample(ts: BaseTracingSupport, service: String, rpc: String): Unit =
-    if (isEnabled) {
-      ts.sample()
-      holder ! Sample(ts, service, rpc, System.nanoTime)
-    }
-
-  /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
    * and samples it. After sampling any nth message (defined by akka.tracing.sample-rate setting)
    * will be actually traced.
@@ -188,7 +162,18 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   def sample(ts: BaseTracingSupport, service: String): Unit =
-    sample(ts, service, ts.spanName)
+    sample(ts, Random.nextLong, None, Random.nextLong, service)
+
+  private[tracing] def sample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Unit =
+    sample(ts.tracingId, spanId, parentId, traceId, service, ts.spanName)
+
+  private[tracing] def sample(tracingId: Long, service: String, rpc: String): Unit =
+    sample(tracingId, Random.nextLong, None, Random.nextLong, service, rpc)
+
+  private[tracing] def sample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
+    if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
+      holder ! Sample(tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
+    }
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -197,32 +182,39 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   def forcedSample(ts: BaseTracingSupport, service: String): Unit =
-    forcedSample(ts, service, ts.spanName)
+    forcedSample(ts, Random.nextLong, None, Random.nextLong, service, ts.spanName)
+
+  private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Unit =
+    forcedSample(ts, spanId, parentId, traceId, service, ts.spanName)
+
+  private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
+    if (isEnabled)
+      holder ! Sample(ts.tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
 
   /**
    * Marks request processing start.
    * @param ts traced message
    * @param service service name
    */
-  private[tracing] def start(ts: BaseTracingSupport, service: String): Unit =
-    if (isEnabled && ts.isSampled)
-      holder ! Receive(ts, service, ts.spanName, System.nanoTime)
+  def start(ts: BaseTracingSupport, service: String): Unit =
+    if (isEnabled)
+      holder ! Receive(ts.tracingId, service, ts.spanName, System.nanoTime)
 
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   private[this] def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
-    if (isEnabled && ts.isSampled)
-      holder ! AddAnnotation(ts.$spanId, System.nanoTime, value)
+    if (isEnabled)
+      holder ! AddAnnotation(ts.tracingId, System.nanoTime, value)
 
   private[this] def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
                                         valueType: thrift.AnnotationType): Unit =
-    if (isEnabled && ts.isSampled)
-      holder ! AddBinaryAnnotation(ts.$spanId, key, value, valueType)
+    if (isEnabled)
+      holder ! AddBinaryAnnotation(ts.tracingId, key, value, valueType)
 
-  private[tracing] def createChildSpan(spanId: Long, ts: BaseTracingSupport, spanName: String): Unit =
-    if (isEnabled && ts.isSampled)
-      holder ! CreateChildSpan(spanId, ts.$spanId, ts.$traceId, spanName)
+  private[tracing] def createChildSpan(tracingId: Long, parentTracingId: Long, spanName: String): Unit =
+    if (isEnabled)
+      holder ! CreateChildSpan(tracingId, parentTracingId, spanName)
 
 }
 

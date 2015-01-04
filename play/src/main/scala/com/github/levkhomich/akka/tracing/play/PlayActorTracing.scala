@@ -20,8 +20,7 @@ import akka.actor.Actor
 import play.api.Routes
 import play.api.mvc.RequestHeader
 
-import com.github.levkhomich.akka.tracing.{ Span, TracingExtensionImpl, BaseTracingSupport, ActorTracing }
-import com.github.levkhomich.akka.tracing.http.TracingHeaders
+import com.github.levkhomich.akka.tracing.{ TracingExtensionImpl, BaseTracingSupport, ActorTracing }
 
 trait PlayActorTracing extends ActorTracing { self: Actor =>
 
@@ -32,17 +31,8 @@ trait PlayActorTracing extends ActorTracing { self: Actor =>
 
 class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with BaseTracingSupport {
 
-  override private[tracing] def $spanId: Long =
-    headers.tags.get(TracingHeaders.SpanId).map(Span.fromString).getOrElse(
-      throw new IllegalStateException(
-        "Traced request was not properly tagged. Probably, TracingSettings was not mixed into global Play config."
-      )
-    )
-
-  override private[tracing] def sample(): Unit = {}
-
-  override private[tracing] def $traceId: Option[Long] =
-    headers.tags.get(TracingHeaders.TraceId).map(Span.fromString)
+  override private[tracing] def tracingId: Long =
+    headers.id
 
   override protected[tracing] def spanName: String = {
     val route = headers.tags.getOrElse(Routes.ROUTE_PATTERN, headers.path)
@@ -52,10 +42,5 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
   override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport =
     throw new IllegalStateException()
 
-  override private[tracing] def $parentId: Option[Long] =
-    headers.tags.get(TracingHeaders.ParentSpanId).map(Span.fromString)
-
-  override private[tracing] def isSampled: Boolean =
-    headers.tags.get(TracingHeaders.TraceId).isDefined
 }
 

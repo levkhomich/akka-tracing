@@ -38,12 +38,15 @@ trait BaseTracingDirectives {
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: HNil] =
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: HNil] {
-      case Right(value) :: Right(optSpan) :: request :: HNil =>
-        optSpan.foreach(s => value.init(s.$spanId, s.$traceId.get, s.$parentId))
-        if (optSpan.map(_.forceSampling).getOrElse(false))
-          trace.forcedSample(value, service)
-        else
-          trace.sample(value, service)
+      case Right(value) :: Right(maybeSpan) :: request :: HNil =>
+        maybeSpan match {
+          case Some(span) if span.forceSampling =>
+            trace.forcedSample(value, span.spanId, span.parentId, span.traceId, service)
+          case Some(span) =>
+            trace.sample(value, span.spanId, span.parentId, span.traceId, service)
+          case _ =>
+            trace.sample(value.tracingId, service, value.spanName)
+        }
         addHttpAnnotations(value, request)
         hprovide(value :: HNil)
       case Right(value) :: Left(headerName) :: request :: HNil =>
@@ -88,9 +91,9 @@ trait BaseTracingDirectives {
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             if (span.forceSampling)
-              trace.forcedSample(span, service, rpc)
+              trace.forcedSample(span, span.spanId, span.parentId, span.traceId, service, rpc)
             else
-              trace.sample(span, service, rpc)
+              trace.sample(span.tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
             addHttpAnnotations(span, ctx.request)
             ctx.complete(value)(traceServerSend(span))
 

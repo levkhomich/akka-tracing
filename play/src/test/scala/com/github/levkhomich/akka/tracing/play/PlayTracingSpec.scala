@@ -70,12 +70,6 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       } must throwA[IllegalStateException]
     }
 
-    "throw IllegalStateException RequestHeader was not properly tagged" in new WithApplication(fakeApplication) {
-      new PlayControllerTracing {
-        new TracingSupport {}.asChildOf(FakeRequest("GET", TestPath))
-      } must throwA[IllegalStateException]
-    }
-
     "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()

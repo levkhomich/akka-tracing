@@ -16,71 +16,40 @@
 
 package com.github.levkhomich.akka.tracing
 
-import akka.actor.Actor
-import akka.testkit.TestActorRef
+import scala.util.Random
+
 import org.specs2.mutable.Specification
 
-class TracingSupportSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
+class TracingSupportSpec extends Specification with TracingTestCommons {
 
   sequential
 
   "TracingSupport" should {
 
-    "allow message sampling" in {
-      val msg = nextRandomMessage
-      msg.isSampled must beFalse
-
-      msg.sample()
-      msg.isSampled must beTrue
-
-      msg.init(0L, 0L, Some(0L)) must throwAn[IllegalArgumentException]
-      msg.asChildOf(nextRandomMessage) must throwAn[IllegalArgumentException]
+    val MessageCount = 1000000
+    "provide unique (enough) tracing ids in worst case" in {
+      val messages = (0 until MessageCount).map(_ => new TracingSupport {}).sortBy(_.tracingId).toList
+      val collisionCount = messages.sliding(2).foldRight(0) {
+        case (l :: r :: Nil, z) if l.tracingId != r.tracingId =>
+          z
+        case (l, z) =>
+          z + 1
+      }
+      collisionCount.toDouble / MessageCount must be_<(0.0005)
     }
 
-    "propagate context to child requests" in {
-      val parent = nextRandomMessage
-      parent.sample()
-
-      val child = nextRandomMessage.asChildOf(parent)
-      child.isSampled must beTrue
-
-      child.$traceId mustEqual parent.$traceId
-      child.$spanId mustNotEqual parent.$spanId
-      child.$parentId mustEqual Some(parent.$spanId)
-    }
-
-    "instrument actor receive" in {
-      val actor = TestActorRef(new Actor with ActorTracing {
-        def receive = {
-          case _ =>
-        }
-      })
-
-      val message = nextRandomMessage
-
-      trace.sample(message, "testService")
-      actor ! message
-      trace.finish(message)
-
-      val span = receiveSpan()
-      checkAnnotation(span, "request: " + message)
-    }
-
-    "support external contexts" in {
-      val parent = nextRandomMessage
-      parent.sample()
-      val child = nextRandomMessage.asChildOf(parent)
-
-      val childClone = nextRandomMessage
-      childClone.init(child.$spanId, child.$traceId.get, child.$parentId)
-
-      child.$spanId mustEqual childClone.$spanId
-      child.$traceId mustEqual childClone.$traceId
-      child.$parentId mustEqual childClone.$parentId
+    "provide unique tracing ids in regular case" in {
+      final case class Message(value: Int) extends TracingSupport
+      val messages = (0 until MessageCount).map(_ => Message(Random.nextInt)).sortBy(_.tracingId).toList
+      val collisionCount = messages.sliding(2).foldRight(0) {
+        case (l :: r :: Nil, z) if l.tracingId != r.tracingId =>
+          z
+        case (l, z) =>
+          z + 1
+      }
+      collisionCount mustEqual 0
     }
 
   }
-
-  step(shutdown())
 
 }

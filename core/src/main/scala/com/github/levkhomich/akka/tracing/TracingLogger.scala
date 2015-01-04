@@ -19,18 +19,20 @@ package com.github.levkhomich.akka.tracing
 import akka.actor.{ Actor, DiagnosticActorLogging }
 import akka.event.Logging.{ InitializeLogger, LogEvent, LoggerInitialized, MDC, emptyMDC }
 
-import com.github.levkhomich.akka.tracing.http.TracingHeaders
-
 trait TracingActorLogging extends DiagnosticActorLogging {
 
   override def mdc(currentMessage: Any): MDC =
     currentMessage match {
       case ts: BaseTracingSupport =>
-        Map(TracingHeaders.SpanId -> ts.$spanId)
+        Map(TracingActorLogging.TracingIdKey -> ts.tracingId)
       case _ =>
         emptyMDC
     }
 
+}
+
+private object TracingActorLogging {
+  val TracingIdKey = "tracingIdKey"
 }
 
 class TracingLogger extends Actor with ActorTracing {
@@ -40,9 +42,9 @@ class TracingLogger extends Actor with ActorTracing {
       sender() ! LoggerInitialized
 
     case e: LogEvent =>
-      e.mdc.get(TracingHeaders.SpanId) match {
-        case Some(spanId: Long) =>
-          trace.record(spanId, e.getClass.getSimpleName + ": " + e.message)
+      e.mdc.get(TracingActorLogging.TracingIdKey) match {
+        case Some(tracingId: Long) =>
+          trace.record(tracingId, e.getClass.getSimpleName + ": " + e.message)
         case _ =>
         // do nothing
       }

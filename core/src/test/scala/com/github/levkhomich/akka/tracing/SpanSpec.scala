@@ -28,7 +28,7 @@ class SpanSpec extends Specification {
 
     val IterationsCount = 1000000
 
-    "provide serialization conforming to Finagle's implementation" in {
+    "provide id serialization conforming to Finagle's implementation" in {
       def checkValue(x: Long): Unit = {
         val actual = Span.asString(x)
         val expected = new com.twitter.finagle.tracing.SpanId(x).toString()
@@ -51,7 +51,7 @@ class SpanSpec extends Specification {
       success
     }
 
-    "provide deserialization conforming to Finagle's implementation" in {
+    "provide id deserialization conforming to Finagle's implementation" in {
       def checkValue(x: String): Unit = {
         val actual = Span.fromString(x)
         val expected = com.twitter.finagle.tracing.SpanId.fromString(x).get.toLong
@@ -90,9 +90,6 @@ class SpanSpec extends Specification {
         if (Random.nextLong > 0) Some(Random.nextLong) else None, Random.nextBoolean)
       span.asChildOf(new TracingSupport {})(null) must throwA[UnsupportedOperationException]
       span.spanName must throwA[UnsupportedOperationException]
-      span.isSampled mustEqual true
-      span.sample must not(throwA[Throwable])
-      span.$traceId mustEqual Some(traceId)
     }
   }
 

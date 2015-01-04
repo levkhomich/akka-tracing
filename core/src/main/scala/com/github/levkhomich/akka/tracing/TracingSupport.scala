@@ -16,21 +16,22 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.util.Random
-
 trait BaseTracingSupport extends Any {
 
-  // use $ to provide better compatibility with spray-json
-  private[tracing] def $spanId: Long
-  private[tracing] def $traceId: Option[Long]
-  private[tracing] def $parentId: Option[Long]
+  private[tracing] def tracingId: Long = {
+    val a = System.identityHashCode(this)
+    val b = hashCode
+    a.toLong << 32 | b & 0xFFFFFFFFL
+  }
 
   protected[tracing] def spanName: String
 
-  def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
-
-  private[tracing] def sample(): Unit
-  private[tracing] def isSampled: Boolean
+  /**
+   * Declares a message as child of another message.
+   * @param parent parent message
+   * @return child message with required tracing headers
+   */
+  def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
 }
 
 /**
@@ -38,40 +39,12 @@ trait BaseTracingSupport extends Any {
  */
 trait TracingSupport extends BaseTracingSupport with Serializable {
 
-  private[tracing] var $spanId = Random.nextLong()
-  private[tracing] var $traceId: Option[Long] = None
-  private[tracing] var $parentId: Option[Long] = None
-
   override def spanName: String =
     this.getClass.getSimpleName
 
-  /**
-   * Declares message as a child of another message.
-   * @param ts parent message
-   * @return child message with required tracing headers
-   */
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    require(!isSampled)
-    tracer.createChildSpan($spanId, ts, spanName)
-    $parentId = Some(ts.$spanId)
-    $traceId = ts.$traceId
+  override def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
+    tracer.createChildSpan(tracingId, parent.tracingId, spanName)
     this
-  }
-
-  override private[tracing] def sample(): Unit = {
-    if ($traceId.isEmpty)
-      $traceId = Some(Random.nextLong())
-  }
-
-  @inline override private[tracing] def isSampled: Boolean = {
-    $traceId.isDefined
-  }
-
-  private[tracing] def init(spanId: Long, traceId: Long, parentId: Option[Long]): Unit = {
-    require(!isSampled)
-    this.$spanId = spanId
-    this.$traceId = Some(traceId)
-    this.$parentId = parentId
   }
 
 }

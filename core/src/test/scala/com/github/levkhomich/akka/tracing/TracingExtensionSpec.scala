@@ -132,7 +132,6 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
           case msg @ TestMessage(content) =>
             trace.sample(msg, "test")
             trace.recordKeyValue(msg, "content", content)
-            trace.finish(msg)
         }
       })
 
@@ -144,6 +143,9 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
       val childMsg = nextRandomMessage.asChildOf(parentMsg)
       testActor ! childMsg
+
+      trace.finish(parentMsg)
+      trace.finish(childMsg)
 
       Thread.sleep(5000)
 
@@ -163,15 +165,10 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         }
       }.get
 
-      parentSpan.id must beEqualTo(parentMsg.$spanId)
       parentSpan.is_set_parent_id must beFalse
-      parentSpan.trace_id must beEqualTo(parentMsg.$traceId.get)
 
-      childSpan.id must beEqualTo(childMsg.$spanId)
-      childSpan.parent_id must beEqualTo(parentMsg.$spanId)
-      childSpan.trace_id must beEqualTo(parentMsg.$traceId.get)
-
-      parentMsg.$traceId must beEqualTo(childMsg.$traceId)
+      childSpan.parent_id must beEqualTo(parentSpan.get_id)
+      childSpan.trace_id must beEqualTo(parentSpan.get_trace_id)
     }
 
     "finish corresponding traces after calling asResponseTo" in {

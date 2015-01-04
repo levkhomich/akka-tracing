@@ -23,15 +23,18 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
       })
 
       val parentMessage = nextRandomMessage
-      parentMessage.sample()
+      trace.sample(parentMessage, "testService")
       val childMessage = nextRandomMessage.asChildOf(parentMessage)
       trace.sample(childMessage, "testService")
+
+      trace.finish(parentMessage)
+      val parentSpan = receiveSpan()
 
       implicit val timeout = Timeout(5, SECONDS)
       ask(childActor, childMessage)
 
       val span = receiveSpan()
-      span.get_parent_id mustEqual parentMessage.$spanId
+      span.get_parent_id mustEqual parentSpan.get_id
       checkAnnotation(span, "response: ok")
     }
 
@@ -46,15 +49,18 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
       }
 
       val parentMessage = nextRandomMessage
-      parentMessage.sample()
+      trace.sample(parentMessage, "testService")
       val childMessage = nextRandomMessage.asChildOf(parentMessage)
       trace.sample(childMessage, "testService")
+
+      trace.finish(parentMessage)
+      val parentSpan = receiveSpan()
 
       implicit val timeout = Timeout(5, SECONDS)
       ask(childActor, childMessage)
 
       val span = receiveSpan()
-      span.get_parent_id mustEqual parentMessage.$spanId
+      span.get_parent_id mustEqual parentSpan.get_id
       checkAnnotation(span, "response: ok")
     }
 
