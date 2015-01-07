@@ -164,6 +164,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
+  val AkkaVersion = "2.3.7"
+
   object Compile {
 
     def sprayRouting(scalaVersion: String): ModuleID = {
@@ -173,8 +175,9 @@ object Dependencies {
         "io.spray" %% "spray-routing" % "1.3.2"
     }
 
-    val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % "2.3.7"
-    val play         = "com.typesafe.play" %% "play"                % "2.3.7"
+    val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
+    val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
+    val play         = "com.typesafe.play" %% "play"                % AkkaVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
     val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
@@ -189,13 +192,14 @@ object Dependencies {
         "io.spray" %% "spray-testkit" % "1.3.2" % "test"
     }
 
-    val specs        = "org.specs2"        %% "specs2"              % "2.3.11" % "test"
-    val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0" % "test"
-    val playTest     = "com.typesafe.play" %% "play-test"           % "2.3.7"  % "test"
-    val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % "2.3.7"  % "test"
+    val specs        = "org.specs2"        %% "specs2"              % "2.3.11"    % "test"
+    val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0"    % "test"
+    val playTest     = "com.typesafe.play" %% "play-test"           % AkkaVersion % "test"
+    val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
+    val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
   }
 
-  val akka = Seq(Compile.akkaActor, Compile.config)
+  val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.config)
   val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
 
@@ -203,5 +207,6 @@ object Dependencies {
     Seq(Compile.sprayRouting(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.sprayTestkit(scalaVersion))
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
+      Test.akkaRemote, Test.sprayTestkit(scalaVersion))
 }

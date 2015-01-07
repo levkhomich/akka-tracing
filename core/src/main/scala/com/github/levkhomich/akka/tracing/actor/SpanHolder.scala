@@ -24,9 +24,10 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
 import akka.actor.{ Props, Actor, ActorLogging, Cancellable }
+import akka.agent.Agent
 import org.apache.thrift.transport.TTransport
 
-import com.github.levkhomich.akka.tracing.thrift
+import com.github.levkhomich.akka.tracing.{ Span, thrift }
 
 private[tracing] object SpanHolder {
   private final case class Enqueue(tracingId: Long, cancelJob: Boolean)
@@ -41,15 +42,15 @@ private[tracing] object SpanHolder {
 
 /**
  * Internal API
+ * @param transport thrift transport used to submit spans
+ * @param spans agent containing map of spanId -> span for uncompleted traces
  */
-private[tracing] class SpanHolder(transport: TTransport) extends Actor with ActorLogging {
+private[tracing] class SpanHolder(transport: TTransport, spans: Agent[mutable.Map[Long, thrift.Span]]) extends Actor with ActorLogging {
 
   import com.github.levkhomich.akka.tracing.actor.SpanHolder._
 
   private[this] val submitter = context.system.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
 
-  // map of spanId -> span for uncompleted traces
-  private[this] val spans = mutable.Map[Long, thrift.Span]()
   // scheduler jobs which send incomplete traces by timeout
   private[this] val sendJobs = mutable.Map[Long, Cancellable]()
 
@@ -107,7 +108,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
   }
 
   override def postStop(): Unit = {
-    spans.keys.foreach(tracingId =>
+    spans.get.keys.foreach(tracingId =>
       enqueue(tracingId, cancelJob = true)
     )
     super.postStop()
@@ -118,7 +119,7 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
 
   @inline
   private[this] def lookup(tracingId: Long): Option[thrift.Span] =
-    spans.get(tracingId)
+    spans.get.get(tracingId)
 
   private[this] def createSpan(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, name: String,
                                annotations: util.List[thrift.Annotation] = null): Unit = {
@@ -126,12 +127,12 @@ private[tracing] class SpanHolder(transport: TTransport) extends Actor with Acto
     sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(tracingId, cancelJob = false)))
     val span = new thrift.Span(traceId, name, spanId, annotations, null)
     parentId.foreach(span.set_parent_id)
-    spans.put(tracingId, span)
+    spans.foreach(_.put(tracingId, span))
   }
 
   private[this] def enqueue(tracingId: Long, cancelJob: Boolean): Unit = {
     sendJobs.remove(tracingId).foreach(job => if (cancelJob) job.cancel())
-    spans.remove(tracingId).foreach(submitter ! SpanSubmitter.Enqueue(_))
+    spans.foreach(_.remove(tracingId).foreach(submitter ! SpanSubmitter.Enqueue(_)))
     endpoints.remove(tracingId)
   }
 

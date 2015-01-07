@@ -19,9 +19,11 @@ package com.github.levkhomich.akka.tracing
 import java.io.{ PrintWriter, StringWriter }
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
+import scala.collection.mutable
 import scala.util.Random
 
 import akka.actor._
+import akka.agent.Agent
 import org.apache.thrift.transport.{ TSocket, TFramedTransport }
 
 import com.github.levkhomich.akka.tracing.actor.SpanHolder
@@ -39,6 +41,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   private[this] val msgCounter = new AtomicLong()
   private[this] val sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
+  private[this] val spans = Agent(mutable.Map[Long, thrift.Span]())(system.dispatcher)
+
   private[tracing] val holder = {
     val config = system.settings.config
 
@@ -46,7 +50,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
-      system.actorOf(Props(classOf[SpanHolder], transport), "spanHolder")
+      system.actorOf(Props(classOf[SpanHolder], transport, spans), "spanHolder")
     } else {
       system.actorOf(Props.empty)
     }
@@ -216,6 +220,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (isEnabled)
       holder ! CreateChildSpan(tracingId, parentTracingId, spanName)
 
+  private[tracing] def getId(tracingId: Long): Option[Span] = {
+    spans.get.get(tracingId) map { spanInt =>
+      Span(spanInt.get_trace_id, spanInt.get_id, Option(spanInt.get_parent_id), false)
+    }
+  }
 }
 
 /**

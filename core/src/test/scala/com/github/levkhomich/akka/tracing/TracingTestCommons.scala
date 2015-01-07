@@ -28,11 +28,13 @@ final case class TestMessage(value: String) extends TracingSupport
 
 trait TracingTestCommons {
 
+  val SystemName = "AkkaTracingTestSystem"
+
   def nextRandomMessage: TestMessage =
     TestMessage(Random.nextLong.toString)
 
-  def testActorSystem(sampleRate: Int = 1): ActorSystem =
-    ActorSystem("AkkaTracingTestSystem" + sampleRate,
+  def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem =
+    ActorSystem(SystemName,
       ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
         Map(
           TracingExtension.AkkaTracingSampleRate -> sampleRate,
@@ -42,7 +44,7 @@ trait TracingTestCommons {
             case _ =>
               9410
           })
-        )
+        ) ++ settings
       ))
     )
 
