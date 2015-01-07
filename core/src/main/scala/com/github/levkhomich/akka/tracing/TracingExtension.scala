@@ -208,7 +208,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   def submitSpans(spans: TraversableOnce[thrift.Span]): Unit =
-    holder ! SubmitSpans(spans)
+    if (isEnabled)
+      holder ! SubmitSpans(spans)
 
   private[this] def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
     if (isEnabled)
