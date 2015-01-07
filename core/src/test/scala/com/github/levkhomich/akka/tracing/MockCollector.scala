@@ -79,7 +79,7 @@ trait MockCollector { this: Specification =>
   }
 
   def receiveSpan(): thrift.Span = {
-    Thread.sleep(3000)
+    Thread.sleep(4000)
     val spans = results.map(e => decodeSpan(e.message))
     spans.size mustEqual 1
     results.clear()
@@ -87,7 +87,7 @@ trait MockCollector { this: Specification =>
   }
 
   def receiveSpans(): List[thrift.Span] = {
-    Thread.sleep(3000)
+    Thread.sleep(4000)
     val spans = results.map(e => decodeSpan(e.message))
     results.clear()
     spans.toList

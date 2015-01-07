@@ -217,7 +217,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       Thread.sleep(15000)
 
       collector = startCollector()
-      Thread.sleep(7000)
+      Thread.sleep(10000)
 
       receiveSpans().size must beEqualTo(1000)
     }

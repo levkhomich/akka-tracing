@@ -32,7 +32,7 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
             trace.sample(msg, "test")
             log.info("received message " + msg)
             // otherwise span can be closed before log record processed
-            Thread.sleep(100)
+            Thread.sleep(500)
             trace.finish(msg)
         }
       })
@@ -40,6 +40,8 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
       for (_ <- 1 to 3) {
         testActor ! nextRandomMessage
       }
+
+      Thread.sleep(3000)
 
       val spans = receiveSpans()
 
