@@ -38,6 +38,7 @@ private[tracing] object SpanHolder {
   final case class AddAnnotation(tracingId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(tracingId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
   final case class CreateChildSpan(tracingId: Long, parentTracingId: Long, spanName: String)
+  final case class SubmitSpans(spans: TraversableOnce[thrift.Span])
 }
 
 /**
@@ -105,6 +106,9 @@ private[tracing] class SpanHolder(transport: TTransport, spans: Agent[mutable.Ma
       lookup(parentTracingId) foreach { spanInt =>
         createSpan(tracingId, Random.nextLong, Some(spanInt.get_id), spanInt.get_trace_id, spanName)
       }
+
+    case SubmitSpans(spans) =>
+      spans.foreach(submitter ! SpanSubmitter.Enqueue(_))
   }
 
   override def postStop(): Unit = {
