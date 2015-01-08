@@ -50,7 +50,6 @@ object AkkaTracingBuild extends Build {
     CoverallsPlugin.projectSettings ++
     mimaDefaultSettings ++
     Seq(
-      parallelExecution in Test := false,
       // TODO: check why %% doesn't work
       previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4"),
       scalacOptions in Test ++= Seq("-Yrangepos"),

@@ -41,7 +41,7 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
         testActor ! nextRandomMessage
       }
 
-      Thread.sleep(3000)
+      awaitSpanSubmission()
 
       val spans = receiveSpans()
 

@@ -38,6 +38,10 @@ trait MockCollector { this: Specification =>
   var collector: TServer = startCollector()
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
+  val MaxAwaitTimeout = 14000
+  val AwaitTimeout = 4000
+  val AwaitStep = 20
+
   def startCollector(): TServer = {
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
@@ -64,8 +68,16 @@ trait MockCollector { this: Specification =>
         println("collector: stopped")
       }
     }).start()
-    Thread.sleep(3000)
+    Thread.sleep(100)
     collector
+  }
+
+  def awaitSpanSubmission(): Unit = {
+    val prevSize = results.size()
+    val start = System.currentTimeMillis
+    while (results.size == prevSize && System.currentTimeMillis - start < MaxAwaitTimeout) {
+      Thread.sleep(AwaitStep)
+    }
   }
 
   def decodeSpan(logEntryMessage: String): thrift.Span = {
@@ -79,18 +91,33 @@ trait MockCollector { this: Specification =>
   }
 
   def receiveSpan(): thrift.Span = {
-    Thread.sleep(4000)
+    val start = System.currentTimeMillis
+    while (results.size < 1 && System.currentTimeMillis - start < MaxAwaitTimeout) {
+      Thread.sleep(AwaitStep)
+    }
     val spans = results.map(e => decodeSpan(e.message))
-    spans.size mustEqual 1
     results.clear()
+    spans.size mustEqual 1
     spans.head
   }
 
   def receiveSpans(): List[thrift.Span] = {
-    Thread.sleep(4000)
+    Thread.sleep(AwaitTimeout)
     val spans = results.map(e => decodeSpan(e.message))
     results.clear()
     spans.toList
+  }
+
+  def expectSpans(count: Int): MatchResult[_] = {
+    val start = System.currentTimeMillis
+    if (count == 0)
+      Thread.sleep(AwaitTimeout)
+    while (results.size < count && System.currentTimeMillis - start < MaxAwaitTimeout) {
+      Thread.sleep(AwaitStep)
+    }
+    val checkResult = results.size mustEqual count
+    results.clear()
+    checkResult
   }
 
   private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {

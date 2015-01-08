@@ -46,7 +46,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
       println(s"benchmark: TPS = $tracesPerSecond")
 
       tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
-      receiveSpans().size must beEqualTo(SpanCount / sampleRate)
+      expectSpans(SpanCount / sampleRate)
     }
   }
 

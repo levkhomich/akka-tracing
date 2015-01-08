@@ -41,7 +41,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       def generateTracesWithSampleRate(count: Int, sampleRate: Int): Unit = {
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
-        Thread.sleep(4000)
+        awaitSpanSubmission()
         system.shutdown()
         system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       }
@@ -50,17 +50,17 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTracesWithSampleRate(60, 2)
       generateTracesWithSampleRate(500, 5)
 
-      receiveSpans().size must beEqualTo(132)
+      expectSpans(132)
     }
 
     "allow forced sampling" in {
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
-      Thread.sleep(3000)
+      awaitSpanSubmission()
       system.shutdown()
       system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
 
-      receiveSpans().size must beEqualTo(100)
+      expectSpans(100)
     }
 
     def testTraceRecording(f: TracingSupport => Unit)(check: thrift.Span => MatchResult[_]): MatchResult[_] = {
@@ -178,7 +178,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       for (_ <- 0 until messageCount) {
         testActor ? nextRandomMessage
       }
-      receiveSpans().size must beEqualTo(messageCount)
+      expectSpans(messageCount)
     }
 
     "handle collector connectivity problems" in {
@@ -186,21 +186,19 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTraces(1, trace)
       collector.stop()
 
-      Thread.sleep(3000)
+      awaitSpanSubmission()
       results.clear()
 
       generateTraces(100, trace)
 
       // wait for submission while collector is down
-      Thread.sleep(3000)
+      awaitSpanSubmission()
 
       collector = startCollector()
 
       // extension should wait for some time before retrying
-      receiveSpans().size must beEqualTo(0)
-      Thread.sleep(4000)
-
-      receiveSpans().size must beEqualTo(100)
+      expectSpans(0)
+      expectSpans(100)
     }
 
     "limit size of span submission buffer" in {
@@ -208,18 +206,18 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTraces(1, trace)
       collector.stop()
 
-      Thread.sleep(3000)
+      awaitSpanSubmission()
       results.clear()
 
       generateTraces(10000, trace)
 
-      // wait for submission while collector is down
-      Thread.sleep(15000)
+      // wait for submission while collector is down (it can be 2 batches)
+      expectSpans(0)
+      expectSpans(0)
 
       collector = startCollector()
-      Thread.sleep(10000)
 
-      receiveSpans().size must beEqualTo(1000)
+      expectSpans(1000)
     }
 
     "flush traces before stop" in {

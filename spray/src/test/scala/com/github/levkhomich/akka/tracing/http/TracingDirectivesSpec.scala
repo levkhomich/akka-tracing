@@ -119,7 +119,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
         HttpResponse(StatusCodes.OK)
       }) ~> check {
         response.status mustEqual statusCode
-        receiveSpans().size mustEqual 0
+        expectSpans(0)
       }
     }
 
@@ -141,7 +141,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "not sample requests without tracing headers" in {
       Get(testPath) ~> tracedCompleteRoute ~> check {
         response.status mustEqual StatusCodes.OK
-        receiveSpans().size mustEqual 0
+        expectSpans(0)
       }
     }
 

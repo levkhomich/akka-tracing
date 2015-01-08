@@ -44,7 +44,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      receiveSpans().size mustEqual SpanCount
+      expectSpans(SpanCount)
     }
 
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
@@ -55,7 +55,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      receiveSpans().size mustEqual SpanCount
+      expectSpans(SpanCount)
     }
 
   }
@@ -71,7 +71,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      receiveSpans().size mustEqual SpanCount
+      expectSpans(SpanCount)
     }
 
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
@@ -82,7 +82,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
             response.status mustEqual StatusCodes.OK
           }
       }
-      receiveSpans().size mustEqual SpanCount
+      expectSpans(SpanCount)
     }
 
   }
