@@ -51,10 +51,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
-      val holder = system.actorOf(Props(classOf[SpanHolder], spans), "spanHolder")
-      val submitter = system.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
-      ActorPublisher(holder).subscribe(ActorSubscriber(submitter))
-      holder
+      system.actorOf(Props({
+        val holder = new SpanHolder(spans)
+        val submitter = holder.context.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
+        ActorPublisher(holder.self).subscribe(ActorSubscriber(submitter))
+        holder
+      }), "spanHolder")
     } else {
       system.actorOf(Props.empty)
     }
