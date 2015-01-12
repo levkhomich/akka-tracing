@@ -29,24 +29,22 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
   sequential
 
   "TracingSupportSerializer" should {
-    lazy val system1 = testActorSystem(1, Map(
+    val baseConfig = Map(
       "akka.actor.provider" -> "akka.remote.RemoteActorRefProvider",
       "akka.remote.enabled-transports" -> scala.collection.JavaConversions.seqAsJavaList(Seq(
         "akka.remote.netty.tcp"
       )),
-      "akka.remote.netty.tcp.hostname" -> "localhost",
-      "akka.remote.netty.tcp.port" -> (2552: java.lang.Integer)
-    ))
+      "akka.remote.netty.tcp.hostname" -> "localhost"
+    )
+
+    lazy val system1 = testActorSystem(1, baseConfig +
+      ("akka.remote.netty.tcp.port" -> (2552: java.lang.Integer))
+    )
     lazy val trace1 = TracingExtension(system1)
 
-    lazy val system2 = testActorSystem(1, Map(
-      "akka.actor.provider" -> "akka.remote.RemoteActorRefProvider",
-      "akka.remote.enabled-transports" -> scala.collection.JavaConversions.seqAsJavaList(Seq(
-        "akka.remote.netty.tcp"
-      )),
-      "akka.remote.netty.tcp.hostname" -> "localhost",
-      "akka.remote.netty.tcp.port" -> (2553: java.lang.Integer)
-    ))
+    lazy val system2 = testActorSystem(1, baseConfig +
+      ("akka.remote.netty.tcp.port" -> (2553: java.lang.Integer))
+    )
     lazy val trace2 = TracingExtension(system2)
 
     "instrument actor receive" in {

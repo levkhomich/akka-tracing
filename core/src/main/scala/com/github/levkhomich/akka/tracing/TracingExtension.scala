@@ -24,9 +24,10 @@ import scala.util.Random
 
 import akka.actor._
 import akka.agent.Agent
+import akka.stream.actor.{ ActorSubscriber, ActorPublisher }
 import org.apache.thrift.transport.{ TSocket, TFramedTransport }
 
-import com.github.levkhomich.akka.tracing.actor.SpanHolder
+import com.github.levkhomich.akka.tracing.actor.{ SpanHolder, SpanSubmitter }
 
 /**
  * Tracer instance providing trace related methods.
@@ -50,7 +51,10 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       val transport = new TFramedTransport(
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
-      system.actorOf(Props(classOf[SpanHolder], transport, spans), "spanHolder")
+      val holder = system.actorOf(Props(classOf[SpanHolder], spans), "spanHolder")
+      val submitter = system.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
+      ActorPublisher(holder).subscribe(ActorSubscriber(submitter))
+      holder
     } else {
       system.actorOf(Props.empty)
     }

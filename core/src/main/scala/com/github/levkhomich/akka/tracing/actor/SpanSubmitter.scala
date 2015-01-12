@@ -23,7 +23,8 @@ import scala.concurrent.duration.DurationInt
 import scala.util.control.ControlThrowable
 import scala.util.{ Success, Try }
 
-import akka.actor.{ Actor, ActorLogging }
+import akka.actor.ActorLogging
+import akka.stream.actor.{ ActorSubscriber, ActorSubscriberMessage, RequestStrategy }
 import org.apache.thrift.TApplicationException
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{ TTransport, TTransportException }
@@ -32,73 +33,86 @@ import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 import com.github.levkhomich.akka.tracing.{ TracingExtension, thrift }
 
 private[actor] object SpanSubmitter {
-  final case class Enqueue(span: thrift.Span)
   private case object SendEnqueued
 }
 
 /**
  * Internal API
  */
-private[actor] class SpanSubmitter(transport: TTransport) extends Actor with ActorLogging {
+private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscriber with ActorLogging {
 
   import SpanSubmitter._
 
-  // next submission batch
-  private[this] val nextBatch = mutable.UnrolledBuffer[thrift.Span]()
+  // buffer containing log entries ready to be sent
+  private[this] val logEntries = mutable.UnrolledBuffer[thrift.LogEntry]()
 
-  // buffer for submitted spans, which should be resent in case of connectivity problems
-  private[this] var submittedSpans: mutable.Buffer[thrift.LogEntry] = mutable.Buffer.empty
-  // buffer's size limit
-  private[this] val maxSubmissionBufferSize = 1000
+  // buffer watermarks
+  private[this] val highWatermark = 2000
+  private[this] val lowWatermark = 1000
+  private[this] var sentWatermark = 0
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
   private[this] val thriftBuffer = new TReusableTransport()
 
   private[this] val client = new thrift.Scribe.Client(new TBinaryProtocol(transport))
 
-  scheduleNextBatch()
+  protected def requestStrategy = new RequestStrategy {
+    def requestDemand(remainingRequested: Int): Int = {
+      val spanCount = logEntries.size + remainingRequested
+      if (spanCount < lowWatermark)
+        highWatermark - spanCount
+      else
+        0
+    }
+  }
 
   override def receive: Receive = {
-    case Enqueue(span) =>
-      nextBatch.append(span)
-
+    case ActorSubscriberMessage.OnNext(span: thrift.Span) =>
+      logEntries.append(spanToLogEntry(span))
+    case ActorSubscriberMessage.OnError(ex) =>
+      flush()
+    case ActorSubscriberMessage.OnComplete =>
+      flush()
     case SendEnqueued =>
       send()
   }
 
+  override def preStart(): Unit = {
+    scheduleNextBatch()
+  }
+
   override def postStop(): Unit = {
+    flush()
+    super.postStop()
+  }
+
+  private[this] def flush(): Unit = {
     import scala.collection.JavaConversions._
-    // we don't want to resend at this point
-    submittedSpans.clear()
-    if (!nextBatch.isEmpty) {
+    if (!logEntries.isEmpty) {
       Try {
-        client.Log(nextBatch.map(spanToLogEntry))
+        client.Log(logEntries)
         if (transport.isOpen) {
           transport.close()
         }
       } recover {
         case e =>
           handleSubmissionError(e)
-          log.error(s"Zipkin collector is unavailable. Failed to send ${nextBatch.size} spans during postStop.")
+          log.error(s"Failed to send ${logEntries.size} spans during flush.")
       }
     }
-    super.postStop()
   }
 
   private[this] def send(): Unit = {
     import scala.collection.JavaConversions._
-    if (!nextBatch.isEmpty) {
-      submittedSpans ++= nextBatch.map(spanToLogEntry)
-      nextBatch.clear()
-    }
-    if (!submittedSpans.isEmpty) {
+    sentWatermark = logEntries.size
+    if (sentWatermark > 0) {
       Try {
         if (!transport.isOpen) {
           transport.open()
           TracingExtension(context.system).markCollectorAsAvailable()
           log.warning("Successfully connected to Zipkin collector.")
         }
-        client.Log(submittedSpans)
+        client.Log(logEntries)
       } recover {
         case e =>
           handleSubmissionError(e)
@@ -107,21 +121,13 @@ private[actor] class SpanSubmitter(transport: TTransport) extends Actor with Act
           thrift.ResultCode.TRY_LATER
       } match {
         case Success(thrift.ResultCode.OK) =>
-          submittedSpans.clear()
+          logEntries.remove(0, sentWatermark)
+          sentWatermark = 0
         case _ =>
-          log.warning(s"Zipkin collector unavailable. Failed to send ${submittedSpans.size} spans.")
-          limitSubmittedSpansSize()
+          log.warning(s"Zipkin collector unavailable. Failed to send $sentWatermark spans.")
       }
     }
     scheduleNextBatch()
-  }
-
-  private[this] def limitSubmittedSpansSize(): Unit = {
-    val delta = submittedSpans.size - maxSubmissionBufferSize
-    if (delta > 0) {
-      log.error(s"Dropping $delta spans because of maxSubmissionBufferSize policy.")
-      submittedSpans = submittedSpans.takeRight(maxSubmissionBufferSize)
-    }
   }
 
   private[this] def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {

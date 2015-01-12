@@ -209,15 +209,14 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       awaitSpanSubmission()
       results.clear()
 
-      generateTraces(10000, trace)
+      generateTraces(5000, trace)
 
       // wait for submission while collector is down (it can be 2 batches)
-      expectSpans(0)
       expectSpans(0)
 
       collector = startCollector()
 
-      expectSpans(1000)
+      expectSpans(1000, 2000)
     }
 
     "flush traces before stop" in {

@@ -33,8 +33,8 @@ trait TracingTestCommons {
   def nextRandomMessage: TestMessage =
     TestMessage(Random.nextLong.toString)
 
-  def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem =
-    ActorSystem(SystemName,
+  def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
+    val system = ActorSystem(SystemName,
       ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
         Map(
           TracingExtension.AkkaTracingSampleRate -> sampleRate,
@@ -47,6 +47,10 @@ trait TracingTestCommons {
         ) ++ settings
       ))
     )
+    // wait for system to boot
+    Thread.sleep(50)
+    system
+  }
 
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
     println(s"generating $count traces")

@@ -176,6 +176,7 @@ object Dependencies {
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M2"
     val play         = "com.typesafe.play" %% "play"                % AkkaVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
@@ -198,7 +199,7 @@ object Dependencies {
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
   }
 
-  val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.config)
+  val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
   val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
 

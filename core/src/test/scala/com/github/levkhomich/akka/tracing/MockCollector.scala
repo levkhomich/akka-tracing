@@ -109,15 +109,23 @@ trait MockCollector { this: Specification =>
   }
 
   def expectSpans(count: Int): MatchResult[_] = {
-    val start = System.currentTimeMillis
-    if (count == 0)
+    if (count == 0) {
       Thread.sleep(AwaitTimeout)
-    while (results.size < count && System.currentTimeMillis - start < MaxAwaitTimeout) {
+      results.isEmpty mustEqual true
+    } else
+      expectSpans(count, count)
+  }
+
+  def expectSpans(minCount: Int, maxCount: Int): MatchResult[_] = {
+    require(minCount > 0)
+    require(minCount <= maxCount)
+    val start = System.currentTimeMillis
+    while (results.size < minCount && System.currentTimeMillis - start < MaxAwaitTimeout) {
       Thread.sleep(AwaitStep)
     }
-    val checkResult = results.size mustEqual count
+    val size = results.size
     results.clear()
-    checkResult
+    size must be <= maxCount and (size must be >= minCount)
   }
 
   private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {
