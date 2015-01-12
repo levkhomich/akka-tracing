@@ -75,6 +75,7 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
       flush()
     case SendEnqueued =>
       send()
+      scheduleNextBatch()
   }
 
   override def preStart(): Unit = {
@@ -87,18 +88,9 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
   }
 
   private[this] def flush(): Unit = {
-    import scala.collection.JavaConversions._
-    if (!logEntries.isEmpty) {
-      Try {
-        client.Log(logEntries)
-        if (transport.isOpen) {
-          transport.close()
-        }
-      } recover {
-        case e =>
-          handleSubmissionError(e)
-          log.error(s"Failed to send ${logEntries.size} spans during flush.")
-      }
+    send()
+    if (transport.isOpen) {
+      transport.close()
     }
   }
 
@@ -127,7 +119,6 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
           log.warning(s"Zipkin collector unavailable. Failed to send $sentWatermark spans.")
       }
     }
-    scheduleNextBatch()
   }
 
   private[this] def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
