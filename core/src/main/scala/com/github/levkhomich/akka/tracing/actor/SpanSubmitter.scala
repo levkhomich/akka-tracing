@@ -88,6 +88,7 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
   }
 
   private[this] def flush(): Unit = {
+    log.info(s"flushing ${logEntries.size} spans")
     send()
     if (transport.isOpen) {
       transport.close()
