@@ -221,9 +221,10 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
     "flush traces before stop" in {
       generateTraces(10, trace)
+      Thread.sleep(100)
       system.shutdown()
       system.awaitTermination(FiniteDuration(500, MILLISECONDS)) must not(throwA[TimeoutException])
-      results.size() must beEqualTo(10)
+      expectSpans(10)
     }
   }
 
