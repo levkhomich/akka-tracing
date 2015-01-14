@@ -163,7 +163,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val AkkaVersion = "2.3.7"
+  val PlayVersion = "2.3.7"
+  val AkkaVersion = "2.3.8"
 
   object Compile {
 
@@ -177,7 +178,7 @@ object Dependencies {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
     val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M2"
-    val play         = "com.typesafe.play" %% "play"                % AkkaVersion
+    val play         = "com.typesafe.play" %% "play"                % PlayVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
     val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
@@ -194,7 +195,7 @@ object Dependencies {
 
     val specs        = "org.specs2"        %% "specs2"              % "2.3.11"    % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0"    % "test"
-    val playTest     = "com.typesafe.play" %% "play-test"           % AkkaVersion % "test"
+    val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
   }
