@@ -193,7 +193,7 @@ object Dependencies {
         "io.spray" %% "spray-testkit" % "1.3.2" % "test"
     }
 
-    val specs        = "org.specs2"        %% "specs2"              % "2.3.11"    % "test"
+    val specs        = "org.specs2"        %% "specs2"              % "3.0-M2"    % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
