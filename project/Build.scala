@@ -28,8 +28,8 @@ object AkkaTracingBuild extends Build {
 
   lazy val compilationSettings =
     Seq(
-      scalaVersion := "2.11.4",
-      crossScalaVersions := Seq("2.10.4", "2.11.4"),
+      scalaVersion := "2.11.5",
+      crossScalaVersions := Seq("2.10.4", "2.11.5"),
       javacOptions ++= Seq(
         "-Xlint:all"
       ),
