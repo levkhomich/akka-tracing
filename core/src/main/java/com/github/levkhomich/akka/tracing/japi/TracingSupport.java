@@ -7,6 +7,8 @@ import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
 
 public abstract class TracingSupport implements BaseTracingSupport, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     @Override
     public String spanName() {
         return this.getClass().getSimpleName();
