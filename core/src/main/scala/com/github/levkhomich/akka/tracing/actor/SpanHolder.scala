@@ -86,7 +86,8 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
         val a = new thrift.Annotation(adjustedMicroTime(timestamp), msg)
         a.set_host(endpointFor(tracingId))
         spanInt.add_to_annotations(a)
-        if (a.value == thrift.zipkinConstants.SERVER_SEND) {
+        if (a.value == thrift.zipkinConstants.SERVER_SEND ||
+          a.value == thrift.zipkinConstants.CLIENT_RECV) {
           enqueue(tracingId, cancelJob = true)
         }
       }
