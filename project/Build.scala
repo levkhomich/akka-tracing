@@ -175,6 +175,13 @@ object Dependencies {
         "io.spray" %% "spray-routing" % "1.3.2"
     }
 
+    def sprayClient(scalaVersion: String): ModuleID = {
+      if (scalaVersion.startsWith("2.10"))
+        "io.spray" % "spray-client" % "1.3.1"
+      else
+        "io.spray" %% "spray-client" % "1.3.2"
+    }
+
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
     val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M4"
@@ -205,7 +212,7 @@ object Dependencies {
   val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
 
   def spray(scalaVersion: String): Seq[ModuleID] =
-    Seq(Compile.sprayRouting(scalaVersion))
+    Seq(Compile.sprayRouting(scalaVersion), Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
