@@ -18,17 +18,19 @@ package com.github.levkhomich.akka.tracing.play
 
 import scala.concurrent.{ Await, Future }
 import scala.util.Random
-
+import scala.collection.immutable.Set
 import play.api.{ GlobalSettings, Play }
 import play.api.http.Writeable
 import play.api.libs.iteratee.Enumerator
 import play.api.mvc._
 import play.api.test._
+import org.specs2.matcher._
 
 import com.github.levkhomich.akka.tracing._
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
+import scala.collection.JavaConversions._
 
-class PlayTracingSpec extends PlaySpecification with TracingTestCommons with MockCollector with Results {
+class PlayTracingSpec extends PlaySpecification with TracingTestCommons with MockCollector with Results with ResultMatchers {
 
   sequential
 
@@ -37,22 +39,35 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   val npe = new NullPointerException
   implicit def trace: TracingExtensionImpl = TracingExtension(_root_.play.libs.Akka.system)
 
+  val configuration = Map(
+    TracingExtension.AkkaTracingPort -> collectorPort
+  )
+  val routes: PartialFunction[(String, String), Handler] = {
+    case ("GET", TestPath) =>
+      Action {
+        Ok("response") as "text/plain"
+      }
+    case ("GET", TestErrorPath) =>
+      Action {
+        throw npe
+        Ok("response") as "text/plain"
+      }
+  }
+
   def fakeApplication: FakeApplication = FakeApplication(
-    withRoutes = {
-      case ("GET", TestPath) =>
-        Action {
-          Ok("response") as "text/plain"
-        }
-      case ("GET", TestErrorPath) =>
-        Action {
-          throw npe
-          Ok("response") as "text/plain"
-        }
-    },
+    withRoutes = routes,
     withGlobal = Some(new GlobalSettings with TracingSettings),
-    additionalConfiguration = Map(
-      TracingExtension.AkkaTracingPort -> collectorPort
-    )
+    additionalConfiguration = configuration
+  )
+
+  def overriddenApplication(overriddenServiceName: String = "test", queryParams: Set[String] = Set.empty, headerKeys: Set[String] = Set.empty) = FakeApplication(
+    withRoutes = routes,
+    withGlobal = Some(new GlobalSettings with TracingSettings {
+      override lazy val serviceName = overriddenServiceName
+      override lazy val excludedQueryParams = queryParams
+      override lazy val excludedHeaders = headerKeys
+    }),
+    additionalConfiguration = configuration
   )
 
   "Play tracing" should {
@@ -60,6 +75,18 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       success
+    }
+
+    "use play application name as the default end point name" in new WithApplication(fakeApplication) {
+      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val span = receiveSpan()
+      span.annotations.map(_.get_host().get_service_name()) must beEqualTo(_root_.play.libs.Akka.system.name).forall
+    }
+
+    "enable overriding the service name for the end point name" in new WithApplication(overriddenApplication(overriddenServiceName = "test service")) {
+      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val span = receiveSpan()
+      span.annotations.map(_.get_host().get_service_name()) must beEqualTo("test service").forall
     }
 
     "not allow to use RequestHeaders as child of other request" in new WithApplication(fakeApplication) {
@@ -86,6 +113,28 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Content-Type", "text/plain")
       checkBinaryAnnotation(span, "request.query.key", "value")
+    }
+
+    "exclude specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("excludedParam"))) {
+      val result = route(FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
+        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
+      )).map(Await.result(_, defaultAwaitTimeout.duration))
+      val span = receiveSpan()
+      checkBinaryAnnotation(span, "request.query.key", "value")
+      checkAbsentBinaryAnnotation(span, "request.query.excludedParam")
+    }
+
+    "exclude specific header fields from annotations when configured" in new WithApplication(overriddenApplication(headerKeys = Set("Excluded"))) {
+      val result = route(FakeRequest("GET", TestPath,
+        FakeHeaders(Seq(
+          "Content-Type" -> Seq("text/plain"),
+          "Excluded" -> Seq("test"),
+          "Included" -> Seq("value")
+        )), AnyContentAsEmpty
+      )).map(Await.result(_, defaultAwaitTimeout.duration))
+      val span = receiveSpan()
+      checkBinaryAnnotation(span, "request.headers.Included", "value")
+      checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
     }
 
     "propagate tracing headers" in new WithApplication(fakeApplication) {
