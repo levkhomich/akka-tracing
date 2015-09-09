@@ -170,6 +170,10 @@ trait MockCollector { this: Specification =>
     checkBinaryAnnotationInt(span, key, expValue) { bytes => ByteBuffer.wrap(bytes) }
   }
 
+  def checkAbsentBinaryAnnotation(span: thrift.Span, key: String): MatchResult[Any] = {
+    span.binary_annotations.find(_.get_key == key) must beNone
+  }
+
   def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
     span.annotations.find(_.get_value == expValue).isDefined mustEqual true
   }
