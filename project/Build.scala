@@ -163,8 +163,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.3.7"
-  val AkkaVersion = "2.3.9"
+  val PlayVersion = "2.3.9"
+  val AkkaVersion = "2.3.12"
 
   object Compile {
 
@@ -184,11 +184,10 @@ object Dependencies {
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M4"
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0"
     val play         = "com.typesafe.play" %% "play"                % PlayVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
-    val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
   }
 
   object Test {
@@ -201,7 +200,7 @@ object Dependencies {
     }
 
     val specs        = "org.specs2"        %% "specs2"              % "3.0-M2"    % "test"
-    val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0"    % "test"
+    val finagle      = "com.twitter"       %% "finagle-core"        % "6.28.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
@@ -209,7 +208,7 @@ object Dependencies {
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
   val play = Seq(Compile.play)
-  val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
+  val thrift = Seq(Compile.libThrift)
 
   def spray(scalaVersion: String): Seq[ModuleID] =
     Seq(Compile.sprayRouting(scalaVersion), Compile.sprayClient(scalaVersion))
