@@ -108,7 +108,7 @@ object AkkaTracingBuild extends Build {
         packagedArtifacts := Map.empty,
         previousArtifact := None
       )
-  ).aggregate(core, spray, play)
+  ).aggregate(core, spray, sprayClient, play)
 
   val passTestDeps = "test->test;compile->compile"
 
@@ -140,7 +140,20 @@ object AkkaTracingBuild extends Build {
       Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=
-          Dependencies.spray(scalaVersion.value) ++
+          Dependencies.sprayRouting(scalaVersion.value) ++
+          Dependencies.test(scalaVersion.value)
+      )
+  ).dependsOn(core % passTestDeps)
+
+  lazy val sprayClient = Project(
+    id = "akka-tracing-spray-client",
+    base = file("spray-client"),
+    settings =
+      commonSettings ++
+      Seq(
+        name := "Akka Tracing: Spray Client",
+        libraryDependencies ++=
+          Dependencies.sprayClient(scalaVersion.value) ++
           Dependencies.test(scalaVersion.value)
       )
   ).dependsOn(core % passTestDeps)
@@ -210,8 +223,11 @@ object Dependencies {
   val play = Seq(Compile.play)
   val thrift = Seq(Compile.libThrift)
 
-  def spray(scalaVersion: String): Seq[ModuleID] =
-    Seq(Compile.sprayRouting(scalaVersion), Compile.sprayClient(scalaVersion))
+  def sprayRouting(scalaVersion: String): Seq[ModuleID] =
+    Seq(Compile.sprayRouting(scalaVersion))
+
+  def sprayClient(scalaVersion: String): Seq[ModuleID] =
+    Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,

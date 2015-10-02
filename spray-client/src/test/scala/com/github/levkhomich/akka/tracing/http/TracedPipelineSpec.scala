@@ -1,14 +1,13 @@
 package com.github.levkhomich.akka.tracing.http
 
-import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
-
-import spray.http._
-import spray.client.pipelining._
 import scala.concurrent.Future
-import com.github.levkhomich.akka.tracing._
-import org.specs2.mutable.Specification
+
 import org.specs2.matcher.FutureMatchers
+import org.specs2.mutable.Specification
+import spray.client.pipelining._
+import spray.http._
+
+import com.github.levkhomich.akka.tracing._
 
 class TracedPipelineSpec extends Specification with FutureMatchers with TracingTestCommons with TracingTestActorSystem with MockCollector { self =>
 
