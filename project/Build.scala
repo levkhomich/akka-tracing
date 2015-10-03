@@ -217,6 +217,8 @@ object Dependencies {
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
+    val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
+    val logback      = "ch.qos.logback"    % "logback-classic"      % "1.1.3"     % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
@@ -231,5 +233,5 @@ object Dependencies {
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
-      Test.akkaRemote, Test.sprayTestkit(scalaVersion))
+      Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
 }
