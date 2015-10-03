@@ -29,9 +29,10 @@ final case class TestMessage(value: String) extends TracingSupport
 trait TracingTestCommons {
 
   val SystemName = "AkkaTracingTestSystem"
+  val SomeValue = Random.nextLong().toString
 
   def nextRandomMessage: TestMessage =
-    TestMessage(Random.nextLong.toString)
+    TestMessage(SomeValue)
 
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
     val system = ActorSystem(SystemName,
@@ -53,7 +54,7 @@ trait TracingTestCommons {
   }
 
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
-    println(s"generating $count traces")
+    println(s"generating $count trace${if (count > 1) "s" else ""}")
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.sample(msg, "test")
@@ -62,7 +63,7 @@ trait TracingTestCommons {
   }
 
   def generateForcedTraces(count: Int, trace: TracingExtensionImpl): Unit = {
-    println(s"generating $count forced traces")
+    println(s"generating $count forced trace${if (count > 1) "s" else ""}")
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.forcedSample(msg, "test")

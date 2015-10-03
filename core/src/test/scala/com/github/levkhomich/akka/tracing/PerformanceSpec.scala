@@ -29,24 +29,42 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
 
   "TracingExtension" should {
 
-    val ExpectedTPS = 70000
+    val ExpectedMPS = 70000
+    val TestMPS = ExpectedMPS + ExpectedMPS / 5
+    val BenchmarkDuration = 10 // seconds
 
-    s"process more than $ExpectedTPS traces per second using single thread" in {
-      val SpanCount = ExpectedTPS * 4
+    s"process more than $ExpectedMPS messages per second at sample rate $sampleRate" in {
+      val SpanCount = TestMPS * BenchmarkDuration
 
-      val startingTime = System.currentTimeMillis()
-      for (_ <- 1 to SpanCount) {
+      val RandomLong = Random.nextLong()
+      val RandomString = UUID.randomUUID().toString + "-" + UUID.randomUUID().toString
+
+      val startTime = System.currentTimeMillis()
+      for (i <- 1 to SpanCount) {
         val msg = nextRandomMessage
         trace.sample(msg, "test")
-        trace.recordKeyValue(msg, "keyLong", Random.nextLong())
-        trace.recordKeyValue(msg, "keyString", UUID.randomUUID().toString + "-" + UUID.randomUUID().toString + "-")
+        trace.recordKeyValue(msg, "keyLong", RandomLong)
+        trace.recordKeyValue(msg, "keyString", RandomString)
         trace.finish(msg)
+        if (i % 100 == 0) {
+          val timeSpent = System.currentTimeMillis - startTime
+          val expectedTimeSpent = i * 1000 / TestMPS
+          val delta = expectedTimeSpent - timeSpent
+          if (delta > 0)
+            Thread.sleep(delta)
+        }
       }
-      val tracesPerSecond = SpanCount * 1000 / (System.currentTimeMillis() - startingTime)
-      println(s"benchmark: TPS = $tracesPerSecond")
+      val processingTime = System.currentTimeMillis() - startTime
+      val expectedCount = SpanCount / sampleRate
+      val actualCount = getSpanCount
 
-      tracesPerSecond must beGreaterThan(ExpectedTPS.toLong)
-      expectSpans(SpanCount / sampleRate)
+      val spansPerSecond = actualCount * 1000 / processingTime
+      println(
+        s"benchmark result: $spansPerSecond SPS, " +
+          s"${100 - actualCount * 100 / expectedCount}% dropped by backpressure"
+      )
+
+      spansPerSecond * sampleRate must beGreaterThanOrEqualTo(ExpectedMPS.toLong)
     }
   }
 
@@ -77,7 +95,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
       val originalCPS = benchmark(Span.asString)
       val naiveCPS = benchmark(naiveLongToString)
       val percentDelta = originalCPS * 100 / naiveCPS - 100
-      println(s"benchmark: spanId serialization performance delta = $percentDelta%")
+      println(s"spanId serialization performance delta: $percentDelta%")
       percentDelta must beGreaterThan(-10L)
     }
 

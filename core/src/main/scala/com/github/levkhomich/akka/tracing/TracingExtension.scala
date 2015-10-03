@@ -53,7 +53,9 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       )
       system.actorOf(Props({
         val holder = new SpanHolder(spans)
-        val submitter = holder.context.actorOf(Props(classOf[SpanSubmitter], transport), "spanSubmitter")
+        val maxSpansPerSecond = config.getInt(AkkaTracingMaxSpansPerSecond)
+        require(maxSpansPerSecond > 0, s"invalid $AkkaTracingMaxSpansPerSecond = $maxSpansPerSecond (should be > 0)")
+        val submitter = holder.context.actorOf(Props(classOf[SpanSubmitter], transport, maxSpansPerSecond), "spanSubmitter")
         ActorPublisher(holder.self).subscribe(ActorSubscriber(submitter))
         holder
       }), "spanHolder")
@@ -256,6 +258,7 @@ object TracingExtension extends ExtensionId[TracingExtensionImpl] with Extension
   private[tracing] val AkkaTracingPort = "akka.tracing.port"
   private[tracing] val AkkaTracingSampleRate = "akka.tracing.sample-rate"
   private[tracing] val AkkaTracingEnabled = "akka.tracing.enabled"
+  private[tracing] val AkkaTracingMaxSpansPerSecond = "akka.tracing.max-spans-per-second"
 
   override def lookup(): this.type =
     TracingExtension

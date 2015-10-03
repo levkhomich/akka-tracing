@@ -45,8 +45,8 @@ trait MockCollector { this: Specification =>
   def startCollector(): TServer = {
     val handler = new thrift.Scribe.Iface {
       override def Log(messages: util.List[LogEntry]): ResultCode = {
-        println(s"collector: received ${messages.size} message${if (messages.size > 1) "s" else ""}")
         results.addAll(messages)
+        println(s"collector received ${messages.size} message${if (messages.size > 1) "s" else ""}")
         thrift.ResultCode.OK
       }
     }
@@ -63,16 +63,16 @@ trait MockCollector { this: Specification =>
     )
     new Thread(new Runnable() {
       override def run(): Unit = {
-        println("collector: started")
+        println("collector started")
         collector.serve()
-        println("collector: stopped")
+        println("collector stopped")
       }
     }).start()
     Thread.sleep(100)
     collector
   }
 
-  def awaitSpanSubmission(): Unit = {
+  def awaitSpans(): Unit = {
     val prevSize = results.size()
     val start = System.currentTimeMillis
     while (results.size == prevSize && System.currentTimeMillis - start < MaxAwaitTimeout) {
@@ -128,6 +128,25 @@ trait MockCollector { this: Specification =>
     size must be <= maxCount and (size must be >= minCount)
   }
 
+  def getSpanCount: Int = {
+    var start = System.currentTimeMillis
+    var prevSize = 0
+
+    var lastBatch = false
+    while (!lastBatch) {
+      while (results.size == prevSize && System.currentTimeMillis - start < MaxAwaitTimeout / 5) {
+        Thread.sleep(AwaitStep)
+      }
+      if (results.size != prevSize) {
+        prevSize = results.size
+        start = System.currentTimeMillis
+      } else
+        lastBatch = true
+    }
+    results.clear()
+    prevSize
+  }
+
   private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {
     span.binary_annotations.find(_.get_key == key) match {
       case Some(ba) =>
@@ -175,7 +194,7 @@ trait MockCollector { this: Specification =>
   }
 
   def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
-    span.annotations.find(_.get_value == expValue).isDefined mustEqual true
+    span.annotations.exists(_.get_value == expValue) mustEqual true
   }
 
   def printAnnotations(span: thrift.Span): Unit = {

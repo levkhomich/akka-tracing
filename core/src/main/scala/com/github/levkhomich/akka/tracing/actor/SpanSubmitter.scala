@@ -39,7 +39,7 @@ private[actor] object SpanSubmitter {
 /**
  * Internal API
  */
-private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscriber with ActorLogging {
+private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: Int) extends ActorSubscriber with ActorLogging {
 
   import SpanSubmitter._
 
@@ -47,23 +47,24 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
   private[this] val logEntries = mutable.UnrolledBuffer[thrift.LogEntry]()
 
   // buffer watermarks
-  private[this] val highWatermark = 2000
-  private[this] val lowWatermark = 1000
+  private[this] val highWatermark = maxSpansPerSecond
   private[this] var sentWatermark = 0
+
+  // span submit duration stats
+  private[this] var expectedSubmitDurationPerSpan = 0L // nanoseconds
+  private[this] var accumulatedSubmitDuration = 0L // nanoseconds
+  private[this] var accumulatedSpansSent = 0L
+
+  private[this] val minSubmitDelay = 50
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
   private[this] val thriftBuffer = new TReusableTransport()
 
   private[this] val client = new thrift.Scribe.Client(new TBinaryProtocol(transport))
 
-  protected def requestStrategy = new RequestStrategy {
-    def requestDemand(remainingRequested: Int): Int = {
-      val spanCount = logEntries.size + remainingRequested
-      if (spanCount < lowWatermark)
-        highWatermark - spanCount
-      else
-        0
-    }
+  override protected def requestStrategy = new RequestStrategy {
+    def requestDemand(remainingRequested: Int): Int =
+      highWatermark - logEntries.size - remainingRequested
   }
 
   override def receive: Receive = {
@@ -75,11 +76,11 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
       flush()
     case SendEnqueued =>
       send()
-      scheduleNextBatch()
+      scheduleNextSubmit()
   }
 
   override def preStart(): Unit = {
-    scheduleNextBatch()
+    scheduleNextSubmit()
   }
 
   override def postStop(): Unit = {
@@ -99,6 +100,7 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
     import scala.collection.JavaConversions._
     sentWatermark = logEntries.size
     if (sentWatermark > 0) {
+      val startTime = System.nanoTime
       Try {
         if (!transport.isOpen) {
           transport.open()
@@ -108,17 +110,44 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
         client.Log(logEntries)
       } recover {
         case e =>
-          handleSubmissionError(e)
+          handleSubmitError(e)
           // reconnect next time
           transport.close()
           thrift.ResultCode.TRY_LATER
       } match {
         case Success(thrift.ResultCode.OK) =>
+          updateSubmitDurationStats(sentWatermark, System.nanoTime - startTime)
           logEntries.remove(0, sentWatermark)
           sentWatermark = 0
         case _ =>
           log.warning(s"Zipkin collector unavailable. Failed to send $sentWatermark spans.")
       }
+    }
+  }
+
+  /**
+   * Calculates delay before next submit considering expected workload and backpressure settings.
+   */
+  private[this] def getNextSubmitDelay: Int = {
+    // percent of time spent on span submitting
+    val sendTimeFactor = expectedSubmitDurationPerSpan * maxSpansPerSecond / 10000000
+    val saturationTime = highWatermark * 1000 / maxSpansPerSecond
+    val delay = saturationTime * (100 - sendTimeFactor) / (100 + sendTimeFactor)
+    delay.toInt max minSubmitDelay
+  }
+
+  /**
+   * Updates submit duration stats used to schedule next span submit.
+   * @param spansSent number of spans sent previously
+   * @param submitDuration time previous submit took
+   */
+  private[this] def updateSubmitDurationStats(spansSent: Int, submitDuration: Long): Unit = {
+    accumulatedSubmitDuration += submitDuration
+    accumulatedSpansSent += spansSent
+    expectedSubmitDurationPerSpan = accumulatedSubmitDuration / accumulatedSpansSent
+    if (accumulatedSpansSent > maxSpansPerSecond) {
+      accumulatedSubmitDuration /= 2
+      accumulatedSpansSent /= 2
     }
   }
 
@@ -130,7 +159,7 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
     new thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private[this] def handleSubmissionError(e: Throwable): Unit =
+  private[this] def handleSubmitError(e: Throwable): Unit =
     e match {
       case te: TTransportException =>
         te.getCause match {
@@ -154,10 +183,10 @@ private[tracing] class SpanSubmitter(transport: TTransport) extends ActorSubscri
         log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
     }
 
-  private[this] def scheduleNextBatch(): Unit = {
+  private[this] def scheduleNextSubmit(): Unit = {
     import context.dispatcher
     if (TracingExtension(context.system).isEnabled) {
-      context.system.scheduler.scheduleOnce(2.seconds, self, SendEnqueued)
+      context.system.scheduler.scheduleOnce(getNextSubmitDelay.milliseconds, self, SendEnqueued)
     } else {
       log.error("Trying to reconnect in 10 seconds")
       context.system.scheduler.scheduleOnce(10.seconds, self, SendEnqueued)
