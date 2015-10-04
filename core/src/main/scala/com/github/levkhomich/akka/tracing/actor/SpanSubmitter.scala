@@ -21,7 +21,7 @@ import javax.xml.bind.DatatypeConverter
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.control.ControlThrowable
-import scala.util.{ Success, Try }
+import scala.util.{ Failure, Success, Try }
 
 import akka.actor.ActorLogging
 import akka.stream.actor.{ ActorSubscriber, ActorSubscriberMessage, RequestStrategy }
@@ -45,10 +45,7 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
 
   // buffer containing log entries ready to be sent
   private[this] val logEntries = mutable.UnrolledBuffer[thrift.LogEntry]()
-
-  // buffer watermarks
   private[this] val highWatermark = maxSpansPerSecond
-  private[this] var sentWatermark = 0
 
   // span submit duration stats
   private[this] var expectedSubmitDurationPerSpan = 0L // nanoseconds
@@ -56,6 +53,7 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
   private[this] var accumulatedSpansSent = 0L
 
   private[this] val minSubmitDelay = 50
+  private[this] val reconnectInterval = 10
 
   private[this] val protocolFactory = new TBinaryProtocol.Factory()
   private[this] val thriftBuffer = new TReusableTransport()
@@ -89,38 +87,39 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
   }
 
   private[this] def flush(): Unit = {
-    log.info(s"flushing ${logEntries.size} spans")
-    send()
-    if (transport.isOpen) {
-      transport.close()
+    if (logEntries.nonEmpty) {
+      log.info(s"Flushing ${logEntries.size} spans")
+      send()
     }
+    if (transport.isOpen)
+      transport.close()
   }
 
   private[this] def send(): Unit = {
     import scala.collection.JavaConversions._
-    sentWatermark = logEntries.size
-    if (sentWatermark > 0) {
+    val spanCount = logEntries.size
+    if (spanCount > 0) {
       val startTime = System.nanoTime
       Try {
         if (!transport.isOpen) {
           transport.open()
           TracingExtension(context.system).markCollectorAsAvailable()
-          log.warning("Successfully connected to Zipkin collector.")
+          log.info("Successfully connected to Zipkin collector.")
         }
         client.Log(logEntries)
-      } recover {
-        case e =>
-          handleSubmitError(e)
-          // reconnect next time
-          transport.close()
-          thrift.ResultCode.TRY_LATER
       } match {
         case Success(thrift.ResultCode.OK) =>
-          updateSubmitDurationStats(sentWatermark, System.nanoTime - startTime)
-          logEntries.remove(0, sentWatermark)
-          sentWatermark = 0
-        case _ =>
-          log.warning(s"Zipkin collector unavailable. Failed to send $sentWatermark spans.")
+          updateSubmitDurationStats(spanCount, System.nanoTime - startTime)
+          logEntries.remove(0, spanCount)
+        case Success(thrift.ResultCode.TRY_LATER) =>
+          log.warning(s"Zipkin collector busy. Failed to send $spanCount spans.")
+        case Failure(e: ControlThrowable) =>
+          throw e
+        case Failure(e) =>
+          log.warning(getSubmitErrorMessage(e) + s". Failed to send $spanCount spans.")
+          // reconnect next time
+          transport.close()
+          TracingExtension(context.system).markCollectorAsUnavailable()
       }
     }
   }
@@ -153,34 +152,33 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
 
   private[this] def spanToLogEntry(spanInt: thrift.Span): thrift.LogEntry = {
     spanInt.write(protocolFactory.getProtocol(thriftBuffer))
-    val thriftBytes = thriftBuffer.getArray.take(thriftBuffer.length)
+    val thriftBytes = thriftBuffer.getArray().take(thriftBuffer.length)
     thriftBuffer.reset()
     val encodedSpan = DatatypeConverter.printBase64Binary(thriftBytes) + '\n'
     new thrift.LogEntry("zipkin", encodedSpan)
   }
 
-  private[this] def handleSubmitError(e: Throwable): Unit =
+  private[this] def getSubmitErrorMessage(e: Throwable): String =
     e match {
       case te: TTransportException =>
         te.getCause match {
+          case null if te.getMessage == null =>
+            "Thrift transport error"
           case null =>
-            log.error("Thrift transport error: " + te.getMessage)
+            "Thrift transport error: " + te.getMessage
           case e: ConnectException =>
-            log.error("Can't connect to Zipkin: " + e.getMessage)
+            "Can't connect to Zipkin: " + e.getMessage
           case e: NoRouteToHostException =>
-            log.error("No route to Zipkin: " + e.getMessage)
+            "No route to Zipkin: " + e.getMessage
           case e: SocketException =>
-            log.error("Socket error: " + e.getMessage)
+            "Socket error: " + e.getMessage
           case t: Throwable =>
-            log.error("Unknown transport error: " + TracingExtension.getStackTrace(t))
+            "Unknown transport error: " + TracingExtension.getStackTrace(t)
         }
-        TracingExtension(context.system).markCollectorAsUnavailable()
       case t: TApplicationException =>
-        log.error("Thrift client error: " + t.getMessage)
-      case ct: ControlThrowable =>
-        throw ct
+        "Thrift client error: " + t.getMessage
       case t: Throwable =>
-        log.error("Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t))
+        "Oh, look! We have an unknown error here: " + TracingExtension.getStackTrace(t)
     }
 
   private[this] def scheduleNextSubmit(): Unit = {
@@ -188,8 +186,8 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
     if (TracingExtension(context.system).isEnabled) {
       context.system.scheduler.scheduleOnce(getNextSubmitDelay.milliseconds, self, SendEnqueued)
     } else {
-      log.error("Trying to reconnect in 10 seconds")
-      context.system.scheduler.scheduleOnce(10.seconds, self, SendEnqueued)
+      log.info(s"Trying to reconnect in $reconnectInterval seconds")
+      context.system.scheduler.scheduleOnce(reconnectInterval.seconds, self, SendEnqueued)
     }
   }
 
