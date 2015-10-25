@@ -237,7 +237,12 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] def getId(tracingId: Long): Option[Span] = {
     spans.get.get(tracingId) map { spanInt =>
-      Span(spanInt.get_trace_id, spanInt.get_id, Option(spanInt.get_parent_id), false)
+      val parentId =
+        if (spanInt.is_set_parent_id)
+          Some(spanInt.get_parent_id)
+        else
+          None
+      Span(spanInt.get_trace_id, spanInt.get_id, parentId, false)
     }
   }
 }
