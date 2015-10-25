@@ -101,7 +101,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: String): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -110,7 +110,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Int): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.allocate(4).putInt(0, value), thrift.AnnotationType.I32)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(4).putInt(0, value), thrift.AnnotationType.I32)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -119,7 +119,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Long): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putLong(0, value), thrift.AnnotationType.I64)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(8).putLong(0, value), thrift.AnnotationType.I64)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -128,7 +128,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Boolean): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.wrap(Array[Byte](if (value) 1 else 0)), thrift.AnnotationType.BOOL)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(Array[Byte](if (value) 1 else 0)), thrift.AnnotationType.BOOL)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -137,7 +137,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Double): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.allocate(8).putDouble(0, value), thrift.AnnotationType.DOUBLE)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(8).putDouble(0, value), thrift.AnnotationType.DOUBLE)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -146,7 +146,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Short): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.allocate(2).putShort(0, value), thrift.AnnotationType.I16)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(2).putShort(0, value), thrift.AnnotationType.I16)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -155,7 +155,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Array[Byte]): Unit =
-    addBinaryAnnotation(ts, key, ByteBuffer.wrap(value), thrift.AnnotationType.BYTES)
+    addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(value), thrift.AnnotationType.BYTES)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -164,7 +164,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param value recorded value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: ByteBuffer): Unit =
-    addBinaryAnnotation(ts, key, value, thrift.AnnotationType.BYTES)
+    addBinaryAnnotation(ts.tracingId, key, value, thrift.AnnotationType.BYTES)
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -194,14 +194,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param service service name
    */
   def forcedSample(ts: BaseTracingSupport, service: String): Unit =
-    forcedSample(ts, Random.nextLong, None, Random.nextLong, service, ts.spanName)
+    forcedSample(ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName)
 
   private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Unit =
-    forcedSample(ts, spanId, parentId, traceId, service, ts.spanName)
+    forcedSample(ts.tracingId, spanId, parentId, traceId, service, ts.spanName)
 
-  private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
+  private[tracing] def forcedSample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
     if (isEnabled)
-      holder ! Sample(ts.tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
+      holder ! Sample(tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
 
   /**
    * Marks request processing start.
@@ -213,23 +213,23 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       holder ! Receive(ts.tracingId, service, ts.spanName, System.nanoTime)
 
   def finish(ts: BaseTracingSupport): Unit =
-    addAnnotation(ts, thrift.zipkinConstants.SERVER_SEND, send = true)
+    addAnnotation(ts.tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
 
   def finishChildRequest(ts: BaseTracingSupport): Unit =
-    addAnnotation(ts, thrift.zipkinConstants.CLIENT_RECV, send = true)
+    addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
   def submitSpans(spans: TraversableOnce[thrift.Span]): Unit =
     if (isEnabled)
       holder ! SubmitSpans(spans)
 
-  private[this] def addAnnotation(ts: BaseTracingSupport, value: String, send: Boolean = false): Unit =
+  private[tracing] def addAnnotation(tracingId: Long, value: String, send: Boolean = false): Unit =
     if (isEnabled)
-      holder ! AddAnnotation(ts.tracingId, System.nanoTime, value)
+      holder ! AddAnnotation(tracingId, System.nanoTime, value)
 
-  private[this] def addBinaryAnnotation(ts: BaseTracingSupport, key: String, value: ByteBuffer,
-                                        valueType: thrift.AnnotationType): Unit =
+  private[tracing] def addBinaryAnnotation(tracingId: Long, key: String, value: ByteBuffer,
+                                           valueType: thrift.AnnotationType): Unit =
     if (isEnabled)
-      holder ! AddBinaryAnnotation(ts.tracingId, key, value, valueType)
+      holder ! AddBinaryAnnotation(tracingId, key, value, valueType)
 
   private[tracing] def createChildSpan(tracingId: Long, parentTracingId: Long, spanName: String): Unit =
     if (isEnabled)
