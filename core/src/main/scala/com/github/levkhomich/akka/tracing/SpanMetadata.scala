@@ -17,10 +17,23 @@
 package com.github.levkhomich.akka.tracing
 
 import java.io.{ ByteArrayInputStream, DataInputStream }
+import java.nio.{ BufferUnderflowException, ByteBuffer }
 
-private[tracing] final case class Span(traceId: Long, spanId: Long, parentId: Option[Long], forceSampling: Boolean)
+final case class SpanMetadata(traceId: Long, spanId: Long, parentId: Option[Long], forceSampling: Boolean) {
+  def toByteArray: Array[Byte] = {
+    val bb = ByteBuffer.allocate(8 + 8 + 1 + parentId.fold(0)(_ => 8) + 1)
+    bb.putLong(traceId)
+    bb.putLong(spanId)
+    bb.put(if (parentId.isDefined) 1.toByte else 0.toByte)
+    parentId.foreach(id =>
+      bb.putLong(id)
+    )
+    bb.put(if (forceSampling) 1.toByte else 0.toByte)
+    bb.array()
+  }
+}
 
-private[tracing] object Span {
+object SpanMetadata {
 
   private[this] val lookup: Array[Array[Char]] = (
     for (b <- Short.MinValue to Short.MaxValue) yield {
@@ -33,7 +46,7 @@ private[tracing] object Span {
   private[this] def asChars(b: Long) =
     lookup((b & 0xffff).toShort - Short.MinValue)
 
-  def asString(x: Long): String = {
+  private[tracing] def idToString(x: Long): String = {
     val b = new StringBuilder(16)
     b.appendAll(asChars(x >> 48))
     b.appendAll(asChars(x >> 32))
@@ -42,7 +55,7 @@ private[tracing] object Span {
     b.toString()
   }
 
-  def fromString(x: String): Long = {
+  private[tracing] def idFromString(x: String): Long = {
     if (x == null || x.length == 0 || x.length > 16)
       throw new NumberFormatException("Invalid span id string: " + x)
     val s =
@@ -58,4 +71,27 @@ private[tracing] object Span {
     new DataInputStream(new ByteArrayInputStream(bytes)).readLong
   }
 
+  def fromByteArray(data: Array[Byte]): Option[SpanMetadata] = {
+    if (data == null || data.length != 18 && data.length != 26)
+      None
+    else
+      try {
+        val bb = ByteBuffer.wrap(data)
+        val traceId = bb.getLong
+        val spanId = bb.getLong
+        val parentId =
+          if (bb.get == 1)
+            Some(bb.getLong)
+          else
+            None
+        val forceSampling = bb.get == 1
+        if (bb.hasRemaining)
+          None
+        else
+          Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
+      } catch {
+        case _: BufferUnderflowException =>
+          None
+      }
+  }
 }

@@ -20,17 +20,17 @@ import scala.util.Random
 
 import org.specs2.mutable.Specification
 
-class SpanSpec extends Specification {
+class SpanMetadataSpec extends Specification {
 
   sequential
 
-  "Span" should {
+  "SpanMetadata" should {
 
     val IterationsCount = 1000000
 
     "provide id serialization conforming to Finagle's implementation" in {
       def checkValue(x: Long): Unit = {
-        val actual = Span.asString(x)
+        val actual = SpanMetadata.idToString(x)
         val expected = new com.twitter.finagle.tracing.SpanId(x).toString()
         if (actual != expected)
           failure(s"SpanId serialization failed for value $x (was $actual instead of $expected)")
@@ -53,7 +53,7 @@ class SpanSpec extends Specification {
 
     "provide id deserialization conforming to Finagle's implementation" in {
       def checkValue(x: String): Unit = {
-        val actual = Span.fromString(x)
+        val actual = SpanMetadata.idFromString(x)
         val expected = com.twitter.finagle.tracing.SpanId.fromString(x).get.toLong
         if (actual != expected)
           failure(s"SpanId deserialization failed for value $x (was $actual instead of $expected)")
@@ -76,14 +76,41 @@ class SpanSpec extends Specification {
       success
     }
 
-    "handle invalid input" in {
-      Span.fromString(null) must throwAn[NumberFormatException]
-      Span.fromString("") must throwAn[NumberFormatException]
-      Span.fromString("not a number") must throwAn[NumberFormatException]
-      Span.fromString("11111111111111111") must throwAn[NumberFormatException]
-      Span.fromString("11111111111111111") must throwAn[NumberFormatException]
+    "handle ill-formed ids correctly" in {
+      SpanMetadata.idFromString(null) must throwAn[NumberFormatException]
+      SpanMetadata.idFromString("") must throwAn[NumberFormatException]
+      SpanMetadata.idFromString("not a number") must throwAn[NumberFormatException]
+      SpanMetadata.idFromString("11111111111111111") must throwAn[NumberFormatException]
+      SpanMetadata.idFromString("11111111111111111") must throwAn[NumberFormatException]
     }
 
+    "provide metadata [de]serialization support" in {
+      def check(original: SpanMetadata): Unit = {
+        val serialized = original.toByteArray
+        val deserialized = SpanMetadata.fromByteArray(serialized)
+        deserialized.isDefined shouldEqual true
+        deserialized.get shouldEqual original
+      }
+      val longValues = Seq(Long.MaxValue, Long.MinValue, 0L, -1L, 1L, Math.abs(Random.nextLong()), -Math.abs(Random.nextLong()))
+      for {
+        traceId <- longValues
+        spanId <- longValues
+        parentId <- longValues.map(Some(_)) :+ None
+        forceSampling <- Seq(true, false)
+      } yield check(SpanMetadata(traceId, spanId, parentId, forceSampling))
+      success
+    }
+
+    "handle ill-formed metadata correctly" in {
+      SpanMetadata.fromByteArray(null) mustEqual None
+      SpanMetadata.fromByteArray(Array[Byte]()) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(500)(0.toByte)) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(500)(1.toByte)) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(17)(0.toByte)) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(17)(1.toByte)) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(19)(0.toByte)) mustEqual None
+      SpanMetadata.fromByteArray(Array.fill(27)(1.toByte)) mustEqual None
+    }
   }
 
 }

@@ -89,10 +89,10 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
       }
 
       // warm up
-      benchmark(Span.asString)
+      benchmark(SpanMetadata.idToString)
       benchmark(naiveLongToString)
 
-      val originalCPS = benchmark(Span.asString)
+      val originalCPS = benchmark(SpanMetadata.idToString)
       val naiveCPS = benchmark(naiveLongToString)
       val percentDelta = originalCPS * 100 / naiveCPS - 100
       println(s"spanId serialization performance delta: $percentDelta%")

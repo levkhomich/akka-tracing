@@ -172,11 +172,11 @@ private[http] object TracingDirectives {
 
   import TracingHeaders._
 
-  def extractSpan(message: HttpMessage): Either[String, Option[Span]] = {
+  def extractSpan(message: HttpMessage): Either[String, Option[SpanMetadata]] = {
     def headerStringValue(name: String): Option[String] =
       message.headers.find(_.name == name).map(_.value)
     def headerLongValue(name: String): Either[String, Option[Long]] =
-      Try(headerStringValue(name).map(Span.fromString)) match {
+      Try(headerStringValue(name).map(SpanMetadata.idFromString)) match {
         case Failure(e) =>
           Left(name)
         case Success(v) =>
@@ -194,10 +194,10 @@ private[http] object TracingDirectives {
     headerLongValue(TraceId).right.map({
       case Some(traceId) =>
         headerLongValue(ParentSpanId).right.map { parentId =>
-          Some(Span(traceId, spanId, parentId, forceSampling))
+          Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
         }
       case None if forceSampling =>
-        Right(Some(Span(Random.nextLong, spanId, None, true)))
+        Right(Some(SpanMetadata(Random.nextLong, spanId, None, true)))
       case _ =>
         Right(None)
     }).joinRight

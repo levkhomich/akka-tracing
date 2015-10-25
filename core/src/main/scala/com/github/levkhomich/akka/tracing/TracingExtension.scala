@@ -235,14 +235,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (isEnabled)
       holder ! CreateChildSpan(tracingId, parentTracingId, spanName)
 
-  private[tracing] def getId(tracingId: Long): Option[Span] = {
+  private[tracing] def getId(tracingId: Long): Option[SpanMetadata] = {
     spans.get.get(tracingId) map { spanInt =>
       val parentId =
         if (spanInt.is_set_parent_id)
           Some(spanInt.get_parent_id)
         else
           None
-      Span(spanInt.get_trace_id, spanInt.get_id, parentId, false)
+      SpanMetadata(spanInt.get_trace_id, spanInt.get_id, parentId, forceSampling = false)
     }
   }
 }

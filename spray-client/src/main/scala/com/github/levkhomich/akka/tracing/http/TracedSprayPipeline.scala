@@ -34,7 +34,7 @@ trait TracedSprayPipeline {
 
   def tracedPipeline[T](trigger: BaseTracingSupport) = {
     val clientReq = TracedClientRequest().asChildOf(trigger)
-    addHeader("X-B3-TraceId", Span.asString(clientReq.tracingId))
+    addHeader("X-B3-TraceId", SpanMetadata.idToString(clientReq.tracingId))
     addHeader("X-B3-Sampled", trace.getId(clientReq.tracingId).isDefined.toString) ~>
       startTrace(clientReq) ~>
       sendAndReceive ~>
