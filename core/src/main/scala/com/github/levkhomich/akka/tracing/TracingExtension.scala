@@ -215,6 +215,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts.tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
 
+  /**
+   * Flushes all tracing date related to request.
+   * @param ts traced message
+   */
+  def flush(ts: BaseTracingSupport): Unit =
+    if (isEnabled)
+      holder ! Enqueue(ts.tracingId, cancelJob = true)
+
   def finishChildRequest(ts: BaseTracingSupport): Unit =
     addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
