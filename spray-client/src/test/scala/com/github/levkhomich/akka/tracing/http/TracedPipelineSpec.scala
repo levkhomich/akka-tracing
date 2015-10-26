@@ -29,6 +29,7 @@ class TracedPipelineSpec extends Specification with FutureMatchers with TracingT
       val pipeline = mockedPipeline(mockResponse)
       val mockTrigger = nextRandomMessage
       trace.forcedSample(mockTrigger, "test trace")
+      Thread.sleep(100)
       pipeline.tracedPipeline[String](mockTrigger)(Get("http://test.com"))
       trace.finish(mockTrigger)
       expectSpans(2)
