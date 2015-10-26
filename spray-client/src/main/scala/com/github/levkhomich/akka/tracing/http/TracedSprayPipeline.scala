@@ -16,13 +16,13 @@
 
 package com.github.levkhomich.akka.tracing.http
 
+import java.nio.ByteBuffer
+
 import akka.actor.ActorSystem
 import spray.client.pipelining._
-import spray.http.{ HttpResponse, HttpRequest }
+import spray.http.{ HttpHeaders, HttpResponse, HttpRequest }
 
 import com.github.levkhomich.akka.tracing._
-
-case class TracedClientRequest() extends TracingSupport
 
 trait TracedSprayPipeline {
 
@@ -32,24 +32,40 @@ trait TracedSprayPipeline {
   implicit lazy val trace: TracingExtensionImpl = TracingExtension(system)
   import system.dispatcher
 
-  def tracedPipeline[T](trigger: BaseTracingSupport) = {
-    val clientReq = TracedClientRequest().asChildOf(trigger)
-    addHeader("X-B3-TraceId", SpanMetadata.idToString(clientReq.tracingId))
-    addHeader("X-B3-Sampled", trace.getId(clientReq.tracingId).isDefined.toString) ~>
-      startTrace(clientReq) ~>
-      sendAndReceive ~>
-      completeTrace(clientReq)
+  def tracedPipeline[T](parent: BaseTracingSupport) = {
+    val clientRequest = new TracingSupport {}
+    trace.createChild(clientRequest, parent, None).map(metadata =>
+      addHeaders(List(
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
+        HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
+        HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(metadata.parentId.get)),
+        HttpHeaders.RawHeader(TracingHeaders.Sampled, "true")
+      )) ~>
+        startTrace(clientRequest) ~>
+        sendAndReceive ~>
+        completeTrace(clientRequest)
+    ).getOrElse(sendAndReceive)
   }
 
-  def startTrace(clientReq: BaseTracingSupport)(req: HttpRequest): HttpRequest = {
-    trace.record(clientReq, thrift.zipkinConstants.CLIENT_SEND)
-    trace.record(clientReq, s"requesting to ${req.uri}")
-    req
+  def startTrace(ts: BaseTracingSupport)(request: HttpRequest): HttpRequest = {
+    trace.record(ts, thrift.zipkinConstants.CLIENT_SEND)
+
+    // TODO: use `recordKeyValue` call after tracedComplete will be removed
+    @inline def recordKeyValue(key: String, value: String): Unit =
+      trace.addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
+
+    recordKeyValue("client-request.uri", request.uri.toString())
+    recordKeyValue("client-request.proto", request.protocol.value)
+    request.headers.foreach { header =>
+      recordKeyValue("client-request.headers." + header.name, header.value)
+    }
+
+    request
   }
 
-  def completeTrace(clientReq: BaseTracingSupport)(response: HttpResponse): HttpResponse = {
-    trace.record(clientReq, s"response code ${response.status}")
-    trace.finishChildRequest(clientReq)
+  def completeTrace(ts: BaseTracingSupport)(response: HttpResponse): HttpResponse = {
+    trace.recordKeyValue(ts, "response.code", response.status.toString())
+    trace.addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
     response
   }
 }
