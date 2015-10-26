@@ -228,6 +228,13 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     } else
       None
 
+  def exportMetadata(ts: BaseTracingSupport): Option[SpanMetadata] =
+    getId(ts.tracingId)
+
+  def importMetadata(ts: BaseTracingSupport, span: SpanMetadata, service: String): Unit =
+    if (isEnabled)
+      holder ! ImportMetadata(ts.tracingId, span, service, ts.spanName, System.nanoTime)
+
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts.tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
 

@@ -39,6 +39,8 @@ private[tracing] object SpanHolder {
   final case class AddBinaryAnnotation(tracingId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
   final case class CreateFromMetadata(tracingId: Long, metadata: SpanMetadata, spanName: String)
   final case class SubmitSpans(spans: TraversableOnce[thrift.Span])
+  final case class ImportMetadata(tracingId: Long, span: SpanMetadata,
+                                  serviceName: String, rpcName: String, timestamp: Long)
 }
 
 /**
@@ -68,6 +70,17 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
           endpoints.put(tracingId, endpoint)
         case _ =>
       }
+
+    case m @ ImportMetadata(tracingId, metadata, serviceName, rpcName, timestamp) =>
+      val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
+      val thriftSpan = new thrift.Span(metadata.traceId, rpcName, metadata.spanId, null, null)
+      metadata.parentId.foreach(thriftSpan.set_parent_id)
+      spans.foreach(_.put(tracingId, thriftSpan))
+      import context.dispatcher
+      sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(30.seconds,
+        self, Enqueue(tracingId, cancelJob = false)
+      ))
+      endpoints.put(tracingId, endpoint)
 
     case Receive(tracingId, serviceName, rpcName, timestamp) =>
       lookup(tracingId) match {
