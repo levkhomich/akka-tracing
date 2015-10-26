@@ -212,8 +212,27 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (isEnabled)
       holder ! Receive(ts.tracingId, service, ts.spanName, System.nanoTime)
 
+  def createChild(ts: BaseTracingSupport, parent: BaseTracingSupport, parentMeta: Option[SpanMetadata]): Option[SpanMetadata] =
+    if (isEnabled) {
+      val metadata = parentMeta.map(m =>
+        SpanMetadata(m.traceId, Random.nextLong, Some(m.spanId), m.forceSampling)
+      ).orElse(
+        spans.get.get(parent.tracingId) map { parentSpan =>
+          SpanMetadata(parentSpan.trace_id, Random.nextLong, Some(parentSpan.get_id), forceSampling = false)
+        }
+      )
+      metadata.foreach { m =>
+        holder ! CreateFromMetadata(ts.tracingId, m, ts.spanName)
+      }
+      metadata
+    } else
+      None
+
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts.tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
+
+  def finishChildRequest(ts: BaseTracingSupport): Unit =
+    addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
   /**
    * Flushes all tracing date related to request.
@@ -222,9 +241,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   def flush(ts: BaseTracingSupport): Unit =
     if (isEnabled)
       holder ! Enqueue(ts.tracingId, cancelJob = true)
-
-  def finishChildRequest(ts: BaseTracingSupport): Unit =
-    addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
   def submitSpans(spans: TraversableOnce[thrift.Span]): Unit =
     if (isEnabled)
@@ -238,10 +254,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
                                            valueType: thrift.AnnotationType): Unit =
     if (isEnabled)
       holder ! AddBinaryAnnotation(tracingId, key, value, valueType)
-
-  private[tracing] def createChildSpan(tracingId: Long, parentTracingId: Long, spanName: String): Unit =
-    if (isEnabled)
-      holder ! CreateChildSpan(tracingId, parentTracingId, spanName)
 
   private[tracing] def getId(tracingId: Long): Option[SpanMetadata] = {
     spans.get.get(tracingId) map { spanInt =>

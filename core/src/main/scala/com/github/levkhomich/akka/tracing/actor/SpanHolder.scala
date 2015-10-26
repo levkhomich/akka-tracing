@@ -27,7 +27,7 @@ import akka.actor.{ ActorLogging, Cancellable }
 import akka.agent.Agent
 import akka.stream.actor.{ ActorPublisher, ActorPublisherMessage }
 
-import com.github.levkhomich.akka.tracing.thrift
+import com.github.levkhomich.akka.tracing.{ SpanMetadata, thrift }
 
 private[tracing] object SpanHolder {
   final case class Enqueue(tracingId: Long, cancelJob: Boolean)
@@ -37,7 +37,7 @@ private[tracing] object SpanHolder {
   final case class Receive(tracingId: Long, serviceName: String, rpcName: String, timestamp: Long)
   final case class AddAnnotation(tracingId: Long, timestamp: Long, msg: String)
   final case class AddBinaryAnnotation(tracingId: Long, key: String, value: ByteBuffer, valueType: thrift.AnnotationType)
-  final case class CreateChildSpan(tracingId: Long, parentTracingId: Long, spanName: String)
+  final case class CreateFromMetadata(tracingId: Long, metadata: SpanMetadata, spanName: String)
   final case class SubmitSpans(spans: TraversableOnce[thrift.Span])
 }
 
@@ -99,11 +99,8 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
         spanInt.add_to_binary_annotations(a)
       }
 
-    case m @ CreateChildSpan(tracingId, parentTracingId, spanName) =>
-      // do not sample if parent was not sampled
-      lookup(parentTracingId) foreach { spanInt =>
-        createSpan(tracingId, Random.nextLong, Some(spanInt.get_id), spanInt.get_trace_id, spanName)
-      }
+    case m @ CreateFromMetadata(tracingId, metadata, spanName) =>
+      createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, spanName)
 
     case SubmitSpans(spans) =>
       spans.foreach(span =>
