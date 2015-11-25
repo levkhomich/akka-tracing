@@ -32,7 +32,7 @@ import com.github.levkhomich.akka.tracing.{ SpanMetadata, thrift }
 private[tracing] object SpanHolder {
   final case class Enqueue(tracingId: Long, cancelJob: Boolean)
 
-  final case class Sample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long,
+  final case class Sample(tracingId: Long, metadata: SpanMetadata,
                           serviceName: String, rpcName: String, timestamp: Long)
   final case class Receive(tracingId: Long, serviceName: String, rpcName: String, timestamp: Long)
   final case class AddAnnotation(tracingId: Long, timestamp: Long, msg: String)
@@ -45,11 +45,13 @@ private[tracing] object SpanHolder {
 
 /**
  * Internal API
- * @param spans agent containing map of spanId -> span for uncompleted traces
  */
-private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) extends ActorPublisher[thrift.Span] with ActorLogging {
+private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with ActorLogging {
 
   import com.github.levkhomich.akka.tracing.actor.SpanHolder._
+
+  // map of spanId -> span for uncompleted traces
+  private[this] val spans = mutable.Map[Long, thrift.Span]()
 
   // scheduler jobs which send incomplete traces by timeout
   private[this] val sendJobs = mutable.Map[Long, Cancellable]()
@@ -61,12 +63,12 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
   private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
 
   override def receive: Receive = {
-    case m @ Sample(tracingId, spanId, parentId, traceId, serviceName, rpcName, timestamp) =>
+    case m @ Sample(tracingId, metadata, serviceName, rpcName, timestamp) =>
       lookup(tracingId) match {
         case None =>
           val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
           val annotations = recvAnnotationList(timestamp, endpoint)
-          createSpan(tracingId, spanId, parentId, traceId, rpcName, annotations)
+          createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, rpcName, annotations)
           endpoints.put(tracingId, endpoint)
         case _ =>
       }
@@ -75,9 +77,10 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
       val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
       val thriftSpan = new thrift.Span(metadata.traceId, rpcName, metadata.spanId, null, null)
       metadata.parentId.foreach(thriftSpan.set_parent_id)
-      spans.foreach(_.put(tracingId, thriftSpan))
+      spans.put(tracingId, thriftSpan)
       import context.dispatcher
-      sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(30.seconds,
+      sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(
+        30.seconds,
         self, Enqueue(tracingId, cancelJob = false)
       ))
       endpoints.put(tracingId, endpoint)
@@ -100,7 +103,7 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
         a.set_host(endpointFor(tracingId))
         spanInt.add_to_annotations(a)
         if (a.value == thrift.zipkinConstants.SERVER_SEND ||
-          a.value == thrift.zipkinConstants.CLIENT_RECV) {
+            a.value == thrift.zipkinConstants.CLIENT_RECV) {
           enqueue(tracingId, cancelJob = true)
         }
       }
@@ -116,10 +119,10 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
       createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, spanName)
 
     case SubmitSpans(spans) =>
-      spans.foreach(span =>
+      spans.foreach { span =>
         if (isActive && totalDemand > 0)
           onNext(span)
-      )
+      }
 
     case _: ActorPublisherMessage =>
     // default behaviour is enough
@@ -130,23 +133,24 @@ private[tracing] class SpanHolder(spans: Agent[mutable.Map[Long, thrift.Span]]) 
 
   @inline
   private[this] def lookup(tracingId: Long): Option[thrift.Span] =
-    spans.get.get(tracingId)
+    spans.get(tracingId)
 
   private[this] def createSpan(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, name: String,
                                annotations: util.List[thrift.Annotation] = null): Unit = {
     import context.dispatcher
-    sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(30.seconds,
+    sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(
+      30.seconds,
       self, Enqueue(tracingId, cancelJob = false)
     ))
     val span = new thrift.Span(traceId, name, spanId, annotations, null)
     parentId.foreach(span.set_parent_id)
-    spans.foreach(_.put(tracingId, span))
+    spans.put(tracingId, span)
   }
 
   private[this] def enqueue(tracingId: Long, cancelJob: Boolean): Unit = {
     val ready = isActive && totalDemand > 0
     if (ready || !cancelJob) {
-      spans.foreach(_.remove(tracingId).foreach(span => if (ready) onNext(span)))
+      spans.remove(tracingId).foreach(span => if (ready) onNext(span))
       sendJobs.remove(tracingId).foreach(job => if (cancelJob) job.cancel())
       endpoints.remove(tracingId)
     }

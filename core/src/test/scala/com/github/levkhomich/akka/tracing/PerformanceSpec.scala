@@ -66,6 +66,33 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
 
       spansPerSecond * sampleRate must beGreaterThanOrEqualTo(ExpectedMPS.toLong)
     }
+
+    s"minimize delay before span metadata is available" in {
+      var failedExports = 0
+      def measure(): Long = {
+        val msg = nextRandomMessage
+        trace.forcedSample(msg, "test")
+        val start = System.nanoTime()
+
+        while (trace.exportMetadata(msg).isEmpty)
+          failedExports += 1
+
+        val result = System.nanoTime() - start
+        trace.flush(msg)
+        result
+      }
+
+      var sum = 0L
+      for (i <- 1 to ExpectedMPS)
+        sum += measure()
+
+      println(
+        s"benchmark result: ${sum / ExpectedMPS} ns metadata availability, $failedExports retries"
+      )
+
+      failedExports mustEqual 0
+    }
+
   }
 
   step(shutdown())

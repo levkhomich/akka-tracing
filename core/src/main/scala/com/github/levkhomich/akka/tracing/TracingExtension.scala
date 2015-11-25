@@ -42,7 +42,10 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   private[this] val msgCounter = new AtomicLong()
   private[this] val sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
-  private[this] val spans = Agent(mutable.Map[Long, thrift.Span]())(system.dispatcher)
+  private[this] val metadata = {
+    val maxSpansPerSecond = system.settings.config.getInt(AkkaTracingMaxSpansPerSecond)
+    Agent(new MetadataCache(maxSpansPerSecond * 30))(system.dispatcher)
+  }
 
   private[tracing] val holder = {
     val config = system.settings.config
@@ -52,7 +55,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
         new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
       )
       system.actorOf(Props({
-        val holder = new SpanHolder(spans)
+        val holder = new SpanHolder()
         val maxSpansPerSecond = config.getInt(AkkaTracingMaxSpansPerSecond)
         require(maxSpansPerSecond > 0, s"invalid $AkkaTracingMaxSpansPerSecond = $maxSpansPerSecond (should be > 0)")
         val submitter = holder.context.actorOf(Props(classOf[SpanSubmitter], transport, maxSpansPerSecond), "spanSubmitter")
@@ -182,10 +185,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   private[tracing] def sample(tracingId: Long, service: String, rpc: String): Unit =
     sample(tracingId, Random.nextLong, None, Random.nextLong, service, rpc)
 
-  private[tracing] def sample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
+  private[tracing] def sample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Option[SpanMetadata] =
     if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
-      holder ! Sample(tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
-    }
+      val m = SpanMetadata(traceId, spanId, parentId, forceSampling = true)
+      metadata.foreach(_.put(tracingId, m))
+      holder ! Sample(tracingId, m, service, rpc, System.nanoTime)
+      Some(m)
+    } else
+      None
 
   /**
    * Enables message tracing, names (rpc name is assumed to be message's class name)
@@ -200,8 +207,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     forcedSample(ts.tracingId, spanId, parentId, traceId, service, ts.spanName)
 
   private[tracing] def forcedSample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
-    if (isEnabled)
-      holder ! Sample(tracingId, spanId, parentId, traceId, service, rpc, System.nanoTime)
+    if (isEnabled) {
+      val m = SpanMetadata(traceId, spanId, parentId, forceSampling = true)
+      metadata.foreach(_.put(tracingId, m))
+      holder ! Sample(tracingId, m, service, rpc, System.nanoTime)
+    }
 
   /**
    * Marks request processing start.
@@ -212,28 +222,26 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (isEnabled)
       holder ! Receive(ts.tracingId, service, ts.spanName, System.nanoTime)
 
-  def createChild(ts: BaseTracingSupport, parent: BaseTracingSupport, parentMeta: Option[SpanMetadata]): Option[SpanMetadata] =
+  def createChild(ts: BaseTracingSupport, parent: BaseTracingSupport): Option[SpanMetadata] =
     if (isEnabled) {
-      val metadata = parentMeta.map(m =>
-        SpanMetadata(m.traceId, Random.nextLong, Some(m.spanId), m.forceSampling)
-      ).orElse(
-        spans.get.get(parent.tracingId) map { parentSpan =>
-          SpanMetadata(parentSpan.trace_id, Random.nextLong, Some(parentSpan.get_id), forceSampling = false)
-        }
-      )
-      metadata.foreach { m =>
+      val childMetadata = getId(parent.tracingId).map(m =>
+        SpanMetadata(m.traceId, Random.nextLong, Some(m.spanId), m.forceSampling))
+      childMetadata.foreach { m =>
+        metadata.foreach(_.put(ts.tracingId, m))
         holder ! CreateFromMetadata(ts.tracingId, m, ts.spanName)
       }
-      metadata
+      childMetadata
     } else
       None
 
   def exportMetadata(ts: BaseTracingSupport): Option[SpanMetadata] =
     getId(ts.tracingId)
 
-  def importMetadata(ts: BaseTracingSupport, span: SpanMetadata, service: String): Unit =
-    if (isEnabled)
-      holder ! ImportMetadata(ts.tracingId, span, service, ts.spanName, System.nanoTime)
+  def importMetadata(ts: BaseTracingSupport, extMetadata: SpanMetadata, service: String): Unit =
+    if (isEnabled) {
+      metadata.foreach(_.put(ts.tracingId, extMetadata))
+      holder ! ImportMetadata(ts.tracingId, extMetadata, service, ts.spanName, System.nanoTime)
+    }
 
   def finish(ts: BaseTracingSupport): Unit =
     addAnnotation(ts.tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
@@ -245,9 +253,10 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * Flushes all tracing date related to request.
    * @param ts traced message
    */
-  def flush(ts: BaseTracingSupport): Unit =
+  def flush(ts: BaseTracingSupport): Unit = {
     if (isEnabled)
       holder ! Enqueue(ts.tracingId, cancelJob = true)
+  }
 
   def submitSpans(spans: TraversableOnce[thrift.Span]): Unit =
     if (isEnabled)
@@ -263,14 +272,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       holder ! AddBinaryAnnotation(tracingId, key, value, valueType)
 
   private[tracing] def getId(tracingId: Long): Option[SpanMetadata] = {
-    spans.get.get(tracingId) map { spanInt =>
-      val parentId =
-        if (spanInt.is_set_parent_id)
-          Some(spanInt.get_parent_id)
-        else
-          None
-      SpanMetadata(spanInt.get_trace_id, spanInt.get_id, parentId, forceSampling = false)
-    }
+    Option(metadata.get.get(tracingId))
   }
 }
 

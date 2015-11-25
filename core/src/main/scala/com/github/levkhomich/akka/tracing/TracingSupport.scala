@@ -45,7 +45,7 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
 
   @deprecated("use trace.createChild instead", "0.5")
   override def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    tracer.createChild(this, parent, None)
+    tracer.createChild(this, parent)
     this
   }
 

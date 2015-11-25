@@ -34,7 +34,7 @@ trait TracedSprayPipeline {
 
   def tracedPipeline[T](parent: BaseTracingSupport) = {
     val clientRequest = new TracingSupport {}
-    trace.createChild(clientRequest, parent, None).map(metadata =>
+    trace.createChild(clientRequest, parent).map(metadata =>
       addHeaders(List(
         HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
         HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
@@ -43,8 +43,7 @@ trait TracedSprayPipeline {
       )) ~>
         startTrace(clientRequest) ~>
         sendAndReceive ~>
-        completeTrace(clientRequest)
-    ).getOrElse(sendAndReceive)
+        completeTrace(clientRequest)).getOrElse(sendAndReceive)
   }
 
   def startTrace(ts: BaseTracingSupport)(request: HttpRequest): HttpRequest = {
