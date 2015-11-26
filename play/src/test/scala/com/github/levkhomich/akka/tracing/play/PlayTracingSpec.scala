@@ -64,8 +64,8 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     withRoutes = routes,
     withGlobal = Some(new GlobalSettings with TracingSettings {
       override lazy val serviceName = overriddenServiceName
-      override lazy val excludedQueryParams = queryParams
-      override lazy val excludedHeaders = headerKeys
+      override lazy val includedQueryParams = queryParams
+      override lazy val includedHeaders = headerKeys
     }),
     additionalConfiguration = configuration
   )
@@ -106,35 +106,26 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkBinaryAnnotation(span, "request.proto", "HTTP/1.1")
     }
 
-    "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
+    "only include specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("includedParam"))) {
+      val result = route(FakeRequest("GET", TestPath + "?key=value&includedParam=value",
         FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
       )).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.headers.Content-Type", "text/plain")
-      checkBinaryAnnotation(span, "request.query.key", "value")
+      checkBinaryAnnotation(span, "request.query.includedParam", "value")
+      checkAbsentBinaryAnnotation(span, "request.query.key")
     }
 
-    "exclude specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("excludedParam"))) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.query.key", "value")
-      checkAbsentBinaryAnnotation(span, "request.query.excludedParam")
-    }
-
-    "exclude specific header fields from annotations when configured" in new WithApplication(overriddenApplication(headerKeys = Set("Excluded"))) {
+    "only include specific header fields from annotations when configured" in new WithApplication(overriddenApplication(headerKeys = Set("Included"))) {
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
           "Content-Type" -> Seq("text/plain"),
-          "Excluded" -> Seq("test"),
+          "Other" -> Seq("test"),
           "Included" -> Seq("value")
         )), AnyContentAsEmpty
       )).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Included", "value")
-      checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
+      checkAbsentBinaryAnnotation(span, "request.headers.Other")
     }
 
     "propagate tracing headers" in new WithApplication(fakeApplication) {

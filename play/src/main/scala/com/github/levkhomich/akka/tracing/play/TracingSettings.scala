@@ -31,9 +31,11 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   lazy val serviceName = play.libs.Akka.system.name
 
-  lazy val excludedQueryParams = Set.empty[String]
+  lazy val includedQueryParams = Set.empty[String]
 
-  lazy val excludedHeaders = Set.empty[String]
+  lazy val includedHeaders = Set.empty[String]
+
+  lazy val defaultHeaders = Set("Content-Type", "Accept")
 
   protected def sample(request: RequestHeader): Unit = {
     trace.sample(request, serviceName)
@@ -49,14 +51,14 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     // TODO: separate cookie records
     request.queryString.filter {
       case (key, values) =>
-        !excludedQueryParams(key)
+        includedQueryParams(key)
     }.foreach {
       case (key, values) =>
         values.foreach(trace.recordKeyValue(request, "request.query." + key, _))
     }
     request.headers.toMap.filter {
       case (key, values) =>
-        !excludedHeaders(key)
+        includedHeaders(key) || TracingHeaders.All.contains(key) || defaultHeaders(key)
     }.foreach {
       case (key, values) =>
         values.foreach(trace.recordKeyValue(request, "request.headers." + key, _))
