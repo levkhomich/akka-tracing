@@ -76,14 +76,14 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
       val spanId = Random.nextLong
       val parentId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
-          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, Span.asString(parentId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
+          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId)) ::
           Nil
       ) ~> tracedHandleWithRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
-          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, Span.asString(spanId))
-          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, Span.asString(parentId))
+          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
+          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
         }
     }
 
@@ -100,7 +100,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "reject requests with malformed X-B3-ParentTraceId header" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
           HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, "malformed") ::
           Nil
       ) ~> sealRoute(tracedHandleWithRoute) ~> check {
@@ -148,7 +148,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "sample requests with tracing headers" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
           Nil
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
@@ -162,7 +162,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "annotate sampled requests (general)" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
           Nil
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
@@ -177,7 +177,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "annotate sampled requests (query params, headers)" in {
       val spanId = Random.nextLong
       Get(Uri.from(path = testPath, query = Uri.Query("key" -> "value"))).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
           HttpHeaders.`Content-Type`(ContentTypes.`text/plain`) ::
           Nil
       ) ~> tracedCompleteRoute ~> check {
@@ -192,14 +192,14 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
       val spanId = Random.nextLong
       val parentId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, Span.asString(spanId)) ::
-          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, Span.asString(parentId)) ::
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
+          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId)) ::
           Nil
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
-          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, Span.asString(spanId))
-          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, Span.asString(parentId))
+          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
+          checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
         }
     }
   }

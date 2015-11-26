@@ -134,14 +134,14 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
       val result = route(FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(Span.asString(spanId)),
-          TracingHeaders.ParentSpanId -> Seq(Span.asString(parentId))
+          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+          TracingHeaders.ParentSpanId -> Seq(SpanMetadata.idToString(parentId))
         )), AnyContentAsEmpty
       )).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, Span.asString(spanId))
-      checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, Span.asString(parentId))
+      checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
+      checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
     }
 
     "record server errors to traces" in new WithApplication(fakeApplication) {

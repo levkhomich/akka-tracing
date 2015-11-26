@@ -31,6 +31,7 @@ trait BaseTracingSupport extends Any {
    * @param parent parent message
    * @return child message with required tracing headers
    */
+  @deprecated("use trace.createChild instead", "0.5")
   def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
 }
 
@@ -42,8 +43,9 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
   override def spanName: String =
     this.getClass.getSimpleName
 
+  @deprecated("use trace.createChild instead", "0.5")
   override def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    tracer.createChildSpan(tracingId, parent.tracingId, spanName)
+    tracer.createChild(this, parent, None)
     this
   }
 

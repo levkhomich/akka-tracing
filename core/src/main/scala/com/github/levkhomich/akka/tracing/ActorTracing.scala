@@ -49,7 +49,6 @@ trait ActorTracing extends AroundReceiveOverrideHack { self: Actor =>
     msg match {
       case ts: BaseTracingSupport if receive.isDefinedAt(msg) =>
         trace.start(ts, serviceName)
-        trace.record(ts, "request: " + msg.toString)
       case _ =>
     }
 }

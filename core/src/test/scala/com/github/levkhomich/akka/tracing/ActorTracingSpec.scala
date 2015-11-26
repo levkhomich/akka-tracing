@@ -40,7 +40,8 @@ class ActorTracingSpec extends Specification with TracingTestCommons with Tracin
       trace.finish(message)
 
       val span = receiveSpan()
-      checkAnnotation(span, "request: " + message)
+      span.get_annotations.size mustEqual 2
+      span.get_binary_annotations mustEqual null
     }
 
   }

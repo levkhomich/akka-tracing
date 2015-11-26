@@ -16,6 +16,7 @@
 
 package com.github.levkhomich.akka.tracing.http
 
+import java.nio.ByteBuffer
 import scala.util.{ Failure, Random, Try, Success }
 
 import akka.actor.Actor
@@ -47,7 +48,7 @@ trait BaseTracingDirectives {
           case _ =>
             trace.sample(value.tracingId, service, value.spanName)
         }
-        addHttpAnnotations(value, request)
+        addHttpAnnotations(value.tracingId, request)
         hprovide(value :: HNil)
       case Right(value) :: Left(headerName) :: request :: HNil =>
         reject(MalformedHeaderRejection(headerName, "invalid value"))
@@ -72,7 +73,7 @@ trait BaseTracingDirectives {
       case ts =>
         new StandardRoute {
           def apply(ctx: RequestContext): Unit =
-            ctx.complete(f(ts))(traceServerSend(ts))
+            ctx.complete(f(ts))(traceServerSend(ts.tracingId))
         }
     }
 
@@ -83,6 +84,7 @@ trait BaseTracingDirectives {
    * @param service service name to be added to trace
    * @param rpc RPC name to be added to trace
    */
+  @deprecated("use tracedHandleWith directive instead", "0.5")
   def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
@@ -90,12 +92,13 @@ trait BaseTracingDirectives {
           case Right(Some(span)) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
+            val tracingId = Random.nextLong()
             if (span.forceSampling)
-              trace.forcedSample(span, span.spanId, span.parentId, span.traceId, service, rpc)
+              trace.forcedSample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
             else
-              trace.sample(span.tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
-            addHttpAnnotations(span, ctx.request)
-            ctx.complete(value)(traceServerSend(span))
+              trace.sample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
+            addHttpAnnotations(tracingId, ctx.request)
+            ctx.complete(value)(traceServerSend(tracingId))
 
           case _ =>
             ctx.complete(value)
@@ -103,29 +106,34 @@ trait BaseTracingDirectives {
       }
     }
 
-  private[this] def addHttpAnnotations(ts: BaseTracingSupport, request: HttpRequest): Unit = {
+  private[this] def addHttpAnnotations(tracingId: Long, request: HttpRequest): Unit = {
+    // TODO: use `recordKeyValue` call after tracedComplete will be removed
+    @inline def recordKeyValue(key: String, value: String): Unit =
+      trace.addBinaryAnnotation(tracingId, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
+
     // TODO: use batching
-    trace.recordKeyValue(ts, "request.uri", request.uri.toString())
-    trace.recordKeyValue(ts, "request.path", request.uri.path.toString())
-    trace.recordKeyValue(ts, "request.method", request.method.name)
-    trace.recordKeyValue(ts, "request.proto", request.protocol.value)
+    recordKeyValue("request.uri", request.uri.toString())
+    recordKeyValue("request.path", request.uri.path.toString())
+    recordKeyValue("request.method", request.method.name)
+    recordKeyValue("request.proto", request.protocol.value)
     request.uri.query.toMultiMap.foreach {
       case (key, values) =>
-        values.foreach(trace.recordKeyValue(ts, "request.query." + key, _))
+        values.foreach(recordKeyValue("request.query." + key, _))
     }
     request.headers.foreach { header =>
-      trace.recordKeyValue(ts, "request.headers." + header.name, header.value)
+      recordKeyValue("request.headers." + header.name, header.value)
     }
   }
 
-  private[this] def traceServerSend[T](ts: BaseTracingSupport)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
+  private[this] def traceServerSend[T](tracingId: Long)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
     new ToResponseMarshaller[T] {
       override def apply(value: T, ctx: ToResponseMarshallingContext): Unit = {
         val result = value
         m.apply(result, new DelegatingToResponseMarshallingContext(ctx) {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
-            trace.finish(ts)
+            // TODO: use `finish` call after tracedComplete will be removed
+            trace.addAnnotation(tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
           }
         })
       }
@@ -154,6 +162,7 @@ trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTr
    *
    * @param rpc RPC name to be added to trace
    */
+  @deprecated("use tracedHandleWith directive instead", "0.5")
   def tracedComplete[T](rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     tracedComplete(self.path.name, rpc)(value)
 
@@ -163,11 +172,11 @@ private[http] object TracingDirectives {
 
   import TracingHeaders._
 
-  def extractSpan(message: HttpMessage): Either[String, Option[Span]] = {
+  def extractSpan(message: HttpMessage): Either[String, Option[SpanMetadata]] = {
     def headerStringValue(name: String): Option[String] =
       message.headers.find(_.name == name).map(_.value)
     def headerLongValue(name: String): Either[String, Option[Long]] =
-      Try(headerStringValue(name).map(Span.fromString)) match {
+      Try(headerStringValue(name).map(SpanMetadata.idFromString)) match {
         case Failure(e) =>
           Left(name)
         case Success(v) =>
@@ -185,10 +194,10 @@ private[http] object TracingDirectives {
     headerLongValue(TraceId).right.map({
       case Some(traceId) =>
         headerLongValue(ParentSpanId).right.map { parentId =>
-          Some(Span(traceId, spanId, parentId, forceSampling))
+          Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
         }
       case None if forceSampling =>
-        Right(Some(Span(Random.nextLong, spanId, None, true)))
+        Right(Some(SpanMetadata(Random.nextLong, spanId, None, true)))
       case _ =>
         Right(None)
     }).joinRight

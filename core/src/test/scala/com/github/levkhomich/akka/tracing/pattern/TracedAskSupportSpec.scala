@@ -24,6 +24,9 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
 
       val parentMessage = nextRandomMessage
       trace.sample(parentMessage, "testService")
+
+      Thread.sleep(100)
+
       val childMessage = nextRandomMessage.asChildOf(parentMessage)
       trace.sample(childMessage, "testService")
 
@@ -50,6 +53,9 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
 
       val parentMessage = nextRandomMessage
       trace.sample(parentMessage, "testService")
+
+      Thread.sleep(100)
+
       val childMessage = nextRandomMessage.asChildOf(parentMessage)
       trace.sample(childMessage, "testService")
 

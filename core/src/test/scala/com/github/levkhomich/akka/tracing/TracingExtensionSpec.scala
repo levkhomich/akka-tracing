@@ -18,7 +18,6 @@ package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
-import scala.collection.JavaConversions._
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
 import scala.util.Random
 
@@ -41,7 +40,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       def generateTracesWithSampleRate(count: Int, sampleRate: Int): Unit = {
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
-        awaitSpanSubmission()
+        awaitSpans()
         system.shutdown()
         system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       }
@@ -56,7 +55,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     "allow forced sampling" in {
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
-      awaitSpanSubmission()
+      awaitSpans()
       system.shutdown()
       system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
 
@@ -140,23 +139,10 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       testActor ! childMsg
 
       trace.finish(parentMsg)
+      val parentSpan = receiveSpans().head
+
       trace.finish(childMsg)
-
-      val spans = receiveSpans()
-      spans.size must beEqualTo(2)
-
-      val parentSpan = spans.find { s =>
-        s.binary_annotations != null && {
-          val content = s.binary_annotations.find(_.key == "content").get.value
-          new String(content.array()) == parentMsg.value
-        }
-      }.get
-      val childSpan = spans.find { s =>
-        s.binary_annotations != null && {
-          val content = s.binary_annotations.find(_.key == "content").get.value
-          new String(content.array()) == childMsg.value
-        }
-      }.get
+      val childSpan = receiveSpans().head
 
       parentSpan.is_set_parent_id must beFalse
 
@@ -182,41 +168,13 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     }
 
     "handle collector connectivity problems" in {
-      // collector won't stop until some message's arrival
-      generateTraces(1, trace)
       collector.stop()
-
-      awaitSpanSubmission()
-      results.clear()
-
       generateTraces(100, trace)
-
-      // wait for submission while collector is down
-      awaitSpanSubmission()
+      // wait until spans are sent while collector is down
+      awaitSpans()
 
       collector = startCollector()
-
-      // extension should wait for some time before retrying
-      expectSpans(0)
       expectSpans(100)
-    }
-
-    "limit size of span submission buffer" in {
-      // collector won't stop until some message's arrival
-      generateTraces(1, trace)
-      collector.stop()
-
-      awaitSpanSubmission()
-      results.clear()
-
-      generateTraces(5000, trace)
-
-      // wait for submission while collector is down (it can be 2 batches)
-      expectSpans(0)
-
-      collector = startCollector()
-
-      expectSpans(1000, 2000)
     }
 
     "flush traces before stop" in {

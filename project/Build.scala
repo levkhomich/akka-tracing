@@ -108,7 +108,7 @@ object AkkaTracingBuild extends Build {
         packagedArtifacts := Map.empty,
         previousArtifact := None
       )
-  ).aggregate(core, spray, play)
+  ).aggregate(core, spray, sprayClient, play)
 
   val passTestDeps = "test->test;compile->compile"
 
@@ -140,7 +140,20 @@ object AkkaTracingBuild extends Build {
       Seq(
         name := "Akka Tracing: Spray",
         libraryDependencies ++=
-          Dependencies.spray(scalaVersion.value) ++
+          Dependencies.sprayRouting(scalaVersion.value) ++
+          Dependencies.test(scalaVersion.value)
+      )
+  ).dependsOn(core % passTestDeps)
+
+  lazy val sprayClient = Project(
+    id = "akka-tracing-spray-client",
+    base = file("spray-client"),
+    settings =
+      commonSettings ++
+      Seq(
+        name := "Akka Tracing: Spray Client",
+        libraryDependencies ++=
+          Dependencies.sprayClient(scalaVersion.value) ++
           Dependencies.test(scalaVersion.value)
       )
   ).dependsOn(core % passTestDeps)
@@ -163,8 +176,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.3.7"
-  val AkkaVersion = "2.3.9"
+  val PlayVersion = "2.3.9"
+  val AkkaVersion = "2.3.12"
 
   object Compile {
 
@@ -184,11 +197,10 @@ object Dependencies {
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M4"
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0"
     val play         = "com.typesafe.play" %% "play"                % PlayVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
-    val slf4jLog4j12 = "org.slf4j"         %  "slf4j-log4j12"       % "1.7.7"
   }
 
   object Test {
@@ -201,20 +213,25 @@ object Dependencies {
     }
 
     val specs        = "org.specs2"        %% "specs2"              % "3.0-M2"    % "test"
-    val finagle      = "com.twitter"       %% "finagle-core"        % "6.24.0"    % "test"
+    val finagle      = "com.twitter"       %% "finagle-core"        % "6.28.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
+    val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
+    val logback      = "ch.qos.logback"    % "logback-classic"      % "1.1.3"     % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
   val play = Seq(Compile.play)
-  val thrift = Seq(Compile.libThrift, Compile.slf4jLog4j12)
+  val thrift = Seq(Compile.libThrift)
 
-  def spray(scalaVersion: String): Seq[ModuleID] =
-    Seq(Compile.sprayRouting(scalaVersion), Compile.sprayClient(scalaVersion))
+  def sprayRouting(scalaVersion: String): Seq[ModuleID] =
+    Seq(Compile.sprayRouting(scalaVersion))
+
+  def sprayClient(scalaVersion: String): Seq[ModuleID] =
+    Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
-      Test.akkaRemote, Test.sprayTestkit(scalaVersion))
+      Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
 }

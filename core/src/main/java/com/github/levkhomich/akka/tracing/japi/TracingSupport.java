@@ -1,8 +1,10 @@
 package com.github.levkhomich.akka.tracing.japi;
 
 import java.io.Serializable;
+import scala.Option;
 
 import com.github.levkhomich.akka.tracing.BaseTracingSupport;
+import com.github.levkhomich.akka.tracing.SpanMetadata;
 import com.github.levkhomich.akka.tracing.TracingExtensionImpl;
 
 public abstract class TracingSupport implements BaseTracingSupport, Serializable {
@@ -14,9 +16,10 @@ public abstract class TracingSupport implements BaseTracingSupport, Serializable
         return this.getClass().getSimpleName();
     }
 
+    @Deprecated
     @Override
-    public BaseTracingSupport asChildOf(BaseTracingSupport ts, TracingExtensionImpl tracer) {
-        tracer.createChildSpan(tracingId(), ts.tracingId(), spanName());
+    public BaseTracingSupport asChildOf(BaseTracingSupport parent, TracingExtensionImpl tracer) {
+        tracer.createChild(this, parent, Option.apply((SpanMetadata) null));
         return this;
     }
 }
