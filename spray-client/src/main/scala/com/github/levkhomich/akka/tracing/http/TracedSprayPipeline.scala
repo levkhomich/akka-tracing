@@ -32,7 +32,7 @@ trait TracedSprayPipeline {
   implicit lazy val trace: TracingExtensionImpl = TracingExtension(system)
   import system.dispatcher
 
-  def tracedPipeline[T](parent: BaseTracingSupport) = {
+  def tracedPipeline[T](parent: BaseTracingSupport): SendReceive = {
     val clientRequest = new TracingSupport {}
     trace.createChild(clientRequest, parent).map(metadata =>
       addHeaders(List(

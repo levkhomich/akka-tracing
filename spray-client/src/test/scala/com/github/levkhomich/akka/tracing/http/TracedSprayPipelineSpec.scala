@@ -9,7 +9,7 @@ import spray.http._
 
 import com.github.levkhomich.akka.tracing._
 
-class TracedPipelineSpec extends Specification with FutureMatchers with TracingTestCommons with TracingTestActorSystem with MockCollector { self =>
+class TracedSprayPipelineSpec extends Specification with FutureMatchers with TracingTestCommons with TracingTestActorSystem with MockCollector { self =>
 
   sequential
 

@@ -62,41 +62,27 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
 
   override def receive: Receive = {
     case m @ Sample(tracingId, metadata, serviceName, rpcName, timestamp) =>
-      lookup(tracingId) match {
-        case None =>
-          val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
-          val annotations = recvAnnotationList(timestamp, endpoint)
-          createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, rpcName, annotations)
-          endpoints.put(tracingId, endpoint)
-        case _ =>
+      if (!spans.contains(tracingId)) {
+        val annotations = recvAnnotationList(tracingId, serviceName, timestamp)
+        createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, rpcName, annotations)
       }
 
     case m @ ImportMetadata(tracingId, metadata, serviceName, rpcName, timestamp) =>
-      val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
-      val thriftSpan = new thrift.Span(metadata.traceId, rpcName, metadata.spanId, null, null)
-      metadata.parentId.foreach(thriftSpan.set_parent_id)
-      spans.put(tracingId, thriftSpan)
-      import context.dispatcher
-      sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(
-        30.seconds,
-        self, Enqueue(tracingId, cancelJob = false)
-      ))
-      endpoints.put(tracingId, endpoint)
+      newEndpoint(tracingId, serviceName)
+      createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, rpcName)
 
     case Receive(tracingId, serviceName, rpcName, timestamp) =>
-      lookup(tracingId) match {
-        case Some(span) if span.get_annotations_size() == 0 =>
-          val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
-          span.set_annotations(recvAnnotationList(timestamp, endpoint))
-          endpoints.put(tracingId, endpoint)
-        case _ =>
+      spans.get(tracingId).foreach { span =>
+        if (span.get_annotations_size() == 0) {
+          span.set_annotations(recvAnnotationList(tracingId, serviceName, timestamp))
+        }
       }
 
     case Enqueue(spanId, cancelJob) =>
       enqueue(spanId, cancelJob)
 
     case AddAnnotation(tracingId, timestamp, msg) =>
-      lookup(tracingId) foreach { spanInt =>
+      spans.get(tracingId).foreach { spanInt =>
         val a = new thrift.Annotation(adjustedMicroTime(timestamp), msg)
         a.set_host(endpointFor(tracingId))
         spanInt.add_to_annotations(a)
@@ -106,7 +92,7 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
       }
 
     case AddBinaryAnnotation(tracingId, key, value, valueType) =>
-      lookup(tracingId) foreach { spanInt =>
+      spans.get(tracingId).foreach { spanInt =>
         val a = new thrift.BinaryAnnotation(key, value, valueType)
         a.set_host(endpointFor(tracingId))
         spanInt.add_to_binary_annotations(a)
@@ -121,27 +107,20 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
           onNext(span)
       }
 
-    case _: ActorPublisherMessage =>
-    // default behaviour is enough
+    case _: ActorPublisherMessage => // default behaviour is enough
   }
 
   private[this] def adjustedMicroTime(nanoTime: Long): Long =
     microTimeAdjustment + nanoTime / 1000
 
-  @inline
-  private[this] def lookup(tracingId: Long): Option[thrift.Span] =
-    spans.get(tracingId)
-
   private[this] def createSpan(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, name: String,
                                annotations: util.List[thrift.Annotation] = null): Unit = {
-    import context.dispatcher
-    sendJobs.put(tracingId, context.system.scheduler.scheduleOnce(
-      30.seconds,
-      self, Enqueue(tracingId, cancelJob = false)
-    ))
     val span = new thrift.Span(traceId, name, spanId, annotations, null)
     parentId.foreach(span.set_parent_id)
     spans.put(tracingId, span)
+
+    import context.dispatcher
+    context.system.scheduler.scheduleOnce(30.seconds, self, Enqueue(tracingId, cancelJob = false))
   }
 
   private[this] def enqueue(tracingId: Long, cancelJob: Boolean): Unit = {
@@ -156,9 +135,16 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
   private[this] def endpointFor(tracingId: Long): thrift.Endpoint =
     endpoints.getOrElse(tracingId, unknownEndpoint)
 
-  private[this] def recvAnnotationList(nanoTime: Long, endpont: thrift.Endpoint): util.ArrayList[thrift.Annotation] = {
+  private[this] def newEndpoint(tracingId: Long, serviceName: String): thrift.Endpoint = {
+    val endpoint = new thrift.Endpoint(localAddress, 0, serviceName)
+    endpoints.put(tracingId, endpoint)
+    endpoint
+  }
+
+  private[this] def recvAnnotationList(tracingId: Long, serviceName: String, nanoTime: Long): util.ArrayList[thrift.Annotation] = {
+    val endpoint = newEndpoint(tracingId, serviceName)
     val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), TracingAnnotations.ServerReceived.text)
-    serverRecvAnn.set_host(endpont)
+    serverRecvAnn.set_host(endpoint)
     val annotations = new util.ArrayList[thrift.Annotation]()
     annotations.add(serverRecvAnn)
     annotations

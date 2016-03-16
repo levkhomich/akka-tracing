@@ -32,7 +32,7 @@ import org.apache.thrift.transport.{ TTransport, TTransportException }
 import com.github.levkhomich.akka.tracing.thrift.TReusableTransport
 import com.github.levkhomich.akka.tracing.{ TracingExtension, thrift }
 
-private[actor] object SpanSubmitter {
+private object SpanSubmitter {
   private case object SendEnqueued
 }
 
@@ -113,6 +113,8 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
           logEntries.remove(0, spanCount)
         case Success(thrift.ResultCode.TRY_LATER) =>
           log.warning(s"Zipkin collector busy. Failed to send $spanCount spans.")
+        case Success(response) =>
+          log.warning(s"Unexpected Zipkin response $response. Failed to send $spanCount spans.")
         case Failure(e: ControlThrowable) =>
           throw e
         case Failure(e) =>
