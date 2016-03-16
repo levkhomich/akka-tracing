@@ -71,7 +71,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
       var failedExports = 0
       def measure(): Long = {
         val msg = nextRandomMessage
-        trace.forcedSample(msg, "test")
+        trace.sample(msg, "test", force = true)
         val start = System.nanoTime()
 
         while (trace.exportMetadata(msg).isEmpty)

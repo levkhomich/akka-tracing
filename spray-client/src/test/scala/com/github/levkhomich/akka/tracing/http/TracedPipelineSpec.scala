@@ -26,7 +26,7 @@ class TracedPipelineSpec extends Specification with FutureMatchers with TracingT
   "tracedPipeline directive" should {
     "generate a sampled span when pipeline is used" in {
       val parent = nextRandomMessage
-      trace.forcedSample(parent, "test trace")
+      trace.sample(parent, "test trace", force = true)
       // TODO: avoid the need in such delays
       Thread.sleep(100)
       val parentSpanId = trace.getId(parent.tracingId).get.spanId

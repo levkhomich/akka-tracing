@@ -55,8 +55,8 @@ class SerializerTracingSupport(system: ExtendedActorSystem, delegate: Serializer
         val traceId = ByteBuffer.wrap(bytes.slice(8, 16)).getLong
         val parentId = ByteBuffer.wrap(bytes.slice(16, 24)).getLong
         if (spanId != 0) {
-          trace.forcedSample(ts, spanId,
-            if (parentId == 0) None else Some(parentId), traceId, "")
+          trace.sample(ts, spanId,
+            if (parentId == 0) None else Some(parentId), traceId, "", force = true)
         }
         msg
       case _ =>

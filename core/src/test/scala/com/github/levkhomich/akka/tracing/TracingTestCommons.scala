@@ -35,7 +35,8 @@ trait TracingTestCommons {
     TestMessage(SomeValue)
 
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
-    val system = ActorSystem(SystemName,
+    val system = ActorSystem(
+      SystemName,
       ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
         Map(
           TracingExtension.AkkaTracingSampleRate -> sampleRate,
@@ -66,7 +67,7 @@ trait TracingTestCommons {
     println(s"generating $count forced trace${if (count > 1) "s" else ""}")
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
-      trace.forcedSample(msg, "test")
+      trace.sample(msg, "test", force = true)
       trace.finish(msg)
     }
   }
