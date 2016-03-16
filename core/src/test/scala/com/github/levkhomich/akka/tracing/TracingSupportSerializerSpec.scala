@@ -66,8 +66,8 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
 
     step {
       collector.stop()
-      Await.result(system1.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
-      Await.result(system2.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system1)
+      terminateActorSystem(system2)
     }
   }
 

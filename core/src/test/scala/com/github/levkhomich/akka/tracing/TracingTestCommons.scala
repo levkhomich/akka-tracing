@@ -16,6 +16,8 @@
 
 package com.github.levkhomich.akka.tracing
 
+import org.specs2.matcher.MatchResult
+
 import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
@@ -26,7 +28,7 @@ import org.specs2.mutable.Specification
 
 final case class TestMessage(value: String) extends TracingSupport
 
-trait TracingTestCommons {
+trait TracingTestCommons { this: Specification =>
 
   val SystemName = "AkkaTracingTestSystem"
   val SomeValue = Random.nextLong().toString
@@ -52,6 +54,11 @@ trait TracingTestCommons {
     // wait for system to boot
     Thread.sleep(50)
     system
+  }
+
+  def terminateActorSystem(system: ActorSystem): MatchResult[_] = {
+    system.shutdown()
+    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
@@ -87,6 +94,6 @@ trait TracingTestActorSystem { this: TracingTestCommons with Specification =>
         mc.collector.stop()
       case _ =>
     }
-    Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    terminateActorSystem(system)
   }
 }

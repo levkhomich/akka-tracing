@@ -90,7 +90,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
 
   step {
     collector.stop()
-    Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    terminateActorSystem(system)
   }
 
   implicit def um: FromRequestUnmarshaller[TestMessage] =

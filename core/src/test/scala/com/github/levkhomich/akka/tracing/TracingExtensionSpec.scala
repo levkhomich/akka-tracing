@@ -42,7 +42,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
         awaitSpans()
-        Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+        terminateActorSystem(system)
       }
 
       generateTracesWithSampleRate(2, 1)
@@ -56,7 +56,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
       awaitSpans()
-      Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system)
 
       expectSpans(100)
     }
@@ -180,7 +180,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     "flush traces before stop" in {
       generateTraces(10, trace)
       Thread.sleep(500)
-      Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system)
       //      expectSpans(10)
     }
   }
