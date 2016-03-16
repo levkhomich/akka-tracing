@@ -59,7 +59,7 @@ trait TracingTestCommons {
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.sample(msg, "test")
-      trace.finish(msg)
+      trace.record(msg, TracingAnnotations.ServerSend)
     }
   }
 
@@ -68,7 +68,7 @@ trait TracingTestCommons {
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.sample(msg, "test", force = true)
-      trace.finish(msg)
+      trace.record(msg, TracingAnnotations.ServerSend)
     }
   }
 

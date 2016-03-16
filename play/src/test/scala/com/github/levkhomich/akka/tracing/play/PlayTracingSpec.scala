@@ -108,8 +108,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
     "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath + "?key=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Content-Type", "text/plain")
       checkBinaryAnnotation(span, "request.query.key", "value")
@@ -117,8 +116,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
     "exclude specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("excludedParam"))) {
       val result = route(FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.query.key", "value")
       checkAbsentBinaryAnnotation(span, "request.query.excludedParam")
@@ -130,8 +128,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
           "Content-Type" -> Seq("text/plain"),
           "Excluded" -> Seq("test"),
           "Included" -> Seq("value")
-        )), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Included", "value")
       checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
@@ -145,8 +142,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
           TracingHeaders.ParentSpanId -> Seq(SpanMetadata.idToString(parentId))
-        )), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))

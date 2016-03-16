@@ -68,7 +68,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
           case msg @ TestMessage(content) =>
             trace.sample(msg, "test")
             f(msg)
-            trace.finish(msg)
+            trace.record(msg, TracingAnnotations.ServerSend)
         }
       }) ! TestMessage("")
       check(receiveSpan())
@@ -135,13 +135,14 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       // wait until parent msg span will be sent
       Thread.sleep(500)
 
-      val childMsg = nextRandomMessage.asChildOf(parentMsg)
+      val childMsg = nextRandomMessage
+      trace.createChild(childMsg, parentMsg)
       testActor ! childMsg
 
-      trace.finish(parentMsg)
+      trace.record(parentMsg, TracingAnnotations.ServerSend)
       val parentSpan = receiveSpans().head
 
-      trace.finish(childMsg)
+      trace.record(childMsg, TracingAnnotations.ServerSend)
       val childSpan = receiveSpans().head
 
       parentSpan.is_set_parent_id must beFalse

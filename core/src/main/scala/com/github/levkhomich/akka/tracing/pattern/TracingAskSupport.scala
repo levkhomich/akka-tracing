@@ -21,7 +21,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import akka.actor.{ ActorRef, ActorSelection }
 import akka.util.Timeout
 
-import com.github.levkhomich.akka.tracing.{ BaseTracingSupport, TracingExtensionImpl }
+import com.github.levkhomich.akka.tracing.{ TracingAnnotations, BaseTracingSupport, TracingExtensionImpl }
 
 trait TracingAskSupport {
 
@@ -45,11 +45,11 @@ final class TracedAskableActorRef(val actorRef: ActorRef) extends AnyVal {
     import akka.pattern.{ ask => akkaAsk }
     akkaAsk(actorRef, message).transform({ resp =>
       trace.record(message, "response: " + resp)
-      trace.finish(message)
+      trace.record(message, TracingAnnotations.ServerSend)
       resp
     }, { e =>
       trace.record(message, e)
-      trace.finish(message)
+      trace.record(message, TracingAnnotations.ServerSend)
       e
     })
   }
@@ -64,11 +64,11 @@ final class TracedAskableActorSelection(val actorSel: ActorSelection) extends An
     import akka.pattern.{ ask => akkaAsk }
     akkaAsk(actorSel, message).transform({ resp =>
       trace.record(message, "response: " + resp)
-      trace.finish(message)
+      trace.record(message, TracingAnnotations.ServerSend)
       resp
     }, { e =>
       trace.record(message, e)
-      trace.finish(message)
+      trace.record(message, TracingAnnotations.ServerSend)
       e
     })
   }

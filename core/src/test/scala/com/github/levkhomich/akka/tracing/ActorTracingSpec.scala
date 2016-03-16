@@ -37,7 +37,7 @@ class ActorTracingSpec extends Specification with TracingTestCommons with Tracin
 
       trace.sample(message, "testService")
       actor ! message
-      trace.finish(message)
+      trace.record(message, TracingAnnotations.ServerSend)
 
       val span = receiveSpan()
       span.get_annotations.size mustEqual 2

@@ -45,7 +45,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
         trace.sample(msg, "test")
         trace.recordKeyValue(msg, "keyLong", RandomLong)
         trace.recordKeyValue(msg, "keyString", RandomString)
-        trace.finish(msg)
+        trace.record(msg, TracingAnnotations.ServerSend)
         if (i % 100 == 0) {
           val timeSpent = System.currentTimeMillis - startTime
           val expectedTimeSpent = i * 1000 / TestMPS

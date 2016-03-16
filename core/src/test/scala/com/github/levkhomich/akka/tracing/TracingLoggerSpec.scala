@@ -33,7 +33,7 @@ class TracingLoggerSpec extends Specification with TracingTestCommons with Traci
             log.info("received message " + msg)
             // otherwise span can be closed before log record processed
             Thread.sleep(500)
-            trace.finish(msg)
+            trace.record(msg, TracingAnnotations.ServerSend)
         }
       })
 

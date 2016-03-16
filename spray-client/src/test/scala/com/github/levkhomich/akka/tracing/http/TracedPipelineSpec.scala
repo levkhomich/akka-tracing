@@ -32,7 +32,7 @@ class TracedPipelineSpec extends Specification with FutureMatchers with TracingT
       val parentSpanId = trace.getId(parent.tracingId).get.spanId
 
       mockedPipeline.tracedPipeline[String](parent)(Get("http://test.com"))
-      trace.finish(parent)
+      trace.record(parent, TracingAnnotations.ServerSend)
 
       val spans = receiveSpans()
       spans.size mustEqual 2
