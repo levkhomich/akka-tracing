@@ -1,6 +1,7 @@
 package com.github.levkhomich.akka.tracing.http
 
 import java.util.concurrent.TimeoutException
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import com.github.levkhomich.akka.tracing._
@@ -88,9 +89,8 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
   }
 
   step {
-    system.shutdown()
     collector.stop()
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 
   implicit def um: FromRequestUnmarshaller[TestMessage] =

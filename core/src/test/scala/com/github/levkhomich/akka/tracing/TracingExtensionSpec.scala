@@ -18,6 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
+import scala.concurrent.Await
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
 import scala.util.Random
 
@@ -41,8 +42,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
         awaitSpans()
-        system.shutdown()
-        system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+        Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       }
 
       generateTracesWithSampleRate(2, 1)
@@ -56,8 +56,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
       awaitSpans()
-      system.shutdown()
-      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
 
       expectSpans(100)
     }
@@ -181,8 +180,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     "flush traces before stop" in {
       generateTraces(10, trace)
       Thread.sleep(500)
-      system.shutdown()
-      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
       //      expectSpans(10)
     }
   }

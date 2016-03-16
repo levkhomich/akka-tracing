@@ -65,11 +65,9 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
     }
 
     step {
-      system1.shutdown()
-      system2.shutdown()
       collector.stop()
-      system1.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
-      system2.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      Await.result(system1.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      Await.result(system2.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
     }
   }
 
@@ -79,7 +77,7 @@ class Actor1 extends Actor with ActorTracing {
   def receive: Receive = {
     case r: TracingSupport =>
       trace.record(r, "child annotation")
-      sender() ! None.asResponseTo(r)
+      sender() ! TestMessage("parent").asResponseTo(r)
   }
 }
 

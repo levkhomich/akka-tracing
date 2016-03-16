@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.concurrent.TimeoutException
+import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
@@ -82,12 +82,11 @@ trait TracingTestActorSystem { this: TracingTestCommons with Specification =>
   implicit lazy val trace = TracingExtension(system)
 
   def shutdown(): Unit = {
-    system.shutdown()
     this match {
       case mc: MockCollector =>
         mc.collector.stop()
       case _ =>
     }
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    Await.result(system.terminate(), FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
   }
 }
