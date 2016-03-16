@@ -21,10 +21,8 @@ import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
-import scala.util.Random
 
 import akka.actor.{ ActorLogging, Cancellable }
-import akka.agent.Agent
 import akka.stream.actor.{ ActorPublisher, ActorPublisherMessage }
 
 import com.github.levkhomich.akka.tracing.{ SpanMetadata, thrift }

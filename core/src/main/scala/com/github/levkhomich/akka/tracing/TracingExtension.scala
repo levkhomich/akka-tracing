@@ -175,18 +175,19 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * will be actually traced.
    * @param ts traced message
    * @param service service name
+   * @return Some(metadata) if a span was created or None otherwise
    */
-  def sample(ts: BaseTracingSupport, service: String): Unit =
+  def sample(ts: BaseTracingSupport, service: String): Option[SpanMetadata] =
     sample(ts, Random.nextLong, None, Random.nextLong, service)
 
-  private[tracing] def sample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Unit =
+  private[tracing] def sample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Option[SpanMetadata] =
     sample(ts.tracingId, spanId, parentId, traceId, service, ts.spanName)
 
   private[tracing] def sample(tracingId: Long, service: String, rpc: String): Unit =
     sample(tracingId, Random.nextLong, None, Random.nextLong, service, rpc)
 
   private[tracing] def sample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Option[SpanMetadata] =
-    if (isEnabled && msgCounter.incrementAndGet() % sampleRate == 0) {
+    if (isEnabled && !metadata.get.containsKey(tracingId) && msgCounter.incrementAndGet() % sampleRate == 0) {
       val m = SpanMetadata(traceId, spanId, parentId, forceSampling = true)
       metadata.foreach(_.put(tracingId, m))
       holder ! Sample(tracingId, m, service, rpc, System.nanoTime)
@@ -199,19 +200,22 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * and samples it. Message will be traced ignoring akka.tracing.sample-rate setting.
    * @param ts traced message
    * @param service service name
+   * @return Some(metadata) if a span was created or None otherwise
    */
-  def forcedSample(ts: BaseTracingSupport, service: String): Unit =
+  def forcedSample(ts: BaseTracingSupport, service: String): Option[SpanMetadata] =
     forcedSample(ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName)
 
-  private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Unit =
+  private[tracing] def forcedSample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long, service: String): Option[SpanMetadata] =
     forcedSample(ts.tracingId, spanId, parentId, traceId, service, ts.spanName)
 
-  private[tracing] def forcedSample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Unit =
-    if (isEnabled) {
+  private[tracing] def forcedSample(tracingId: Long, spanId: Long, parentId: Option[Long], traceId: Long, service: String, rpc: String): Option[SpanMetadata] =
+    if (isEnabled && !metadata.get.containsKey(tracingId)) {
       val m = SpanMetadata(traceId, spanId, parentId, forceSampling = true)
       metadata.foreach(_.put(tracingId, m))
       holder ! Sample(tracingId, m, service, rpc, System.nanoTime)
-    }
+      Some(m)
+    } else
+      None
 
   /**
    * Marks request processing start.
@@ -250,7 +254,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
 
   /**
-   * Flushes all tracing date related to request.
+   * Flushes all tracing data related to request.
    * @param ts traced message
    */
   def flush(ts: BaseTracingSupport): Unit = {
