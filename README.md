@@ -25,5 +25,5 @@ Also, you can read [tracing overview page](https://github.com/levkhomich/akka-tr
 Development
 -----------
 
-[![Build Status](https://img.shields.io/travis/levkhomich/akka-tracing/master.svg?style=flat-square)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat-square)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master) [![Issues](https://img.shields.io/github/issues/levkhomich/akka-tracing.svg?style=flat-square)](https://github.com/levkhomich/akka-tracing/issues)
+[![Build Status](https://img.shields.io/travis/levkhomich/akka-tracing/master.svg?style=flat-square)](https://travis-ci.org/levkhomich/akka-tracing) [![Coverage Status](https://img.shields.io/coveralls/levkhomich/akka-tracing.svg?style=flat-square)](https://coveralls.io/r/levkhomich/akka-tracing?branch=master) [![Issues](https://img.shields.io/github/issues/levkhomich/akka-tracing.svg?style=flat-square)](https://github.com/levkhomich/akka-tracing/issues) [![Codacy branch](https://img.shields.io/codacy/2053f5befd3845e69d9bebfa493e3e80/master.svg?style=flat-square)](https://www.codacy.com/app/levkhomich/akka-tracing/dashboard)
 
