@@ -133,7 +133,7 @@ trait BaseTracingDirectives {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
             // TODO: use `finish` call after tracedComplete will be removed
-            trace.addAnnotation(tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
+            trace.record(tracingId, TracingAnnotations.ServerSend.text)
           }
         })
       }

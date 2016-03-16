@@ -25,7 +25,7 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.{ ActorLogging, Cancellable }
 import akka.stream.actor.{ ActorPublisher, ActorPublisherMessage }
 
-import com.github.levkhomich.akka.tracing.{ SpanMetadata, thrift }
+import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata, thrift }
 
 private[tracing] object SpanHolder {
   final case class Enqueue(tracingId: Long, cancelJob: Boolean)
@@ -100,8 +100,7 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
         val a = new thrift.Annotation(adjustedMicroTime(timestamp), msg)
         a.set_host(endpointFor(tracingId))
         spanInt.add_to_annotations(a)
-        if (a.value == thrift.zipkinConstants.SERVER_SEND ||
-            a.value == thrift.zipkinConstants.CLIENT_RECV) {
+        if (a.value == TracingAnnotations.ServerSend.text || a.value == TracingAnnotations.ClientReceived.text) {
           enqueue(tracingId, cancelJob = true)
         }
       }
@@ -158,7 +157,7 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
     endpoints.getOrElse(tracingId, unknownEndpoint)
 
   private[this] def recvAnnotationList(nanoTime: Long, endpont: thrift.Endpoint): util.ArrayList[thrift.Annotation] = {
-    val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), thrift.zipkinConstants.SERVER_RECV)
+    val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), TracingAnnotations.ServerReceived.text)
     serverRecvAnn.set_host(endpont)
     val annotations = new util.ArrayList[thrift.Annotation]()
     annotations.add(serverRecvAnn)
