@@ -176,8 +176,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.3.9"
-  val AkkaVersion = "2.3.14"
+  val PlayVersion = "2.5.0"
+  val AkkaVersion = "2.4.2"
 
   object Compile {
 
