@@ -27,10 +27,12 @@ class TracingRequestHandler @Inject() (router: Router, actorSystem: ActorSystem)
   lazy val excludedHeaders = Set.empty[String]
 
   def handlerForRequest(request: RequestHeader) = {
-    router.routes.lift(request) match {
-      case Some(alreadyTraced) =>
-        (request, alreadyTraced)
+    sample(request)
+    trace.start(request, serviceName)
+    trace.record(request, serviceName)
+    trace.flush(request)
 
+    router.routes.lift(request) match {
       case alreadyTagged: EssentialAction with RequestTaggingHandler =>
         (request, new TracedAction(alreadyTagged) {
           override def tagRequest(request: RequestHeader): RequestHeader =
@@ -40,7 +42,10 @@ class TracingRequestHandler @Inject() (router: Router, actorSystem: ActorSystem)
       case action: EssentialAction =>
         (request, new TracedAction(action))
 
-      case None =>
+      case Some(handler) =>
+        (request, handler)
+
+      case _ =>
         (request, null)
     }
   }
@@ -106,14 +111,18 @@ class TracingRequestHandler @Inject() (router: Router, actorSystem: ActorSystem)
 class TracingErrorHandler extends HttpErrorHandler with PlayControllerTracing {
 
   def onClientError(request: RequestHeader, statusCode: Int, message: String) = {
+    trace.start(request, message)
     trace.record(request, message)
+    trace.flush(request)
     Future.successful(
       Status(statusCode)("A client error occurred: " + message)
     )
   }
 
   def onServerError(request: RequestHeader, exception: Throwable) = {
+    trace.start(request, exception.getLocalizedMessage)
     trace.record(request, exception)
+    trace.flush(request)
     Future.successful(
       InternalServerError("A server error occurred: " + exception.getMessage)
     )
