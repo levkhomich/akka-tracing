@@ -1,13 +1,13 @@
 package com.github.levkhomich.akka.tracing.pattern
 
 import scala.concurrent.duration.SECONDS
-
 import akka.actor.Actor
 import akka.testkit.TestActorRef
 import akka.util.Timeout
 import org.specs2.mutable.Specification
-
 import com.github.levkhomich.akka.tracing._
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class TracedAskSupportSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
 

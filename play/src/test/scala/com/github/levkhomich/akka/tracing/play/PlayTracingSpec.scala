@@ -16,28 +16,30 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import scala.concurrent.{ Await, Future }
+import javax.inject.Inject
+
+import akka.actor.ActorSystem
+
 import scala.util.Random
 import scala.collection.immutable.Set
-import play.api.{ GlobalSettings, Play }
-import play.api.http.Writeable
-import play.api.libs.iteratee.Enumerator
 import play.api.mvc._
 import play.api.test._
 import org.specs2.matcher._
-
 import com.github.levkhomich.akka.tracing._
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
+
 import scala.collection.JavaConversions._
 
-class PlayTracingSpec extends PlaySpecification with TracingTestCommons with MockCollector with Results with ResultMatchers {
+class PlayTracingSpec @Inject() (actorSystem: ActorSystem) extends PlaySpecification with TracingTestCommons with MockCollector with Results with ResultMatchers {
+
+  class hoge {}
 
   sequential
 
   val TestPath = "/request"
   val TestErrorPath = "/error"
   val npe = new NullPointerException
-  implicit def trace: TracingExtensionImpl = TracingExtension(_root_.play.libs.Akka.system)
+  implicit def trace: TracingExtensionImpl = TracingExtension(actorSystem)
 
   val configuration = Map(
     TracingExtension.AkkaTracingPort -> collectorPort
@@ -54,39 +56,59 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       }
   }
 
-  def fakeApplication: FakeApplication = FakeApplication(
+  val fakeApplication: FakeApplication = FakeApplication(
     withRoutes = routes,
-    withGlobal = Some(new GlobalSettings with TracingSettings),
+    //withGlobal = Some(new GlobalSettings with TracingSettings),
     additionalConfiguration = configuration
   )
 
   def overriddenApplication(overriddenServiceName: String = "test", queryParams: Set[String] = Set.empty, headerKeys: Set[String] = Set.empty) = FakeApplication(
     withRoutes = routes,
+    /*
     withGlobal = Some(new GlobalSettings with TracingSettings {
       override lazy val serviceName = overriddenServiceName
       override lazy val excludedQueryParams = queryParams
       override lazy val excludedHeaders = headerKeys
     }),
+    */
     additionalConfiguration = configuration
   )
 
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+
+      val request = FakeRequest("GET", TestPath)
+      val result = call(action, request)
       val span = receiveSpan()
       success
     }
 
     "use play application name as the default end point name" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath)
+      val result = call(action, request)
       val span = receiveSpan()
-      span.annotations.map(_.get_host().get_service_name()) must beEqualTo(_root_.play.libs.Akka.system.name).forall
+
+      span.annotations.map(_.get_host().get_service_name()) must beEqualTo(actorSystem.name)
     }
 
     "enable overriding the service name for the end point name" in new WithApplication(overriddenApplication(overriddenServiceName = "test service")) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath)
+      val result = call(action, request)
       val span = receiveSpan()
-      span.annotations.map(_.get_host().get_service_name()) must beEqualTo("test service").forall
+
+      span.annotations.map(_.get_host().get_service_name()) must beEqualTo("test service")
     }
 
     "not allow to use RequestHeaders as child of other request" in new WithApplication(fakeApplication) {
@@ -98,7 +120,12 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath)
+      val result = call(action, request)
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.path", TestPath)
       checkBinaryAnnotation(span, "request.method", "GET")
@@ -107,28 +134,43 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq("Content-Type" -> "text/plain")), AnyContentAsEmpty)
+      val result = call(action, request)
       val span = receiveSpan()
+
       checkBinaryAnnotation(span, "request.headers.Content-Type", "text/plain")
       checkBinaryAnnotation(span, "request.query.key", "value")
     }
 
     "exclude specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("excludedParam"))) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
+        FakeHeaders(Seq("Content-Type" -> "text/plain")), AnyContentAsEmpty)
+      val result = call(action, request)
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.query.key", "value")
       checkAbsentBinaryAnnotation(span, "request.query.excludedParam")
     }
 
     "exclude specific header fields from annotations when configured" in new WithApplication(overriddenApplication(headerKeys = Set("Excluded"))) {
-      val result = route(FakeRequest("GET", TestPath,
-        FakeHeaders(Seq(
-          "Content-Type" -> Seq("text/plain"),
-          "Excluded" -> Seq("test"),
-          "Included" -> Seq("value")
-        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath, FakeHeaders(Seq(
+        "Content-Type" -> "text/plain",
+        "Excluded" -> "test",
+        "Included" -> "value"
+      )), AnyContentAsEmpty)
+      val result = call(action, request)
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Included", "value")
       checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
@@ -138,19 +180,28 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val spanId = Random.nextLong
       val parentId = Random.nextLong
 
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
-          TracingHeaders.ParentSpanId -> Seq(SpanMetadata.idToString(parentId))
-        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
-
+          TracingHeaders.TraceId -> SpanMetadata.idToString(spanId),
+          TracingHeaders.ParentSpanId -> SpanMetadata.idToString(parentId)
+        )), AnyContentAsEmpty)
+      val result = call(action, request)
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
     }
 
     "record server errors to traces" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestErrorPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val action: EssentialAction = Action { request =>
+        val value = (request.body.asJson.get \ "field").as[String]
+        Ok(value)
+      }
+      val request = FakeRequest("GET", TestErrorPath)
+      val result = call(action, request)
       val span = receiveSpan()
       checkAnnotation(span, TracingExtension.getStackTrace(npe))
     }
@@ -162,11 +213,12 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   }
 
   // it seems that play-test doesn't call global.onRequestCompletion and global.onError
+  /*
   override def call[T](action: EssentialAction, rh: RequestHeader, body: T)(implicit w: Writeable[T]): Future[Result] = {
     val rhWithCt = w.contentType.map(ct => rh.copy(
-      headers = FakeHeaders((rh.headers.toMap + ("Content-Type" -> Seq(ct))).toSeq)
+      headers = FakeHeaders((rh.headers.toMap + ("Content-Type" -> ct)).toSeq.map { case (s, o) => (s, o.toString) })
     )).getOrElse(rh)
-    val requestBody = Enumerator(body) &> w.toEnumeratee
+    val requestBody = Enumerator(body) //&> w.toEnumeratee
     val result = requestBody |>>> action(rhWithCt).recover {
       case e =>
         Play.current.global.onError(rh, e)
@@ -178,5 +230,6 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
     result
   }
+  */
 
 }
