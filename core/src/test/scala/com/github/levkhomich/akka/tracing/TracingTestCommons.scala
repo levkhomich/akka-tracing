@@ -16,7 +16,9 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.concurrent.TimeoutException
+import org.specs2.matcher.MatchResult
+
+import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
@@ -26,7 +28,7 @@ import org.specs2.mutable.Specification
 
 final case class TestMessage(value: String) extends TracingSupport
 
-trait TracingTestCommons {
+trait TracingTestCommons { this: Specification =>
 
   val SystemName = "AkkaTracingTestSystem"
   val SomeValue = Random.nextLong().toString
@@ -35,7 +37,8 @@ trait TracingTestCommons {
     TestMessage(SomeValue)
 
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
-    val system = ActorSystem(SystemName,
+    val system = ActorSystem(
+      SystemName,
       ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
         Map(
           TracingExtension.AkkaTracingSampleRate -> sampleRate,
@@ -53,12 +56,17 @@ trait TracingTestCommons {
     system
   }
 
+  def terminateActorSystem(system: ActorSystem): MatchResult[_] = {
+    system.shutdown()
+    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+  }
+
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {
     println(s"generating $count trace${if (count > 1) "s" else ""}")
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
       trace.sample(msg, "test")
-      trace.finish(msg)
+      trace.record(msg, TracingAnnotations.ServerSend)
     }
   }
 
@@ -66,8 +74,8 @@ trait TracingTestCommons {
     println(s"generating $count forced trace${if (count > 1) "s" else ""}")
     for (_ <- 0 until count) {
       val msg = nextRandomMessage
-      trace.forcedSample(msg, "test")
-      trace.finish(msg)
+      trace.sample(msg, "test", force = true)
+      trace.record(msg, TracingAnnotations.ServerSend)
     }
   }
 
@@ -81,12 +89,11 @@ trait TracingTestActorSystem { this: TracingTestCommons with Specification =>
   implicit lazy val trace = TracingExtension(system)
 
   def shutdown(): Unit = {
-    system.shutdown()
     this match {
       case mc: MockCollector =>
         mc.collector.stop()
       case _ =>
     }
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    terminateActorSystem(system)
   }
 }

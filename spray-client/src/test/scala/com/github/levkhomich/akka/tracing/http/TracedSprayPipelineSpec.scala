@@ -9,7 +9,7 @@ import spray.http._
 
 import com.github.levkhomich.akka.tracing._
 
-class TracedPipelineSpec extends Specification with FutureMatchers with TracingTestCommons with TracingTestActorSystem with MockCollector { self =>
+class TracedSprayPipelineSpec extends Specification with FutureMatchers with TracingTestCommons with TracingTestActorSystem with MockCollector { self =>
 
   sequential
 
@@ -26,13 +26,13 @@ class TracedPipelineSpec extends Specification with FutureMatchers with TracingT
   "tracedPipeline directive" should {
     "generate a sampled span when pipeline is used" in {
       val parent = nextRandomMessage
-      trace.forcedSample(parent, "test trace")
+      trace.sample(parent, "test trace", force = true)
       // TODO: avoid the need in such delays
       Thread.sleep(100)
       val parentSpanId = trace.getId(parent.tracingId).get.spanId
 
       mockedPipeline.tracedPipeline[String](parent)(Get("http://test.com"))
-      trace.finish(parent)
+      trace.record(parent, TracingAnnotations.ServerSend)
 
       val spans = receiveSpans()
       spans.size mustEqual 2

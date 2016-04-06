@@ -27,10 +27,11 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
 
       Thread.sleep(100)
 
-      val childMessage = nextRandomMessage.asChildOf(parentMessage)
+      val childMessage = nextRandomMessage
+      trace.createChild(childMessage, parentMessage)
       trace.sample(childMessage, "testService")
 
-      trace.finish(parentMessage)
+      trace.record(parentMessage, TracingAnnotations.ServerSend)
       val parentSpan = receiveSpan()
 
       implicit val timeout = Timeout(5, SECONDS)
@@ -56,10 +57,11 @@ class TracedAskSupportSpec extends Specification with TracingTestCommons with Tr
 
       Thread.sleep(100)
 
-      val childMessage = nextRandomMessage.asChildOf(parentMessage)
+      val childMessage = nextRandomMessage
+      trace.createChild(childMessage, parentMessage)
       trace.sample(childMessage, "testService")
 
-      trace.finish(parentMessage)
+      trace.record(parentMessage, TracingAnnotations.ServerSend)
       val parentSpan = receiveSpan()
 
       implicit val timeout = Timeout(5, SECONDS)

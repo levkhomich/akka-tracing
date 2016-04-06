@@ -28,8 +28,8 @@ object AkkaTracingBuild extends Build {
 
   lazy val compilationSettings =
     Seq(
-      scalaVersion := "2.11.5",
-      crossScalaVersions := Seq("2.10.4", "2.11.5"),
+      scalaVersion := "2.11.8",
+      crossScalaVersions := Seq("2.10.4", "2.11.8"),
       javacOptions ++= Seq(
         "-Xlint:all"
       ),
@@ -177,7 +177,7 @@ object AkkaTracingBuild extends Build {
 object Dependencies {
 
   val PlayVersion = "2.3.9"
-  val AkkaVersion = "2.3.12"
+  val AkkaVersion = "2.3.14"
 
   object Compile {
 
@@ -197,7 +197,7 @@ object Dependencies {
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "1.0"
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "2.0.3"
     val play         = "com.typesafe.play" %% "play"                % PlayVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"

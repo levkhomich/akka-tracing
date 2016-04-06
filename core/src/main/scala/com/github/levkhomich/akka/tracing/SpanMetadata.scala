@@ -26,8 +26,7 @@ final case class SpanMetadata(traceId: Long, spanId: Long, parentId: Option[Long
     bb.putLong(spanId)
     bb.put(if (parentId.isDefined) 1.toByte else 0.toByte)
     parentId.foreach(id =>
-      bb.putLong(id)
-    )
+      bb.putLong(id))
     bb.put(if (forceSampling) 1.toByte else 0.toByte)
     bb.array()
   }

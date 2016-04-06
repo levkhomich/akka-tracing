@@ -24,7 +24,7 @@ import play.api.GlobalSettings
 import play.api.libs.iteratee.Iteratee
 import play.api.mvc._
 
-import com.github.levkhomich.akka.tracing.SpanMetadata
+import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata }
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
 
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
@@ -74,8 +74,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
       Map(TracingHeaders.TraceId -> SpanMetadata.idToString(Random.nextLong)) + spanId
     else
       TracingHeaders.All.flatMap(header =>
-        request.headers.get(header).map(header -> _)
-      ).toMap + spanId
+        request.headers.get(header).map(header -> _)).toMap + spanId
   }
 
   protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
@@ -111,7 +110,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     }
 
   override def onRequestCompletion(request: RequestHeader): Unit = {
-    trace.finish(request)
+    trace.record(request, TracingAnnotations.ServerSend)
     super.onRequestCompletion(request)
   }
 

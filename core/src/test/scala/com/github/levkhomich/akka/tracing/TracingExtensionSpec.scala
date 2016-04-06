@@ -18,6 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
+import scala.concurrent.Await
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
 import scala.util.Random
 
@@ -41,8 +42,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         val system = testActorSystem(sampleRate)
         generateTraces(count, TracingExtension(system))
         awaitSpans()
-        system.shutdown()
-        system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+        terminateActorSystem(system)
       }
 
       generateTracesWithSampleRate(2, 1)
@@ -56,8 +56,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       val system = testActorSystem(sampleRate = Int.MaxValue)
       generateForcedTraces(100, TracingExtension(system))
       awaitSpans()
-      system.shutdown()
-      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system)
 
       expectSpans(100)
     }
@@ -68,7 +67,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
           case msg @ TestMessage(content) =>
             trace.sample(msg, "test")
             f(msg)
-            trace.finish(msg)
+            trace.record(msg, TracingAnnotations.ServerSend)
         }
       }) ! TestMessage("")
       check(receiveSpan())
@@ -135,13 +134,14 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       // wait until parent msg span will be sent
       Thread.sleep(500)
 
-      val childMsg = nextRandomMessage.asChildOf(parentMsg)
+      val childMsg = nextRandomMessage
+      trace.createChild(childMsg, parentMsg)
       testActor ! childMsg
 
-      trace.finish(parentMsg)
+      trace.record(parentMsg, TracingAnnotations.ServerSend)
       val parentSpan = receiveSpans().head
 
-      trace.finish(childMsg)
+      trace.record(childMsg, TracingAnnotations.ServerSend)
       val childSpan = receiveSpans().head
 
       parentSpan.is_set_parent_id must beFalse
@@ -180,8 +180,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     "flush traces before stop" in {
       generateTraces(10, trace)
       Thread.sleep(500)
-      system.shutdown()
-      system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system)
       //      expectSpans(10)
     }
   }

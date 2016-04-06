@@ -41,10 +41,8 @@ trait BaseTracingDirectives {
     hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: HNil] {
       case Right(value) :: Right(maybeSpan) :: request :: HNil =>
         maybeSpan match {
-          case Some(span) if span.forceSampling =>
-            trace.forcedSample(value, span.spanId, span.parentId, span.traceId, service)
           case Some(span) =>
-            trace.sample(value, span.spanId, span.parentId, span.traceId, service)
+            trace.sample(value, span.spanId, span.parentId, span.traceId, service, span.forceSampling)
           case _ =>
             trace.sample(value.tracingId, service, value.spanName)
         }
@@ -93,10 +91,7 @@ trait BaseTracingDirectives {
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             val tracingId = Random.nextLong()
-            if (span.forceSampling)
-              trace.forcedSample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
-            else
-              trace.sample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc)
+            trace.sample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc, span.forceSampling)
             addHttpAnnotations(tracingId, ctx.request)
             ctx.complete(value)(traceServerSend(tracingId))
 
@@ -133,7 +128,7 @@ trait BaseTracingDirectives {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
             // TODO: use `finish` call after tracedComplete will be removed
-            trace.addAnnotation(tracingId, thrift.zipkinConstants.SERVER_SEND, send = true)
+            trace.record(tracingId, TracingAnnotations.ServerSend.text)
           }
         })
       }

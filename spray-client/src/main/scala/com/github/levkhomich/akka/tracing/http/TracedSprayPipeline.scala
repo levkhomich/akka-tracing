@@ -32,9 +32,9 @@ trait TracedSprayPipeline {
   implicit lazy val trace: TracingExtensionImpl = TracingExtension(system)
   import system.dispatcher
 
-  def tracedPipeline[T](parent: BaseTracingSupport) = {
+  def tracedPipeline[T](parent: BaseTracingSupport): SendReceive = {
     val clientRequest = new TracingSupport {}
-    trace.createChild(clientRequest, parent, None).map(metadata =>
+    trace.createChild(clientRequest, parent).map(metadata =>
       addHeaders(List(
         HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
         HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
@@ -43,12 +43,11 @@ trait TracedSprayPipeline {
       )) ~>
         startTrace(clientRequest) ~>
         sendAndReceive ~>
-        completeTrace(clientRequest)
-    ).getOrElse(sendAndReceive)
+        completeTrace(clientRequest)).getOrElse(sendAndReceive)
   }
 
   def startTrace(ts: BaseTracingSupport)(request: HttpRequest): HttpRequest = {
-    trace.record(ts, thrift.zipkinConstants.CLIENT_SEND)
+    trace.record(ts, TracingAnnotations.ClientSend)
 
     // TODO: use `recordKeyValue` call after tracedComplete will be removed
     @inline def recordKeyValue(key: String, value: String): Unit =
@@ -65,7 +64,7 @@ trait TracedSprayPipeline {
 
   def completeTrace(ts: BaseTracingSupport)(response: HttpResponse): HttpResponse = {
     trace.recordKeyValue(ts, "response.code", response.status.toString())
-    trace.addAnnotation(ts.tracingId, thrift.zipkinConstants.CLIENT_RECV, send = true)
+    trace.record(ts, TracingAnnotations.ClientReceived)
     response
   }
 }

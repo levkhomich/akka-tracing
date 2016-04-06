@@ -38,13 +38,11 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
     )
 
     lazy val system1 = testActorSystem(1, baseConfig +
-      ("akka.remote.netty.tcp.port" -> (2552: java.lang.Integer))
-    )
+      ("akka.remote.netty.tcp.port" -> (2552: java.lang.Integer)))
     lazy val trace1 = TracingExtension(system1)
 
     lazy val system2 = testActorSystem(1, baseConfig +
-      ("akka.remote.netty.tcp.port" -> (2553: java.lang.Integer))
-    )
+      ("akka.remote.netty.tcp.port" -> (2553: java.lang.Integer)))
     lazy val trace2 = TracingExtension(system2)
 
     "instrument actor receive" in {
@@ -55,7 +53,7 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
 
       trace2.sample(message, "testService")
       actor2 ! message
-      trace2.finish(message)
+      trace2.record(message, TracingAnnotations.ServerSend)
 
       val spans = receiveSpans()
       spans.size mustEqual 2
@@ -67,11 +65,9 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
     }
 
     step {
-      system1.shutdown()
-      system2.shutdown()
       collector.stop()
-      system1.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
-      system2.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+      terminateActorSystem(system1)
+      terminateActorSystem(system2)
     }
   }
 
@@ -81,7 +77,7 @@ class Actor1 extends Actor with ActorTracing {
   def receive: Receive = {
     case r: TracingSupport =>
       trace.record(r, "child annotation")
-      sender() ! None.asResponseTo(r)
+      sender() ! TestMessage("parent").asResponseTo(r)
   }
 }
 
@@ -94,6 +90,8 @@ class Actor2 extends Actor with ActorTracing {
       val selection =
         context.actorSelection(s"akka.tcp://AkkaTracingTestSystem@localhost:2552/user/actor1")
       trace.record(r, "parent annotation")
-      selection ? TestMessage("child").asChildOf(r)
+      val childMessage = TestMessage("child")
+      trace.createChild(childMessage, r)
+      selection ? childMessage
   }
 }

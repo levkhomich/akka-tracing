@@ -121,8 +121,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
           "Content-Type" -> Seq("text/plain"),
           "Other" -> Seq("test"),
           "Included" -> Seq("value")
-        )), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Included", "value")
       checkAbsentBinaryAnnotation(span, "request.headers.Other")
@@ -136,8 +135,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
           TracingHeaders.ParentSpanId -> Seq(SpanMetadata.idToString(parentId))
-        )), AnyContentAsEmpty
-      )).map(Await.result(_, defaultAwaitTimeout.duration))
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.TraceId, SpanMetadata.idToString(spanId))

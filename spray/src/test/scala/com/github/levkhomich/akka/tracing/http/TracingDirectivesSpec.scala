@@ -2,6 +2,7 @@ package com.github.levkhomich.akka.tracing.http
 
 import java.util.concurrent.TimeoutException
 import scala.collection.JavaConversions._
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -205,9 +206,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
   }
 
   step {
-    system.shutdown()
     collector.stop()
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    terminateActorSystem(system)
   }
 
   implicit def um: FromRequestUnmarshaller[TestMessage] =
