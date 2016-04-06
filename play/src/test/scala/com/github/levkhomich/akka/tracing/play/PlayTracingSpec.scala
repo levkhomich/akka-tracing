@@ -70,6 +70,12 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     additionalConfiguration = configuration
   )
 
+  def disabledLocalSamplingApplication: FakeApplication = FakeApplication(
+    withRoutes = routes,
+    withGlobal = Some(new GlobalSettings with TracingSettings),
+    additionalConfiguration = configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> 0)
+  )
+
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -155,6 +161,25 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkAnnotation(span, TracingExtension.getStackTrace(npe))
     }
 
+    "ensure upstream 'do not sample' decision is honoured" in new WithApplication(fakeApplication) {
+      val spanId = Random.nextLong
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq(
+          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+          TracingHeaders.Sampled -> Seq("false")
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      expectSpans(0)
+    }
+
+    "ensure upstream 'do sample' decision is honoured" in new WithApplication(disabledLocalSamplingApplication) {
+      val spanId = Random.nextLong
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq(
+          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+          TracingHeaders.Sampled -> Seq("true")
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      expectSpans(1)
+    }
   }
 
   step {
