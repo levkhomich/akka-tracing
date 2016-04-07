@@ -195,7 +195,6 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       expectSpans(1)
     }
-
   }
 
   step {
