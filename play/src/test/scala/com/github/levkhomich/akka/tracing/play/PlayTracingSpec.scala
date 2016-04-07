@@ -171,12 +171,22 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       expectSpans(0)
     }
 
-    "ensure upstream 'do sample' decision is honoured" in new WithApplication(disabledLocalSamplingApplication) {
+    "ensure upstream 'do sample' decision is honoured" in new WithApplication(fakeApplication) {
       val spanId = Random.nextLong
       val result = route(FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
           TracingHeaders.Sampled -> Seq("true")
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      expectSpans(1)
+    }
+
+    "ensure upstream 'do sample' decision is honoured (binary value)" in new WithApplication(fakeApplication) {
+      val spanId = Random.nextLong
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq(
+          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+          TracingHeaders.Sampled -> Seq("1")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       expectSpans(1)
     }
