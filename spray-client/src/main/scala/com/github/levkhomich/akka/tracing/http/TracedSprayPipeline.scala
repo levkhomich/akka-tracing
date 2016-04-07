@@ -40,7 +40,7 @@ trait TracedSprayPipeline {
   private[this] def untracedRequest(traceId: Long): SendReceive = {
     addHeaders(List(
       HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(traceId)),
-      HttpHeaders.RawHeader(TracingHeaders.Sampled, "false")
+      HttpHeaders.RawHeader(TracingHeaders.Sampled, "0")
     )) ~>
       sendAndReceive
   }
@@ -50,7 +50,7 @@ trait TracedSprayPipeline {
       HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
       HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
       HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(metadata.parentId.get)),
-      HttpHeaders.RawHeader(TracingHeaders.Sampled, "true")
+      HttpHeaders.RawHeader(TracingHeaders.Sampled, "1")
     )) ~>
       startTrace(clientRequest) ~>
       sendAndReceive ~>
