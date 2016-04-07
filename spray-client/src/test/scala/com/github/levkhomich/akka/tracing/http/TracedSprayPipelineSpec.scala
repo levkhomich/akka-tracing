@@ -53,7 +53,7 @@ class TracedSprayPipelineSpec extends Specification with FutureMatchers with Tra
         override def sendAndReceive = {
           case req: HttpRequest =>
             result.trySuccess(
-              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("false")) and
+              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("0")) and
                 (req.headers.find(_.name == TracingHeaders.TraceId).map(_.value) must not beNull)
             )
             Future.successful(HttpResponse(StatusCodes.OK, bodyEntity))
@@ -72,7 +72,7 @@ class TracedSprayPipelineSpec extends Specification with FutureMatchers with Tra
         override def sendAndReceive = {
           case req: HttpRequest =>
             result.trySuccess(
-              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("true")) and
+              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("1")) and
                 (req.headers.find(_.name == TracingHeaders.TraceId).map(_.value) must not beNull)
             )
             Future.successful(HttpResponse(StatusCodes.OK, bodyEntity))
