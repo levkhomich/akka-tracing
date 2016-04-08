@@ -34,16 +34,27 @@ trait TracedSprayPipeline {
 
   def tracedPipeline[T](parent: BaseTracingSupport): SendReceive = {
     val clientRequest = new TracingSupport {}
-    trace.createChild(clientRequest, parent).map(metadata =>
-      addHeaders(List(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
-        HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
-        HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(metadata.parentId.get)),
-        HttpHeaders.RawHeader(TracingHeaders.Sampled, "true")
-      )) ~>
-        startTrace(clientRequest) ~>
-        sendAndReceive ~>
-        completeTrace(clientRequest)).getOrElse(sendAndReceive)
+    trace.createChild(clientRequest, parent).map(tracedRequest(clientRequest, _)).getOrElse(untracedRequest(parent.tracingId))
+  }
+
+  private[this] def untracedRequest(traceId: Long): SendReceive = {
+    addHeaders(List(
+      HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(traceId)),
+      HttpHeaders.RawHeader(TracingHeaders.Sampled, "0")
+    )) ~>
+      sendAndReceive
+  }
+
+  private[this] def tracedRequest(clientRequest: BaseTracingSupport, metadata: SpanMetadata): SendReceive = {
+    addHeaders(List(
+      HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(metadata.traceId)),
+      HttpHeaders.RawHeader(TracingHeaders.SpanId, SpanMetadata.idToString(metadata.spanId)),
+      HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(metadata.parentId.get)),
+      HttpHeaders.RawHeader(TracingHeaders.Sampled, "1")
+    )) ~>
+      startTrace(clientRequest) ~>
+      sendAndReceive ~>
+      completeTrace(clientRequest)
   }
 
   def startTrace(ts: BaseTracingSupport)(request: HttpRequest): HttpRequest = {

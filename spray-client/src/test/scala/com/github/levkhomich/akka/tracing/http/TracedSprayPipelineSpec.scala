@@ -1,9 +1,10 @@
 package com.github.levkhomich.akka.tracing.http
 
-import scala.concurrent.Future
+import scala.concurrent.{ Promise, Future }
 
 import org.specs2.matcher.FutureMatchers
 import org.specs2.mutable.Specification
+import org.specs2.matcher.MatchResult
 import spray.client.pipelining._
 import spray.http._
 
@@ -42,6 +43,43 @@ class TracedSprayPipelineSpec extends Specification with FutureMatchers with Tra
       childSpan.trace_id mustEqual parentSpan.trace_id
       childSpan.parent_id mustEqual parentSpan.id
       childSpan.id mustNotEqual parentSpan.id
+    }
+
+    "indicate to downstream service trace is not sampled if we are not sampling" in {
+      val result = Promise[MatchResult[_]]()
+      val parent = nextRandomMessage
+      val testPipeline = new TracedSprayPipeline {
+        val system = self.system
+        override def sendAndReceive = {
+          case req: HttpRequest =>
+            result.trySuccess(
+              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("0")) and
+                (req.headers.find(_.name == TracingHeaders.TraceId).map(_.value) must not beNull)
+            )
+            Future.successful(HttpResponse(StatusCodes.OK, bodyEntity))
+        }
+      }
+      testPipeline.tracedPipeline[String](parent)(Get("http://test.com"))
+      result.future.await
+    }
+
+    "indicate to downstream service that we are sampled along with the trace id if we are sampling" in {
+      val result = Promise[MatchResult[_]]()
+      val parent = nextRandomMessage
+      trace.sample(parent, "test trace", force = true)
+      val testPipeline = new TracedSprayPipeline {
+        val system = self.system
+        override def sendAndReceive = {
+          case req: HttpRequest =>
+            result.trySuccess(
+              (req.headers.find(_.name == TracingHeaders.Sampled).map(_.value) must beSome("1")) and
+                (req.headers.find(_.name == TracingHeaders.TraceId).map(_.value) must not beNull)
+            )
+            Future.successful(HttpResponse(StatusCodes.OK, bodyEntity))
+        }
+      }
+      testPipeline.tracedPipeline[String](parent)(Get("http://test.com"))
+      result.future.await
     }
   }
 
