@@ -218,6 +218,7 @@ object Dependencies {
     val specs        = "org.specs2"        %% "specs2"              % "3.7"       % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.34.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
+    val playSpecs    = "com.typesafe.play" %% "play-specs2"         % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
@@ -235,6 +236,6 @@ object Dependencies {
     Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.playSpecs,
       Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
 }
