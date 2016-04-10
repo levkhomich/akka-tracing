@@ -16,20 +16,28 @@
 
 package com.github.levkhomich.akka.tracing.play
 
+import javax.inject.Inject
+
+import akka.actor.ActorSystem
+import akka.util.ByteString
+import com.github.levkhomich.akka.tracing.SpanMetadata
+import com.github.levkhomich.akka.tracing.http.TracingHeaders
+import play.api.http.{ DefaultHttpRequestHandler, HttpConfiguration, HttpErrorHandler, HttpFilters }
+import play.api.libs.streams.Accumulator
+import play.api.mvc._
+import play.api.routing.Router
+
 import scala.collection.Map
-import scala.concurrent.Future
 import scala.util.Random
 
-import play.api.GlobalSettings
-import play.api.libs.iteratee.Iteratee
-import play.api.mvc._
+class PlayHttpRequestHandler @Inject() (actors: ActorSystem,
+                                        errorHandler: HttpErrorHandler,
+                                        configuration: HttpConfiguration, filters: HttpFilters,
+                                        router: Router) extends DefaultHttpRequestHandler(
+  router, errorHandler, configuration, filters
+) with PlayControllerTracing {
 
-import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata }
-import com.github.levkhomich.akka.tracing.http.TracingHeaders
-
-trait TracingSettings extends GlobalSettings with PlayControllerTracing {
-
-  lazy val serviceName = play.libs.Akka.system.name
+  lazy val serviceName = actorSystem.name
 
   lazy val excludedQueryParams = Set.empty[String]
 
@@ -76,7 +84,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   }
 
   protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
-    override def apply(request: RequestHeader): Iteratee[Array[Byte], Result] = {
+    override def apply(request: RequestHeader): Accumulator[ByteString, Result] = {
       if (requestTraced(request)) {
         sample(request)
         addHttpAnnotations(request)
@@ -92,8 +100,8 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     }
   }
 
-  override def onRouteRequest(request: RequestHeader): Option[Handler] =
-    super.onRouteRequest(request).map {
+  override def routeRequest(request: RequestHeader): Option[Handler] =
+    super.routeRequest(request).map {
       case alreadyTraced: TracedAction =>
         alreadyTraced
       case alreadyTagged: EssentialAction with RequestTaggingHandler =>
@@ -107,14 +115,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
         handler
     }
 
-  override def onRequestCompletion(request: RequestHeader): Unit = {
-    trace.record(request, TracingAnnotations.ServerSend)
-    super.onRequestCompletion(request)
+  override implicit def actorSystem: ActorSystem = {
+    actors
   }
-
-  override def onError(request: RequestHeader, ex: Throwable): Future[Result] = {
-    trace.record(request, ex)
-    super.onError(request, ex)
-  }
-
 }
