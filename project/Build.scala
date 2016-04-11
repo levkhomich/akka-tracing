@@ -223,6 +223,7 @@ object Dependencies {
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
     val logback      = "ch.qos.logback"    % "logback-classic"      % "1.1.3"     % "test"
+    val scalaTestPlus = "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1"% "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
@@ -236,6 +237,6 @@ object Dependencies {
     Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.playSpecs,
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.playSpecs, Test.scalaTestPlus,
       Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
 }
