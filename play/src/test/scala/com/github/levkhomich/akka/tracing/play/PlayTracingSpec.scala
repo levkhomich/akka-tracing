@@ -16,15 +16,16 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import org.specs2.matcher._
+import akka.actor.ActorSystem
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.mvc._
 import play.api.routing._
 import play.api.test._
-import play.api.test.Helpers.{ GET => GET_REQUEST, _ }
-import com.github.levkhomich.akka.tracing.{ MockCollector, TracingExtension, TracingExtensionImpl, TracingTestCommons }
-import com.github.levkhomich.akka.tracing.{ SpanMetadata, TracingSupport }
+import play.api.routing.sird.{ GET => GET_REQUEST }
+import play.api.routing.sird._
+import com.github.levkhomich.akka.tracing._
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
+import org.specs2.matcher._
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Set
@@ -44,33 +45,22 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   val configuration = Map(
     TracingExtension.AkkaTracingPort -> collectorPort
   )
-  private val routes: PartialFunction[RequestHeader, Action[AnyContent]] = {
-    case play.api.test.Helpers.GET(p"/") =>
-      Action {
-        Ok(
-          """
-            |<html>
-            |<body>
-            |  <div id="title">Hello Guest</div>
-            |  <a href="/login">click me</a>
-            |</body>
-            |</html>
-          """.stripMargin) as "text/html"
-      }
-    case (GET, TestPath) =>
+
+  private val routes: Router = Router.from {
+    case GET_REQUEST(p"/request") =>
       Action {
         Ok("response") as "text/plain"
       }
-    case (GET, TestErrorPath) =>
+    case GET_REQUEST(p"/error") =>
       Action {
         throw npe
         Ok("response") as "text/plain"
       }
   }
 
-  val fakeApplication = GuiceApplicationBuilder()
+  val appWithRoutes = GuiceApplicationBuilder()
     .configure(configuration)
-    .router(Router.from(routes))
+    .router(routes)
     .build()
 
   def overriddenApplication(overriddenServiceName: String = "test", queryParams: Set[String] = Set.empty, headerKeys: Set[String] = Set.empty) = {
@@ -79,18 +69,18 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       .configure(Map("overriddenServiceName" -> overriddenServiceName,
         "queryParams" -> queryParams,
         "headerKeys" -> headerKeys))
-      .router(Router.from(routes))
+      .router(routes)
       .build()
   }
 
   "Play tracing" should {
-    "sample requests" in new WithApplication(fakeApplication) {
+    "sample requests" in new WithApplication(appWithRoutes) {
       val result = route(app, FakeRequest(GET, TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       success
     }
 
-    "use play application name as the default end point name" in new WithApplication(fakeApplication) {
+    "use play application name as the default end point name" in new WithApplication(appWithRoutes) {
       val result = route(app, FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       span.annotations.map(_.get_host().get_service_name()) must beEqualTo(_root_.play.libs.Akka.system.name)
@@ -102,15 +92,19 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       span.annotations.map(_.get_host().get_service_name()) must beEqualTo("test service")
     }
 
-    "not allow to use RequestHeaders as child of other request" in new WithApplication(fakeApplication) {
+    "not allow to use RequestHeaders as child of other request" in new WithApplication(appWithRoutes) {
       val parent = new TracingSupport {}
       val request = FakeRequest("GET", TestPath)
       new PlayControllerTracing {
         request.asChildOf(parent)
+
+        override implicit def actorSystem: ActorSystem = {
+          _root_.play.libs.Akka.system
+        }
       } must throwA[IllegalStateException]
     }
 
-    "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
+    "annotate sampled requests (general)" in new WithApplication(appWithRoutes) {
       val result = route(app, FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.path", TestPath)
@@ -119,7 +113,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkBinaryAnnotation(span, "request.proto", "HTTP/1.1")
     }
 
-    "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
+    "annotate sampled requests (query params, headers)" in new WithApplication(appWithRoutes) {
       val result = route(app, FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq("Content-Type" -> "text/plain")), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
@@ -147,7 +141,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
     }
 
-    "propagate tracing headers" in new WithApplication(fakeApplication) {
+    "propagate tracing headers" in new WithApplication(appWithRoutes) {
       val spanId = Random.nextLong
       val parentId = Random.nextLong
 
@@ -162,7 +156,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkBinaryAnnotation(span, "request.headers." + TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
     }
 
-    "record server errors to traces" in new WithApplication(fakeApplication) {
+    "record server errors to traces" in new WithApplication(appWithRoutes) {
       val result = route(app, FakeRequest("GET", TestErrorPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkAnnotation(span, TracingExtension.getStackTrace(npe))

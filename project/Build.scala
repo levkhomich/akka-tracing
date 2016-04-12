@@ -208,14 +208,8 @@ object Dependencies {
 
   object Test {
 
-    def sprayTestkit(scalaVersion: String): ModuleID = {
-      if (scalaVersion.startsWith("2.10"))
-        "io.spray" % "spray-testkit" % "1.3.3" % "test"
-      else
-        "io.spray" %% "spray-testkit" % "1.3.3" % "test"
-    }
-
     val specs        = "org.specs2"        %% "specs2"              % "3.7"       % "test"
+    val sprayTestkit = "io.spray"          %% "spray-testkit"       % "1.3.3"     % "test"
     val finagle      = "com.twitter"       %% "finagle-core"        % "6.34.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
     val playSpecs    = "com.typesafe.play" %% "play-specs2"         % PlayVersion % "test"
@@ -238,5 +232,5 @@ object Dependencies {
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.playSpecs, Test.scalaTestPlus,
-      Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
+      Test.akkaRemote, Test.sprayTestkit, Test.akkaSlf4j, Test.logback)
 }
