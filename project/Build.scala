@@ -176,8 +176,8 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.3.9"
-  val AkkaVersion = "2.3.14"
+  val PlayVersion = "2.5.1"
+  val AkkaVersion = "2.4.3"
 
   object Compile {
 
@@ -190,35 +190,34 @@ object Dependencies {
 
     def sprayClient(scalaVersion: String): ModuleID = {
       if (scalaVersion.startsWith("2.10"))
-        "io.spray" % "spray-client" % "1.3.1"
+        "io.spray" % "spray-client" % "1.3.3"
       else
-        "io.spray" %% "spray-client" % "1.3.2"
+        "io.spray" %% "spray-client" % "1.3.3"
     }
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "2.0.3"
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "2.0.4" excludeAll(
+      ExclusionRule("com.typesafe.akka", "akka-actor_2.11"),
+      ExclusionRule("com.typesafe", "config")
+      )
     val play         = "com.typesafe.play" %% "play"                % PlayVersion
-    val config       = "com.typesafe"      %  "config"              % "1.2.1"
-    val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
+    val config       = "com.typesafe"      %  "config"              % "1.3.0"
+    val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.3"
   }
 
   object Test {
 
-    def sprayTestkit(scalaVersion: String): ModuleID = {
-      if (scalaVersion.startsWith("2.10"))
-        "io.spray" % "spray-testkit" % "1.3.1" % "test"
-      else
-        "io.spray" %% "spray-testkit" % "1.3.2" % "test"
-    }
-
-    val specs        = "org.specs2"        %% "specs2"              % "3.0-M2"    % "test"
-    val finagle      = "com.twitter"       %% "finagle-core"        % "6.28.0"    % "test"
+    val specs        = "org.specs2"        %% "specs2"              % "3.7"       % "test"
+    val sprayTestkit = "io.spray"          %% "spray-testkit"       % "1.3.3"     % "test"
+    val finagle      = "com.twitter"       %% "finagle-core"        % "6.34.0"    % "test"
     val playTest     = "com.typesafe.play" %% "play-test"           % PlayVersion % "test"
+    val playSpecs    = "com.typesafe.play" %% "play-specs2"         % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
     val logback      = "ch.qos.logback"    % "logback-classic"      % "1.1.3"     % "test"
+    val scalaTestPlus = "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1"% "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
@@ -232,6 +231,6 @@ object Dependencies {
     Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
-      Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.playSpecs, Test.scalaTestPlus,
+      Test.akkaRemote, Test.sprayTestkit, Test.akkaSlf4j, Test.logback)
 }

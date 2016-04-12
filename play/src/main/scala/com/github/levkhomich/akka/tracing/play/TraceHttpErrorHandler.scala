@@ -16,15 +16,16 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import play.api.mvc._
+import akka.actor.ActorSystem
+import play.api.http.HttpErrorHandler
+import play.api.mvc.{ RequestHeader, Result }
 
-import com.github.levkhomich.akka.tracing.{ TracingExtension, TracingExtensionImpl }
+import scala.concurrent.Future
 
-trait PlayControllerTracing extends ActorSystemProvider {
+class TraceHttpErrorHandler extends HttpErrorHandler with PlayControllerTracing {
+  override def onClientError(request: RequestHeader, statusCode: Int, message: String): Future[Result] = ???
 
-  protected implicit def requestHeader2TracingSupport(headers: RequestHeader): PlayRequestTracingSupport =
-    new PlayRequestTracingSupport(headers)
+  override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = ???
 
-  protected implicit def trace: TracingExtensionImpl = TracingExtension(actorSystem)
-
+  override implicit def actorSystem: ActorSystem = ???
 }

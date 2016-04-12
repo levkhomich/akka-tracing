@@ -6,6 +6,8 @@ import akka.actor.Actor
 import akka.testkit.TestActorRef
 import akka.util.Timeout
 import org.specs2.mutable.Specification
+import scala.concurrent._
+import ExecutionContext.Implicits.global
 
 import com.github.levkhomich.akka.tracing._
 
