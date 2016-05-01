@@ -23,7 +23,7 @@ import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
 import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.specs2.mutable.Specification
 
 final case class TestMessage(value: String) extends TracingSupport
@@ -36,21 +36,21 @@ trait TracingTestCommons { this: Specification =>
   def nextRandomMessage: TestMessage =
     TestMessage(SomeValue)
 
+  def testConfig(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): Config =
+    ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
+      Map(
+        TracingExtension.AkkaTracingSampleRate -> sampleRate,
+        TracingExtension.AkkaTracingPort -> (this match {
+          case mc: MockCollector =>
+            mc.collectorPort
+          case _ =>
+            9410
+        })
+      ) ++ settings
+    ))
+
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
-    val system = ActorSystem(
-      SystemName,
-      ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
-        Map(
-          TracingExtension.AkkaTracingSampleRate -> sampleRate,
-          TracingExtension.AkkaTracingPort -> (this match {
-            case mc: MockCollector =>
-              mc.collectorPort
-            case _ =>
-              9410
-          })
-        ) ++ settings
-      ))
-    )
+    val system = ActorSystem(SystemName, testConfig(sampleRate, settings))
     // wait for system to boot
     Thread.sleep(50)
     system

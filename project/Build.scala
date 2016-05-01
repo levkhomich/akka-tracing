@@ -108,7 +108,7 @@ object AkkaTracingBuild extends Build {
         packagedArtifacts := Map.empty,
         previousArtifact := None
       )
-  ).aggregate(core, spray, sprayClient, play)
+  ).aggregate(core, spray, sprayClient, play, akkaHttp)
 
   val passTestDeps = "test->test;compile->compile"
 
@@ -172,12 +172,28 @@ object AkkaTracingBuild extends Build {
         resolvers in GlobalScope += Resolver.typesafeRepo("releases")
       )
   ).dependsOn(core % passTestDeps)
+
+
+  lazy val akkaHttp = Project(
+    id = "akka-tracing-http",
+    base = file("akka-http"),
+    settings =
+      commonSettings ++
+        Seq(
+          name := "Akka Tracing: Http",
+          libraryDependencies ++=
+            Dependencies.http ++
+            Dependencies.test(scalaVersion.value)
+        )
+  ).dependsOn(core % passTestDeps)
+
 }
 
 object Dependencies {
 
   val PlayVersion = "2.3.9"
   val AkkaVersion = "2.3.14"
+  val AkkaStreamVersion = "2.0.4"
 
   object Compile {
 
@@ -197,7 +213,8 @@ object Dependencies {
 
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"          % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"          % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % "2.0.3"
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream-experimental" % AkkaStreamVersion
+    val akkaHttp     = "com.typesafe.akka" %% "akka-http-experimental"   % AkkaStreamVersion
     val play         = "com.typesafe.play" %% "play"                % PlayVersion
     val config       = "com.typesafe"      %  "config"              % "1.2.1"
     val libThrift    = "org.apache.thrift" %  "libthrift"           % "0.9.2"
@@ -218,11 +235,13 @@ object Dependencies {
     val akkaTest     = "com.typesafe.akka" %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka" %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka" %% "akka-slf4j"          % AkkaVersion % "test"
+    val akkaHttpTest = "com.typesafe.akka" %% "akka-http-testkit-experimental" % AkkaStreamVersion
     val logback      = "ch.qos.logback"    % "logback-classic"      % "1.1.3"     % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
   val play = Seq(Compile.play)
+  val http = Seq(Compile.akkaHttp)
   val thrift = Seq(Compile.libThrift)
 
   def sprayRouting(scalaVersion: String): Seq[ModuleID] =
@@ -232,6 +251,6 @@ object Dependencies {
     Seq(Compile.sprayClient(scalaVersion))
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest,
+    Seq(Test.specs, Test.finagle, Test.playTest, Test.akkaTest, Test.akkaHttpTest,
       Test.akkaRemote, Test.sprayTestkit(scalaVersion), Test.akkaSlf4j, Test.logback)
 }

@@ -37,7 +37,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
       tracedComplete("testService", "testRpc")(HttpResponse(StatusCodes.OK))
     }
 
-  "tracedHandleWith directive" should {
+  "Spray tracedHandleWith directive" should {
 
     "force sampling of requests with X-B3-Sampled: true header" in {
       for (_ <- 0 until SpanCount) {
@@ -85,7 +85,7 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
 
   }
 
-  "tracedComplete directive" should {
+  "Spray tracedComplete directive" should {
     val SpanCount = 100
 
     def randomTraceIdHeader: HttpHeader =

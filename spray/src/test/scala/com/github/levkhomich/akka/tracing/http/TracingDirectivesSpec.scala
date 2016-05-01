@@ -41,7 +41,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
       tracedComplete(serviceName, rpcName)(HttpResponse(StatusCodes.OK))
     }
 
-  "tracedHandleWith directive" should {
+  "Spray tracedHandleWith directive" should {
     "sample requests" in {
       Get(testPath) ~> tracedHandleWithRoute ~> check {
         response.status mustEqual StatusCodes.OK
@@ -135,7 +135,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
   }
 
-  "tracedComplete directive" should {
+  "Spray tracedComplete directive" should {
     "not sample requests without tracing headers" in {
       Get(testPath).withHeaders(
         HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
