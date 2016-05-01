@@ -70,6 +70,12 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     additionalConfiguration = configuration
   )
 
+  def disabledLocalSamplingApplication: FakeApplication = FakeApplication(
+    withRoutes = routes,
+    withGlobal = Some(new GlobalSettings with TracingSettings),
+    additionalConfiguration = configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> 0)
+  )
+
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -153,6 +159,41 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       val result = route(FakeRequest("GET", TestErrorPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkAnnotation(span, TracingExtension.getStackTrace(npe))
+    }
+
+    Seq("0", "false").foreach { value =>
+      s"ensure upstream 'do not sample' decision is honoured for sampled value of $value" in new WithApplication(fakeApplication) {
+
+        val spanId = Random.nextLong
+        val result = route(FakeRequest("GET", TestPath + "?key=value",
+          FakeHeaders(Seq(
+            TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+            TracingHeaders.Sampled -> Seq("false")
+          )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+        expectSpans(0)
+      }
+    }
+
+    Seq("1", "true").foreach { value =>
+      s"ensure upstream 'do sample' decision is honoured for sampled value $value" in new WithApplication(disabledLocalSamplingApplication) {
+        val spanId = Random.nextLong
+        val result = route(FakeRequest("GET", TestPath + "?key=value",
+          FakeHeaders(Seq(
+            TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+            TracingHeaders.Sampled -> Seq(value)
+          )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+        expectSpans(1)
+      }
+    }
+
+    "ensure local sampling decision is honoured if invalid sampled valued is supplied" in new WithApplication(fakeApplication) {
+      val spanId = Random.nextLong
+      val result = route(FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq(
+          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+          TracingHeaders.Sampled -> Seq("unexpected value")
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      expectSpans(1)
     }
 
   }

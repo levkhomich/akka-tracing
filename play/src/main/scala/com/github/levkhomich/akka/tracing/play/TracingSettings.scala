@@ -36,7 +36,15 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   lazy val excludedHeaders = Set.empty[String]
 
   protected def sample(request: RequestHeader): Unit = {
-    trace.sample(request, serviceName)
+    val upstreamSampling = request.headers.get(TracingHeaders.Sampled).map(_.toLowerCase)
+    upstreamSampling match {
+      case Some("0") | Some("false") =>
+      // do not sample
+      case Some("1") | Some("true") =>
+        trace.sample(request, serviceName, true)
+      case Some(_) | None =>
+        trace.sample(request, serviceName)
+    }
   }
 
   protected def addHttpAnnotations(request: RequestHeader): Unit = {
