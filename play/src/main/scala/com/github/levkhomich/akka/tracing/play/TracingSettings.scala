@@ -37,7 +37,10 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   protected def sample(request: RequestHeader): Unit = {
     def headerLongValue(tag: String): Option[Long] =
       Try(request.headers.get(tag).map(SpanMetadata.idFromString)).getOrElse(None)
-    def maybeForceSampling: Option[Boolean] = {
+    def spanId: Long =
+      headerLongValue(SpanId).getOrElse(Random.nextLong)
+
+    val maybeForceSampling =
       request.headers.get(Sampled).map(_.toLowerCase) match {
         case Some("0") | Some("false") =>
           Some(false)
@@ -45,20 +48,21 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
           Some(true)
         case _ =>
           request.headers.get(Flags).flatMap(flags =>
-            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption)
+            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption.filter(v => v))
       }
-    }
-    def spanId: Long =
-      headerLongValue(SpanId).getOrElse(Random.nextLong)
 
-    headerLongValue(TraceId) match {
-      case Some(traceId) =>
-        val parentId = headerLongValue(ParentSpanId)
-        trace.sample(request.tracingId, spanId, parentId, traceId, serviceName,
-          request.spanName, maybeForceSampling.getOrElse(false))
+    maybeForceSampling match {
+      case Some(false) =>
+      // ignore
       case _ =>
-        maybeForceSampling.foreach(forceSampling =>
-          trace.sample(request, serviceName, forceSampling))
+        val forceSampling = maybeForceSampling.getOrElse(false)
+        headerLongValue(TraceId) match {
+          case Some(traceId) =>
+            val parentId = headerLongValue(ParentSpanId)
+            trace.sample(request.tracingId, spanId, parentId, traceId, serviceName, request.spanName, forceSampling)
+          case _ =>
+            trace.sample(request, serviceName, forceSampling)
+        }
     }
   }
 

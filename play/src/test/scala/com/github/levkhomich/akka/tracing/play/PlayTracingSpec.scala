@@ -73,14 +73,13 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   def disabledLocalSamplingApplication: FakeApplication = FakeApplication(
     withRoutes = routes,
     withGlobal = Some(new GlobalSettings with TracingSettings),
-    additionalConfiguration = configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> 0)
+    additionalConfiguration = configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> Int.MaxValue)
   )
 
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      success
+      expectSpans(1)
     }
 
     "use play application name as the default end point name" in new WithApplication(fakeApplication) {
@@ -140,7 +139,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
     }
 
-    "propagate tracing headers" in new WithApplication(fakeApplication) {
+    "support trace propagation from external service" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
       val parentId = Random.nextLong
 
@@ -161,84 +160,112 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       checkAnnotation(span, TracingExtension.getStackTrace(npe))
     }
 
-    val Sampled = Seq("1", "true")
-    val NotSampled = Seq("0", "false")
-
-    (Sampled ++ NotSampled).foreach { value =>
-      s"honour upstream's Sampled: $value header" in new WithApplication(fakeApplication) {
+    Seq("1", "true").foreach { value =>
+      s"honour upstream's X-B3-Sampled: $value header" in new WithApplication(disabledLocalSamplingApplication) {
         val spanId = Random.nextLong
         val result = route(FakeRequest("GET", TestPath + "?key=value",
           FakeHeaders(Seq(
             TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
             TracingHeaders.Sampled -> Seq(value)
           )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
-        expectSpans(if (Sampled.contains(value)) 1 else 0)
+        expectSpans(1)
       }
     }
 
-    "allow forced sampling" in new WithApplication(disabledLocalSamplingApplication) {
+    Seq("0", "false").foreach { value =>
+      s"honour upstream's X-B3-Sampled: $value header" in new WithApplication(fakeApplication) {
+        val spanId = Random.nextLong
+        val result = route(FakeRequest("GET", TestPath + "?key=value",
+          FakeHeaders(Seq(
+            TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
+            TracingHeaders.Sampled -> Seq(value)
+          )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+        expectSpans(0)
+      }
+    }
+
+    Seq("1", "true").foreach { value =>
+      s"honour upstream's X-B3-Sampled: $value header if X-B3-TraceId is not specified" in new WithApplication(disabledLocalSamplingApplication) {
+        val spanId = Random.nextLong
+        val result = route(FakeRequest("GET", TestPath + "?key=value",
+          FakeHeaders(Seq(
+            TracingHeaders.Sampled -> Seq(value)
+          )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+        expectSpans(1)
+      }
+    }
+
+    "honour upstream's Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
           TracingHeaders.Flags -> Seq("1")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
-      receiveSpans() must haveLength(1)
+      expectSpans(1)
     }
 
-    "ignore broken Flags header" in new WithApplication(disabledLocalSamplingApplication) {
+    "user regular sampling if X-B3-Flags does not contain Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.Flags -> Seq("broken")
+          TracingHeaders.Flags -> Seq("2")
+        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+
+      expectSpans(0)
+    }
+
+    "ignore malformed X-B3-Flags header" in new WithApplication(disabledLocalSamplingApplication) {
+      val result = route(FakeRequest("GET", TestPath,
+        FakeHeaders(Seq(
+          TracingHeaders.Flags -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       receiveSpans() must beEmpty
     }
 
-    "ignore broken TraceId header" in new WithApplication(fakeApplication) {
+    "ignore malformed X-B3-TraceId header" in new WithApplication(fakeApplication) {
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq("broken")
+          TracingHeaders.TraceId -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
-      receiveSpans() must haveLength(1)
+      expectSpans(1)
     }
 
-    "ignore broken SpanId header" in new WithApplication(fakeApplication) {
+    "ignore malformed X-B3-SpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(traceId)),
-          TracingHeaders.SpanId -> Seq("broken")
+          TracingHeaders.SpanId -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
       span.get_trace_id mustEqual traceId
     }
 
-    "ignore broken ParentSpanId header" in new WithApplication(fakeApplication) {
+    "ignore malformed X-B3-ParentSpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
       val result = route(FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(traceId)),
-          TracingHeaders.ParentSpanId -> Seq("broken")
+          TracingHeaders.ParentSpanId -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
       span.get_trace_id mustEqual traceId
     }
 
-    "ignore broken Sampled header" in new WithApplication(fakeApplication) {
+    "ignore malformed X-B3-Sampled header" in new WithApplication(fakeApplication) {
       val spanId = Random.nextLong
       val result = route(FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
-          TracingHeaders.Sampled -> Seq("unexpected value")
+          TracingHeaders.Sampled -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       expectSpans(1)
     }
-
   }
 
   step {

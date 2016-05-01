@@ -11,12 +11,15 @@ import spray.httpx.unmarshalling.{ Deserialized, FromRequestUnmarshaller }
 import spray.routing.HttpService
 import spray.testkit.Specs2RouteTest
 
+import scala.util.Random
+
 class ForcedSamplingSpec extends Specification with TracingTestCommons
     with BaseTracingDirectives with MockCollector with Specs2RouteTest with HttpService {
 
   sequential
 
-  override implicit val system = testActorSystem(sampleRate = Int.MaxValue)
+  val SpanCount = 100
+  override implicit val system = testActorSystem(sampleRate = SpanCount)
   override val actorRefFactory = system
 
   override protected def trace: TracingExtensionImpl =
@@ -35,9 +38,8 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
     }
 
   "tracedHandleWith directive" should {
-    val SpanCount = 100
 
-    "force sampling of requests with X-B3-Sampled = true" in {
+    "force sampling of requests with X-B3-Sampled: true header" in {
       for (_ <- 0 until SpanCount) {
         Get().withHeaders(
           HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
@@ -46,6 +48,17 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
           }
       }
       expectSpans(SpanCount)
+    }
+
+    "avoid sampling of requests with X-B3-Sampled: false header" in {
+      for (_ <- 0 until SpanCount) {
+        Get().withHeaders(
+          HttpHeaders.RawHeader(TracingHeaders.Sampled, false.toString)
+        ) ~> tracedHandleWithRoute ~> check {
+            response.status mustEqual StatusCodes.OK
+          }
+      }
+      receiveSpans() must beEmpty
     }
 
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
@@ -57,6 +70,17 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
           }
       }
       expectSpans(SpanCount)
+    }
+
+    "sample requests with X-B3-Flags not containing Debug flag as regular" in {
+      for (i <- 0 until SpanCount) {
+        Get().withHeaders(
+          HttpHeaders.RawHeader(TracingHeaders.Flags, (i & ~TracingHeaders.DebugFlag).toString)
+        ) ~> tracedHandleWithRoute ~> check {
+            response.status mustEqual StatusCodes.OK
+          }
+      }
+      receiveSpans() must haveSize(1)
     }
 
   }
@@ -64,9 +88,13 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
   "tracedComplete directive" should {
     val SpanCount = 100
 
-    "force sampling of requests with X-B3-Sampled = true" in {
+    def randomTraceIdHeader: HttpHeader =
+      HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(Random.nextLong))
+
+    "force sampling of requests with X-B3-Sampled: true header" in {
       for (_ <- 0 until SpanCount) {
         Get().withHeaders(
+          randomTraceIdHeader,
           HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
         ) ~> tracedCompleteRoute ~> check {
             response.status mustEqual StatusCodes.OK
@@ -75,15 +103,40 @@ class ForcedSamplingSpec extends Specification with TracingTestCommons
       expectSpans(SpanCount)
     }
 
+    "avoid sampling of requests with X-B3-Sampled: false header" in {
+      for (_ <- 0 until SpanCount) {
+        Get().withHeaders(
+          randomTraceIdHeader,
+          HttpHeaders.RawHeader(TracingHeaders.Sampled, false.toString)
+        ) ~> tracedCompleteRoute ~> check {
+            response.status mustEqual StatusCodes.OK
+          }
+      }
+      receiveSpans() must beEmpty
+    }
+
     "force sampling of requests with X-B3-Flags containing Debug flag" in {
       for (i <- 0 until SpanCount) {
         Get().withHeaders(
+          randomTraceIdHeader,
           HttpHeaders.RawHeader(TracingHeaders.Flags, (i | TracingHeaders.DebugFlag).toString)
         ) ~> tracedCompleteRoute ~> check {
             response.status mustEqual StatusCodes.OK
           }
       }
       expectSpans(SpanCount)
+    }
+
+    "sample requests with X-B3-Flags not containing Debug flag as regular" in {
+      for (i <- 0 until SpanCount) {
+        Get().withHeaders(
+          randomTraceIdHeader,
+          HttpHeaders.RawHeader(TracingHeaders.Flags, (i & ~TracingHeaders.DebugFlag).toString)
+        ) ~> tracedCompleteRoute ~> check {
+            response.status mustEqual StatusCodes.OK
+          }
+      }
+      receiveSpans() must haveSize(1)
     }
 
   }

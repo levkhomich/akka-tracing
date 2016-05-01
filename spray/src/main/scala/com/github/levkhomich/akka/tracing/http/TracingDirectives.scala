@@ -38,15 +38,14 @@ trait BaseTracingDirectives {
   import TracingDirectives._
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: HNil] =
-    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request) :: ctx.request :: HNil).hflatMap[T :: HNil] {
+    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request, requireTraceId = false) :: ctx.request :: HNil).hflatMap[T :: HNil] {
       case Right(value) :: Right(maybeSpan) :: request :: HNil =>
         maybeSpan match {
           case Some(span) =>
             trace.sample(value, span.spanId, span.parentId, span.traceId, service, span.forceSampling)
+            addHttpAnnotations(value.tracingId, request)
           case _ =>
-            trace.sample(value.tracingId, service, value.spanName)
         }
-        addHttpAnnotations(value.tracingId, request)
         hprovide(value :: HNil)
       case Right(value) :: Left(headerName) :: request :: HNil =>
         reject(MalformedHeaderRejection(headerName, "invalid value"))
@@ -86,7 +85,7 @@ trait BaseTracingDirectives {
   def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
-        extractSpan(ctx.request) match {
+        extractSpan(ctx.request, requireTraceId = true) match {
           case Right(Some(span)) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
@@ -167,7 +166,7 @@ private[http] object TracingDirectives {
 
   import TracingHeaders._
 
-  def extractSpan(message: HttpMessage): Either[String, Option[SpanMetadata]] = {
+  def extractSpan(message: HttpMessage, requireTraceId: Boolean): Either[String, Option[SpanMetadata]] = {
     def headerStringValue(name: String): Option[String] =
       message.headers.find(_.name == name).map(_.value)
     def headerLongValue(name: String): Either[String, Option[Long]] =
@@ -177,25 +176,37 @@ private[http] object TracingDirectives {
         case Success(v) =>
           Right(v)
       }
-    def isFlagSet(v: String, flag: Long): Boolean =
-      Try((java.lang.Long.parseLong(v) & flag) == flag).getOrElse(false)
-    // debug flag forces sampling (see http://git.io/hdEVug)
-    def forceSampling: Boolean =
-      headerStringValue(Flags).exists(isFlagSet(_, DebugFlag)) ||
-        headerStringValue(Sampled).contains("true")
     def spanId: Long =
       headerLongValue(SpanId).right.toOption.flatten.getOrElse(Random.nextLong)
 
-    headerLongValue(TraceId).right.map({
-      case Some(traceId) =>
-        headerLongValue(ParentSpanId).right.map { parentId =>
-          Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
-        }
-      case None if forceSampling =>
-        Right(Some(SpanMetadata(Random.nextLong, spanId, None, true)))
-      case _ =>
+    // debug flag forces sampling (see http://git.io/hdEVug)
+    val maybeForceSampling =
+      headerStringValue(Sampled).map(_.toLowerCase) match {
+        case Some("0") | Some("false") =>
+          Some(false)
+        case Some("1") | Some("true") =>
+          Some(true)
+        case _ =>
+          headerStringValue(Flags).flatMap(flags =>
+            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption.filter(v => v))
+      }
+
+    maybeForceSampling match {
+      case Some(false) =>
         Right(None)
-    }).joinRight
+      case _ =>
+        val forceSampling = maybeForceSampling.getOrElse(false)
+        headerLongValue(TraceId).right.map({
+          case Some(traceId) =>
+            headerLongValue(ParentSpanId).right.map { parentId =>
+              Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
+            }
+          case _ if requireTraceId =>
+            Right(None)
+          case _ =>
+            Right(Some(SpanMetadata(Random.nextLong, spanId, None, forceSampling)))
+        }).joinRight
+    }
   }
 
 }

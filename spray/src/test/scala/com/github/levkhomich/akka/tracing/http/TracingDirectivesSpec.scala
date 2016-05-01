@@ -63,8 +63,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
     "annotate sampled requests (query params, headers)" in {
       Get(Uri.from(path = testPath, query = Uri.Query("key" -> "value"))).withHeaders(
-        HttpHeaders.`Content-Type`(ContentTypes.`text/plain`) ::
-          Nil
+        HttpHeaders.`Content-Type`(ContentTypes.`text/plain`)
       ) ~> tracedHandleWithRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
@@ -77,9 +76,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
       val spanId = Random.nextLong
       val parentId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId)) ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)),
+        HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
       ) ~> tracedHandleWithRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
@@ -91,7 +89,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     val MalformedHeaderRejection = "The value of HTTP header '%s' was malformed:\ninvalid value"
     "reject requests with malformed X-B3-TraceId header" in {
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, "malformed") :: Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, "malformed")
       ) ~> sealRoute(tracedHandleWithRoute) ~> check {
           response.status mustEqual StatusCodes.BadRequest
           responseAs[String] mustEqual (MalformedHeaderRejection format TracingHeaders.TraceId)
@@ -101,9 +99,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "reject requests with malformed X-B3-ParentTraceId header" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, "malformed") ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)),
+        HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, "malformed")
       ) ~> sealRoute(tracedHandleWithRoute) ~> check {
           response.status mustEqual StatusCodes.BadRequest
           responseAs[String] mustEqual (MalformedHeaderRejection format TracingHeaders.ParentSpanId)
@@ -140,6 +137,15 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
   "tracedComplete directive" should {
     "not sample requests without tracing headers" in {
+      Get(testPath).withHeaders(
+        HttpHeaders.RawHeader(TracingHeaders.Sampled, true.toString)
+      ) ~> tracedCompleteRoute ~> check {
+          response.status mustEqual StatusCodes.OK
+          expectSpans(0)
+        }
+    }
+
+    "not sample requests without tracing headers even if X-B3-Sampled: true is passed" in {
       Get(testPath) ~> tracedCompleteRoute ~> check {
         response.status mustEqual StatusCodes.OK
         expectSpans(0)
@@ -149,8 +155,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "sample requests with tracing headers" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
@@ -163,8 +168,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "annotate sampled requests (general)" in {
       val spanId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId))
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
@@ -178,9 +182,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "annotate sampled requests (query params, headers)" in {
       val spanId = Random.nextLong
       Get(Uri.from(path = testPath, query = Uri.Query("key" -> "value"))).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          HttpHeaders.`Content-Type`(ContentTypes.`text/plain`) ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)),
+        HttpHeaders.`Content-Type`(ContentTypes.`text/plain`)
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
@@ -193,9 +196,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
       val spanId = Random.nextLong
       val parentId = Random.nextLong
       Get(testPath).withHeaders(
-        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)) ::
-          HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId)) ::
-          Nil
+        HttpHeaders.RawHeader(TracingHeaders.TraceId, SpanMetadata.idToString(spanId)),
+        HttpHeaders.RawHeader(TracingHeaders.ParentSpanId, SpanMetadata.idToString(parentId))
       ) ~> tracedCompleteRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
