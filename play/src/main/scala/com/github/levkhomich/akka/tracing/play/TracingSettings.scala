@@ -16,16 +16,15 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import scala.collection.Map
 import scala.concurrent.Future
-import scala.util.Random
+import scala.util.{ Try, Random }
 
 import play.api.GlobalSettings
 import play.api.libs.iteratee.Iteratee
 import play.api.mvc._
 
 import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata }
-import com.github.levkhomich.akka.tracing.http.TracingHeaders
+import com.github.levkhomich.akka.tracing.http.TracingHeaders._
 
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
@@ -36,14 +35,30 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   lazy val excludedHeaders = Set.empty[String]
 
   protected def sample(request: RequestHeader): Unit = {
-    val upstreamSampling = request.headers.get(TracingHeaders.Sampled).map(_.toLowerCase)
-    upstreamSampling match {
-      case Some("0") | Some("false") =>
-      // do not sample
-      case Some("1") | Some("true") =>
-        trace.sample(request, serviceName, true)
-      case Some(_) | None =>
-        trace.sample(request, serviceName)
+    def headerLongValue(tag: String): Option[Long] =
+      Try(request.headers.get(tag).map(SpanMetadata.idFromString)).getOrElse(None)
+    def maybeForceSampling: Option[Boolean] = {
+      request.headers.get(Sampled).map(_.toLowerCase) match {
+        case Some("0") | Some("false") =>
+          Some(false)
+        case Some("1") | Some("true") =>
+          Some(true)
+        case _ =>
+          request.headers.get(Flags).flatMap(flags =>
+            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption)
+      }
+    }
+    def spanId: Long =
+      headerLongValue(SpanId).getOrElse(Random.nextLong)
+
+    headerLongValue(TraceId) match {
+      case Some(traceId) =>
+        val parentId = headerLongValue(ParentSpanId)
+        trace.sample(request.tracingId, spanId, parentId, traceId, serviceName,
+          request.spanName, maybeForceSampling.getOrElse(false))
+      case _ =>
+        maybeForceSampling.foreach(forceSampling =>
+          trace.sample(request, serviceName, forceSampling))
     }
   }
 
@@ -74,15 +89,6 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   protected def requestTraced(request: RequestHeader): Boolean =
     !request.path.startsWith("/assets")
 
-  protected def extractTracingTags(request: RequestHeader): Map[String, String] = {
-    val spanId = TracingHeaders.SpanId -> SpanMetadata.idToString(Random.nextLong)
-    if (request.headers.get(TracingHeaders.TraceId).isEmpty)
-      Map(TracingHeaders.TraceId -> SpanMetadata.idToString(Random.nextLong)) + spanId
-    else
-      TracingHeaders.All.flatMap(header =>
-        request.headers.get(header).map(header -> _)).toMap + spanId
-  }
-
   protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
     override def apply(request: RequestHeader): Iteratee[Array[Byte], Result] = {
       if (requestTraced(request)) {
@@ -93,10 +99,7 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     }
 
     override def tagRequest(request: RequestHeader): RequestHeader = {
-      if (requestTraced(request))
-        request.copy(tags = request.tags ++ extractTracingTags(request))
-      else
-        request
+      request
     }
   }
 
@@ -104,11 +107,6 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     super.onRouteRequest(request).map {
       case alreadyTraced: TracedAction =>
         alreadyTraced
-      case alreadyTagged: EssentialAction with RequestTaggingHandler =>
-        new TracedAction(alreadyTagged) {
-          override def tagRequest(request: RequestHeader): RequestHeader =
-            super.tagRequest(alreadyTagged.tagRequest(request))
-        }
       case action: EssentialAction =>
         new TracedAction(action)
       case handler =>

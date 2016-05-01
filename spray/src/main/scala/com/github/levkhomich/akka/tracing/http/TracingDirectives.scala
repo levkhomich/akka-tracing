@@ -178,11 +178,11 @@ private[http] object TracingDirectives {
           Right(v)
       }
     def isFlagSet(v: String, flag: Long): Boolean =
-      (java.lang.Long.parseLong(v) & flag) == flag
+      Try((java.lang.Long.parseLong(v) & flag) == flag).getOrElse(false)
     // debug flag forces sampling (see http://git.io/hdEVug)
     def forceSampling: Boolean =
       headerStringValue(Flags).exists(isFlagSet(_, DebugFlag)) ||
-        headerStringValue(Sampled).filter(_ == "true").isDefined
+        headerStringValue(Sampled).contains("true")
     def spanId: Long =
       headerLongValue(SpanId).right.toOption.flatten.getOrElse(Random.nextLong)
 

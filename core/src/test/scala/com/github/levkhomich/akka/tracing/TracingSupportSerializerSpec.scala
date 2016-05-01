@@ -49,19 +49,15 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
       val actor1 = TestActorRef.create(system1, Props[Actor1], "actor1")
       val actor2 = TestActorRef.create(system2, Props[Actor2], "actor2")
 
+      expectSpans(0)
+
       val message = TestMessage("parent")
 
       trace2.sample(message, "testService")
       actor2 ! message
       trace2.record(message, TracingAnnotations.ServerSend)
 
-      val spans = receiveSpans()
-      spans.size mustEqual 2
-      println("span 1:")
-      printAnnotations(spans(0))
-      println("span 2:")
-      printAnnotations(spans(1))
-      success
+      expectSpans(2)
     }
 
     step {
