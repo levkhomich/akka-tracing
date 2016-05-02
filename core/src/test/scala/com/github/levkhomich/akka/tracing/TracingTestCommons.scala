@@ -42,7 +42,7 @@ trait TracingTestCommons { this: Specification =>
     def inNonCIEnvironment[T: AsResult](r: => T): Example = {
       def result: T =
         if (ciEnvironment)
-          throw new SkipException(Skipped("ignored in CI environment"))
+          throw new SkipException(Skipped("- ignored in CI environment"))
         else
           r
       exampleFactory.newExample(s, result)
@@ -61,7 +61,9 @@ trait TracingTestCommons { this: Specification =>
             mc.collectorPort
           case _ =>
             9410
-        })
+        }),
+        "akka.test.default-timeout" -> "2000 ms",
+        "akka.test.timefactor" -> (if (ciEnvironment) "4" else "1")
       ) ++ settings
     ))
 
