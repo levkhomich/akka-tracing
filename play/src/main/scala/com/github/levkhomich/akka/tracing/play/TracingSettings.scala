@@ -17,14 +17,12 @@
 package com.github.levkhomich.akka.tracing.play
 
 import scala.concurrent.Future
-import scala.util.{ Try, Random }
 
 import play.api.GlobalSettings
 import play.api.libs.iteratee.Iteratee
 import play.api.mvc._
 
 import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata }
-import com.github.levkhomich.akka.tracing.http.TracingHeaders._
 
 trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
@@ -35,34 +33,14 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
   lazy val excludedHeaders = Set.empty[String]
 
   protected def sample(request: RequestHeader): Unit = {
-    def headerLongValue(tag: String): Option[Long] =
-      Try(request.headers.get(tag).map(SpanMetadata.idFromString)).getOrElse(None)
-    def spanId: Long =
-      headerLongValue(SpanId).getOrElse(Random.nextLong)
-
-    val maybeForceSampling =
-      request.headers.get(Sampled).map(_.toLowerCase) match {
-        case Some("0") | Some("false") =>
-          Some(false)
-        case Some("1") | Some("true") =>
-          Some(true)
-        case _ =>
-          request.headers.get(Flags).flatMap(flags =>
-            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption.filter(v => v))
-      }
-
-    maybeForceSampling match {
-      case Some(false) =>
-      // ignore
-      case _ =>
-        val forceSampling = maybeForceSampling.getOrElse(false)
-        headerLongValue(TraceId) match {
-          case Some(traceId) =>
-            val parentId = headerLongValue(ParentSpanId)
-            trace.sample(request.tracingId, spanId, parentId, traceId, serviceName, request.spanName, forceSampling)
-          case _ =>
-            trace.sample(request, serviceName, forceSampling)
-        }
+    def headers(name: String): Option[String] =
+      request.headers.get(name)
+    SpanMetadata.extractSpan(headers, requireTraceId = false) match {
+      case Right(None) =>
+      case Right(Some(span)) =>
+        trace.sample(request.tracingId, span.spanId, span.parentId, span.traceId, serviceName, request.spanName, span.forceSampling)
+      case Left(_) =>
+        trace.sample(request.tracingId, serviceName, request.spanName)
     }
   }
 

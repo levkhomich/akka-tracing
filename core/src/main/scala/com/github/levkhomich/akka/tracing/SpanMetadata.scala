@@ -18,6 +18,9 @@ package com.github.levkhomich.akka.tracing
 
 import java.io.{ ByteArrayInputStream, DataInputStream }
 import java.nio.{ BufferUnderflowException, ByteBuffer }
+import scala.util.{ Random, Success, Failure, Try }
+
+import com.github.levkhomich.akka.tracing.http.TracingHeaders._
 
 final case class SpanMetadata(traceId: Long, spanId: Long, parentId: Option[Long], forceSampling: Boolean) {
   def toByteArray: Array[Byte] = {
@@ -93,4 +96,48 @@ object SpanMetadata {
           None
       }
   }
+
+  private[tracing] def extractSpan(headers: String => Option[String], requireTraceId: Boolean): Either[String, Option[SpanMetadata]] = {
+    def headerLongValue(name: String): Either[String, Option[Long]] =
+      Try(headers(name).map(SpanMetadata.idFromString)) match {
+        case Failure(e) =>
+          Left(name)
+        case Success(v) =>
+          Right(v)
+      }
+    def spanId: Long =
+      headerLongValue(SpanId).right.toOption.flatten.getOrElse(Random.nextLong)
+
+    // debug flag forces sampling (see http://git.io/hdEVug)
+    val maybeForceSampling =
+      headers(Sampled).map(_.toLowerCase) match {
+        case Some("0") | Some("false") =>
+          Some(false)
+        case Some("1") | Some("true") =>
+          Some(true)
+        case _ =>
+          headers(Flags).flatMap(flags =>
+            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption.filter(v => v))
+      }
+
+    maybeForceSampling match {
+      case Some(false) =>
+        Right(None)
+      case _ =>
+        val forceSampling = maybeForceSampling.getOrElse(false)
+        headerLongValue(TraceId).right.map({
+          case Some(traceId) =>
+            headerLongValue(ParentSpanId).right.map { parentId =>
+              Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
+            }
+          //            val parentId = headerLongValue(ParentSpanId).right.getOrElse(None)
+          //            Right(Some(SpanMetadata(traceId, spanId, parentId, forceSampling)))
+          case _ if requireTraceId =>
+            Right(None)
+          case _ =>
+            Right(Some(SpanMetadata(Random.nextLong, spanId, None, forceSampling)))
+        }).joinRight
+    }
+  }
+
 }

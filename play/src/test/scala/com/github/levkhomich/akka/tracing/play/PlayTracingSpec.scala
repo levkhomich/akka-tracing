@@ -219,7 +219,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
           TracingHeaders.Flags -> Seq("malformed")
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
-      receiveSpans() must beEmpty
+      expectSpans(0)
     }
 
     "ignore malformed X-B3-TraceId header" in new WithApplication(fakeApplication) {
@@ -254,7 +254,8 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
-      span.get_trace_id mustEqual traceId
+      // should create new trace instead of using broken one
+      span.get_trace_id mustNotEqual traceId
     }
 
     "ignore malformed X-B3-Sampled header" in new WithApplication(fakeApplication) {

@@ -38,8 +38,10 @@ trait MockCollector { this: Specification =>
   var collector: TServer = startCollector()
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
-  val MaxAwaitTimeout = 300000 // TODO: use a lower value for non travis-ci environments
-  val AwaitTimeout = 4000
+  val ciEnvironment = "true".equals(System.getenv("CI"))
+
+  val MaxAwaitTimeout = 10000 * (if (ciEnvironment) 30 else 1)
+  val AwaitTimeout = 800 * (if (ciEnvironment) 5 else 1)
   val AwaitStep = 100
 
   def startCollector(): TServer = {

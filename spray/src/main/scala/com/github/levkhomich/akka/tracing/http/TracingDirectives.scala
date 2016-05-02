@@ -17,11 +17,11 @@
 package com.github.levkhomich.akka.tracing.http
 
 import java.nio.ByteBuffer
-import scala.util.{ Failure, Random, Try, Success }
+import scala.util.Random
 
 import akka.actor.Actor
 import shapeless._
-import spray.http.{ HttpMessage, HttpRequest, HttpResponse }
+import spray.http.{ HttpRequest, HttpResponse }
 import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.routing._
@@ -35,24 +35,24 @@ trait BaseTracingDirectives {
   import spray.routing.directives.BasicDirectives._
   import spray.routing.directives.RouteDirectives._
   import spray.routing.directives.MiscDirectives._
-  import TracingDirectives._
+  import spray.routing.directives.MarshallingDirectives._
 
   private[this] def tracedEntity[T <: TracingSupport](service: String)(implicit um: FromRequestUnmarshaller[T]): Directive[T :: HNil] =
-    hextract(ctx => ctx.request.as(um) :: extractSpan(ctx.request, requireTraceId = false) :: ctx.request :: HNil).hflatMap[T :: HNil] {
-      case Right(value) :: Right(maybeSpan) :: request :: HNil =>
-        maybeSpan match {
-          case Some(span) =>
-            trace.sample(value, span.spanId, span.parentId, span.traceId, service, span.forceSampling)
-            addHttpAnnotations(value.tracingId, request)
-          case _ =>
+    (entity(um) & requestInstance).hflatMap {
+      case value :: request :: HNil =>
+        def headers(name: String): Option[String] =
+          request.headers.find(_.name == name).map(_.value)
+        SpanMetadata.extractSpan(headers, requireTraceId = false) match {
+          case Right(maybeSpan) =>
+            maybeSpan.foreach { span =>
+              trace.sample(value, span.spanId, span.parentId, span.traceId, service, span.forceSampling)
+              addHttpAnnotations(value.tracingId, request)
+            }
+            provide(value)
+          case Left(malformedHeaderName) =>
+            reject(MalformedHeaderRejection(malformedHeaderName, "invalid value"))
         }
-        hprovide(value :: HNil)
-      case Right(value) :: Left(headerName) :: request :: HNil =>
-        reject(MalformedHeaderRejection(headerName, "invalid value"))
-      case Left(ContentExpected) :: _ => reject(RequestEntityExpectedRejection)
-      case Left(UnsupportedContentType(supported)) :: _ => reject(UnsupportedRequestContentTypeRejection(supported))
-      case Left(MalformedContent(errorMsg, cause)) :: _ => reject(MalformedRequestContentRejection(errorMsg, cause))
-    } & cancelAllRejections(ofTypes(RequestEntityExpectedRejection.getClass, classOf[UnsupportedRequestContentTypeRejection]))
+    }
 
   /**
    * Completes the request using the given function. The input to the function is
@@ -85,7 +85,9 @@ trait BaseTracingDirectives {
   def tracedComplete[T](service: String, rpc: String)(value: => T)(implicit m: ToResponseMarshaller[T]): StandardRoute =
     new StandardRoute {
       def apply(ctx: RequestContext): Unit = {
-        extractSpan(ctx.request, requireTraceId = true) match {
+        def headers(name: String): Option[String] =
+          ctx.request.headers.find(_.name == name).map(_.value)
+        SpanMetadata.extractSpan(headers, requireTraceId = true) match {
           case Right(Some(span)) =>
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
@@ -161,53 +163,3 @@ trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTr
     tracedComplete(self.path.name, rpc)(value)
 
 }
-
-private[http] object TracingDirectives {
-
-  import TracingHeaders._
-
-  def extractSpan(message: HttpMessage, requireTraceId: Boolean): Either[String, Option[SpanMetadata]] = {
-    def headerStringValue(name: String): Option[String] =
-      message.headers.find(_.name == name).map(_.value)
-    def headerLongValue(name: String): Either[String, Option[Long]] =
-      Try(headerStringValue(name).map(SpanMetadata.idFromString)) match {
-        case Failure(e) =>
-          Left(name)
-        case Success(v) =>
-          Right(v)
-      }
-    def spanId: Long =
-      headerLongValue(SpanId).right.toOption.flatten.getOrElse(Random.nextLong)
-
-    // debug flag forces sampling (see http://git.io/hdEVug)
-    val maybeForceSampling =
-      headerStringValue(Sampled).map(_.toLowerCase) match {
-        case Some("0") | Some("false") =>
-          Some(false)
-        case Some("1") | Some("true") =>
-          Some(true)
-        case _ =>
-          headerStringValue(Flags).flatMap(flags =>
-            Try((java.lang.Long.parseLong(flags) & DebugFlag) == DebugFlag).toOption.filter(v => v))
-      }
-
-    maybeForceSampling match {
-      case Some(false) =>
-        Right(None)
-      case _ =>
-        val forceSampling = maybeForceSampling.getOrElse(false)
-        headerLongValue(TraceId).right.map({
-          case Some(traceId) =>
-            headerLongValue(ParentSpanId).right.map { parentId =>
-              Some(SpanMetadata(traceId, spanId, parentId, forceSampling))
-            }
-          case _ if requireTraceId =>
-            Right(None)
-          case _ =>
-            Right(Some(SpanMetadata(Random.nextLong, spanId, None, forceSampling)))
-        }).joinRight
-    }
-  }
-
-}
-
