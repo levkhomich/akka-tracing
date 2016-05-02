@@ -16,15 +16,16 @@
 
 package com.github.levkhomich.akka.tracing
 
-import org.specs2.matcher.MatchResult
-
-import scala.concurrent.{ Await, TimeoutException }
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration.{ FiniteDuration, SECONDS }
 import scala.util.Random
 
 import akka.actor.ActorSystem
 import com.typesafe.config.{ Config, ConfigFactory }
+import org.specs2.execute._
+import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
+import org.specs2.specification.Example
 
 final case class TestMessage(value: String) extends TracingSupport
 
@@ -32,6 +33,21 @@ trait TracingTestCommons { this: Specification =>
 
   val SystemName = "AkkaTracingTestSystem"
   val SomeValue = Random.nextLong().toString
+
+  val ciEnvironment = "true".equals(System.getenv("CI"))
+
+  implicit def inNonCiEnvironment(s: String): InNonCIEnvironment = new InNonCIEnvironment(s)
+
+  class InNonCIEnvironment(s: String) {
+    def inNonCIEnvironment[T: AsResult](r: => T): Example = {
+      def result: T =
+        if (ciEnvironment)
+          throw new SkipException(Skipped("ignored in CI environment"))
+        else
+          r
+      exampleFactory.newExample(s, result)
+    }
+  }
 
   def nextRandomMessage: TestMessage =
     TestMessage(SomeValue)

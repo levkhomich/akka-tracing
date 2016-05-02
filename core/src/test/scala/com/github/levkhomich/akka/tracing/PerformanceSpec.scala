@@ -33,7 +33,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
     val TestMPS = ExpectedMPS + ExpectedMPS / 5
     val BenchmarkDuration = 10 // seconds
 
-    s"process more than $ExpectedMPS messages per second at sample rate $sampleRate" in {
+    s"process more than $ExpectedMPS messages per second at sample rate $sampleRate" inNonCIEnvironment {
       val SpanCount = TestMPS * BenchmarkDuration
 
       val RandomLong = Random.nextLong()
@@ -67,7 +67,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
       spansPerSecond * sampleRate must beGreaterThanOrEqualTo(ExpectedMPS.toLong)
     }
 
-    s"minimize delay before span metadata is available" in {
+    s"minimize delay before span metadata is available" inNonCIEnvironment {
       var failedExports = 0
       def measure(): Long = {
         val msg = nextRandomMessage
@@ -101,7 +101,7 @@ class PerformanceSpec extends Specification with TracingTestCommons with Tracing
 
     val IterationsCount = 5000000L
 
-    "serialize faster than naive implementation" in {
+    "serialize faster than naive implementation" inNonCIEnvironment {
       def naiveLongToString(x: Long): String = {
         val s = java.lang.Long.toHexString(x)
         "0" * (16 - s.length) + s

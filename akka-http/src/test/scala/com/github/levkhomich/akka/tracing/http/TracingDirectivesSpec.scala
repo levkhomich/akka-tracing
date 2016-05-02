@@ -5,7 +5,7 @@ import com.typesafe.config.Config
 import scala.concurrent.Future
 import scala.util.Random
 
-import akka.http.scaladsl.model.headers.{ `Content-Type`, RawHeader }
+import akka.http.scaladsl.model.headers.{ `Content-Encoding`, HttpEncodings, RawHeader }
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.RejectionHandler
@@ -44,11 +44,11 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
     "annotate sampled requests (query params, headers)" in {
       Get(Uri.from(path = testPath, queryString = Some("key=value"))).withHeaders(
-        `Content-Type`(ContentTypes.`text/plain(UTF-8)`)
+        `Content-Encoding`(HttpEncodings.identity)
       ) ~> tracedHandleWithRoute ~> check {
           response.status mustEqual StatusCodes.OK
           val span = receiveSpan()
-          checkBinaryAnnotation(span, "request.headers." + `Content-Type`.name, ContentTypes.`text/plain(UTF-8)`.toString)
+          checkBinaryAnnotation(span, "request.headers." + `Content-Encoding`.name, HttpEncodings.identity.toString)
           checkBinaryAnnotation(span, "request.query.key", "value")
         }
     }

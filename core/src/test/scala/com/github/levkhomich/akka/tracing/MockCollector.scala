@@ -31,17 +31,15 @@ import org.specs2.mutable.Specification
 
 import com.github.levkhomich.akka.tracing.thrift.{ ResultCode, LogEntry }
 
-trait MockCollector { this: Specification =>
+trait MockCollector { this: Specification with TracingTestCommons =>
 
   private[this] var socket = new ServerSocket(0)
   val collectorPort = socket.getLocalPort
   var collector: TServer = startCollector()
   val results = new ConcurrentLinkedQueue[thrift.LogEntry]()
 
-  val ciEnvironment = "true".equals(System.getenv("CI"))
-
   val MaxAwaitTimeout = 10000 * (if (ciEnvironment) 30 else 1)
-  val AwaitTimeout = 800 * (if (ciEnvironment) 5 else 1)
+  val AwaitTimeout = 1000 * (if (ciEnvironment) 4 else 1)
   val AwaitStep = 100
 
   def startCollector(): TServer = {
