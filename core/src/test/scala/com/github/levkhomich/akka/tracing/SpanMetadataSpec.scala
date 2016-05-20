@@ -18,6 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import scala.util.Random
 
+import com.github.kristofa.brave.SpanId
 import org.specs2.mutable.Specification
 
 class SpanMetadataSpec extends Specification {
@@ -27,6 +28,9 @@ class SpanMetadataSpec extends Specification {
   "SpanMetadata" should {
 
     val IterationsCount = 1000000
+    val LongValues = Seq(Long.MaxValue, Long.MinValue, 0L, -1L, 1L, 100L, -100L, 100000L, -100000L)
+    def randomLongValues: Seq[Long] =
+      (1 to IterationsCount).map(_ => Random.nextLong())
 
     "provide id serialization conforming to Finagle's implementation" in {
       def checkValue(x: Long): Unit = {
@@ -36,17 +40,8 @@ class SpanMetadataSpec extends Specification {
           failure(s"SpanId serialization failed for value $x (was $actual instead of $expected)")
       }
 
-      checkValue(Long.MaxValue)
-      checkValue(Long.MinValue)
-      checkValue(0)
-      checkValue(10)
-      checkValue(100)
-      checkValue(100000)
-      checkValue(-10)
-      checkValue(-100)
-      checkValue(-100000)
-
-      (1 to IterationsCount).foreach(_ => checkValue(Random.nextLong()))
+      LongValues.foreach(checkValue)
+      randomLongValues.foreach(checkValue)
 
       success
     }
@@ -91,11 +86,49 @@ class SpanMetadataSpec extends Specification {
         deserialized.isDefined shouldEqual true
         deserialized.get shouldEqual original
       }
-      val longValues = Seq(Long.MaxValue, Long.MinValue, 0L, -1L, 1L, Math.abs(Random.nextLong()), -Math.abs(Random.nextLong()))
       for {
-        traceId <- longValues
-        spanId <- longValues
-        parentId <- longValues.map(Some(_)) :+ None
+        traceId <- LongValues
+        spanId <- LongValues
+        parentId <- LongValues.filterNot(v => v == spanId || v == traceId).map(Some(_)) :+ None
+        forceSampling <- Seq(true, false)
+      } yield check(SpanMetadata(traceId, spanId, parentId, forceSampling))
+      success
+    }
+
+    "provide serialization interop with Brave" in {
+      def check(original: SpanMetadata): Unit = {
+        val serialized = original.toByteArray
+        val braveSerialized = new SpanId(
+          original.traceId,
+          original.parentId.getOrElse(original.spanId), original.spanId, original.flags
+        ).bytes()
+        serialized shouldEqual braveSerialized
+      }
+      for {
+        traceId <- LongValues
+        spanId <- LongValues
+        parentId <- LongValues.filterNot(v => v == spanId || v == traceId).map(Some(_)) :+ None
+        forceSampling <- Seq(true, false)
+      } yield check(SpanMetadata(traceId, spanId, parentId, forceSampling))
+      success
+    }
+
+    "provide deserialization interop with Brave" in {
+      def check(original: SpanMetadata): Unit = {
+        val brave = new SpanId(
+          original.traceId,
+          original.parentId.getOrElse(original.spanId), original.spanId, original.flags
+        )
+        SpanMetadata.fromByteArray(brave.bytes()) match {
+          case None => failure
+          case Some(metadata) =>
+            metadata shouldEqual original
+        }
+      }
+      for {
+        traceId <- LongValues
+        spanId <- LongValues
+        parentId <- LongValues.filterNot(v => v == spanId || v == traceId).map(Some(_)) :+ None
         forceSampling <- Seq(true, false)
       } yield check(SpanMetadata(traceId, spanId, parentId, forceSampling))
       success

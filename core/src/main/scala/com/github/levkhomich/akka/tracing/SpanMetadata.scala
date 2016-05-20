@@ -24,15 +24,16 @@ import com.github.levkhomich.akka.tracing.http.TracingHeaders._
 
 final case class SpanMetadata(traceId: Long, spanId: Long, parentId: Option[Long], forceSampling: Boolean) {
   def toByteArray: Array[Byte] = {
-    val bb = ByteBuffer.allocate(8 + 8 + 1 + parentId.fold(0)(_ => 8) + 1)
-    bb.putLong(traceId)
+    val bb = ByteBuffer.allocate(8 * 4)
     bb.putLong(spanId)
-    bb.put(if (parentId.isDefined) 1.toByte else 0.toByte)
-    parentId.foreach(id =>
-      bb.putLong(id))
-    bb.put(if (forceSampling) 1.toByte else 0.toByte)
+    bb.putLong(parentId.getOrElse(traceId))
+    bb.putLong(traceId)
+    bb.putLong(flags)
     bb.array()
   }
+
+  def flags: Long =
+    if (forceSampling) DebugFlag.toByte else 0.toByte
 }
 
 object SpanMetadata {
@@ -74,19 +75,17 @@ object SpanMetadata {
   }
 
   def fromByteArray(data: Array[Byte]): Option[SpanMetadata] = {
-    if (data == null || data.length != 18 && data.length != 26)
+    if (data == null || data.length != 32)
       None
     else
       try {
         val bb = ByteBuffer.wrap(data)
-        val traceId = bb.getLong
         val spanId = bb.getLong
-        val parentId =
-          if (bb.get == 1)
-            Some(bb.getLong)
-          else
-            None
-        val forceSampling = bb.get == 1
+        val rawParentId = bb.getLong
+        val traceId = bb.getLong
+        val parentId = if (rawParentId == spanId || rawParentId == traceId) None else Some(rawParentId)
+        val flags = bb.getLong
+        val forceSampling = (flags & DebugFlag) == DebugFlag
         if (bb.hasRemaining)
           None
         else
