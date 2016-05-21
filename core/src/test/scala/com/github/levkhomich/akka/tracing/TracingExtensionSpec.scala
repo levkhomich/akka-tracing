@@ -37,7 +37,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       TracingExtension(system) mustEqual TracingExtension.get(system)
     }
 
-    "be disabled in case of wrong config" in {
+    "throw error in case of wrong config" in {
       testActorSystem(maxSpansPerSecond = 0) should throwA[IllegalArgumentException]
       testActorSystem(maxSpansPerSecond = -1) should throwA[IllegalArgumentException]
       testActorSystem(maxSpansPerSecond = -100) should throwA[IllegalArgumentException]
@@ -47,7 +47,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       success
     }
 
-    "enable only if host specified" in {
+    "be enabled only if host specified" in {
       def expect(system: ActorSystem, enabled: Boolean): Unit = {
         system.extension(TracingExtension).isEnabled shouldEqual enabled
         system.shutdown()
@@ -196,6 +196,44 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         testActor ? nextRandomMessage
       }
       expectSpans(messageCount)
+    }
+
+    s"return span metadata after sampling" in {
+      val msg = nextRandomMessage
+      val metadata = trace.sample(msg, "test", force = true).get
+      trace.record(msg, TracingAnnotations.ServerSend)
+
+      val span = receiveSpan()
+
+      span.get_id shouldEqual metadata.spanId
+      span.get_trace_id shouldEqual metadata.traceId
+      span.is_set_parent_id shouldEqual false
+    }
+
+    s"support metadata export" in {
+      val msg = nextRandomMessage
+      trace.sample(msg, "test", force = true)
+      val metadata = trace.exportMetadata(msg).get
+      trace.record(msg, TracingAnnotations.ServerSend)
+
+      val span = receiveSpan()
+
+      span.get_id shouldEqual metadata.spanId
+      span.get_trace_id shouldEqual metadata.traceId
+      span.is_set_parent_id shouldEqual false
+    }
+
+    s"support metadata import" in {
+      val msg = nextRandomMessage
+      val metadata = SpanMetadata(Random.nextLong, Random.nextLong, None, forceSampling = false)
+      trace.importMetadata(msg, metadata, "service")
+      trace.record(msg, TracingAnnotations.ServerSend)
+
+      val span = receiveSpan()
+
+      span.get_id shouldEqual metadata.spanId
+      span.get_trace_id shouldEqual metadata.traceId
+      span.is_set_parent_id shouldEqual false
     }
 
     "send traces after calling flush" in {

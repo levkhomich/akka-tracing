@@ -69,29 +69,29 @@ class PerformanceSpec extends Specification with TracingTestCommons
     }
 
     s"minimize delay before span metadata is available" inNonCIEnvironment {
-      var failedExports = 0
-      def measure(): Long = {
+      def run(): (Long, Long) = {
         val msg = nextRandomMessage
         trace.sample(msg, "test", force = true)
         val start = System.nanoTime()
 
+        var failedExports = 0
         while (trace.exportMetadata(msg).isEmpty)
           failedExports += 1
 
-        val result = System.nanoTime() - start
+        val time = System.nanoTime() - start
         trace.flush(msg)
-        result
+        time -> failedExports
       }
 
-      var sum = 0L
-      for (i <- 1 to ExpectedMPS)
-        sum += measure()
+      val (time, failures) = (1 to ExpectedMPS).map(_ => run()).foldLeft(0L -> 0L) {
+        case ((zt, zf), (t, f)) => (zt + t) -> (zf + f)
+      }
 
       println(
-        s"benchmark result: ${sum / ExpectedMPS} ns metadata availability, $failedExports retries"
+        s"benchmark result: ${time / ExpectedMPS} ns metadata availability, $failures retries"
       )
 
-      failedExports mustEqual 0
+      failures mustEqual 0
     }
 
   }
