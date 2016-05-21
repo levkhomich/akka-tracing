@@ -85,7 +85,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param msg recorded string
    */
   def record(ts: BaseTracingSupport, msg: String): Unit =
-    record(ts.tracingId, msg)
+    addAnnotation(ts.tracingId, msg)
 
   /**
    * Attaches an exception's stack trace to trace.
@@ -93,7 +93,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param e recorded exception
    */
   def record(ts: BaseTracingSupport, e: Throwable): Unit =
-    record(ts, getStackTrace(e))
+    addAnnotation(ts.tracingId, getStackTrace(e))
 
   /**
    * Attaches an annotation to trace.
@@ -101,7 +101,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
    * @param annotation recorded annotation
    */
   def record(ts: BaseTracingSupport, annotation: TracingAnnotation): Unit =
-    record(ts, annotation.text)
+    addAnnotation(ts.tracingId, annotation.text)
 
   /**
    * Records key-value pair and attaches it to trace's binary annotations.
@@ -246,10 +246,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       holder ! SubmitSpans(spans)
 
   // Internal API, can be changed at any time
-
-  private[tracing] def record(tracingId: Long, msg: String): Unit =
-    if (isEnabled)
-      holder ! AddAnnotation(tracingId, System.nanoTime, msg)
 
   private[tracing] def sample(ts: BaseTracingSupport, spanId: Long, parentId: Option[Long], traceId: Long,
                               service: String, force: Boolean): Option[SpanMetadata] =

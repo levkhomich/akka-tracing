@@ -17,6 +17,7 @@
 package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
+
 import scala.concurrent.duration.MILLISECONDS
 import scala.util.Random
 
@@ -197,6 +198,34 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       expectSpans(messageCount)
     }
 
+    "send traces after calling flush" in {
+      val testActor = TestActorRef(new ActorTracing {
+        override def receive: Receive = {
+          case msg @ TestMessage(content) =>
+            trace.sample(msg, "test")
+        }
+      })
+      def getDelay: Long = {
+        val start = System.currentTimeMillis
+        val msg = nextRandomMessage
+        testActor ! msg
+        results.size shouldEqual 0
+        trace.flush(msg)
+        expectSpans(1)
+        System.currentTimeMillis - start
+      }
+      val messageCount = 100
+      val avgDelay = (0 until messageCount).map(_ => getDelay).sum / messageCount
+      avgDelay should be lessThan 5000
+    }
+
+    "support raw spans" in {
+      val span = new thrift.Span(Random.nextLong, Random.nextString(10), Random.nextLong, null, null)
+      trace.submitSpans(Seq(span))
+      val received = receiveSpan()
+      received shouldEqual span
+    }
+
     "handle collector connectivity problems" in {
       collector.stop()
       generateTraces(100, trace)
@@ -211,7 +240,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       generateTraces(10, trace)
       Thread.sleep(500)
       terminateActorSystem(system)
-      //      expectSpans(10)
+      expectSpans(10)
     }
   }
 

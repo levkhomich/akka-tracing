@@ -44,7 +44,7 @@ class TracingLogger extends Actor with ActorTracing {
     case e: LogEvent =>
       e.mdc.get(TracingActorLogging.TracingIdKey) match {
         case Some(tracingId: Long) =>
-          trace.record(tracingId, e.getClass.getSimpleName + ": " + e.message)
+          trace.addAnnotation(tracingId, e.getClass.getSimpleName + ": " + e.message)
         case _ =>
         // do nothing
       }

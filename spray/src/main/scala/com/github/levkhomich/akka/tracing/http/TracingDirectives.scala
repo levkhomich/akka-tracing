@@ -129,7 +129,7 @@ trait BaseTracingDirectives {
           override def marshalTo(entity: HttpResponse): Unit = {
             super.marshalTo(entity)
             // TODO: use `finish` call after tracedComplete will be removed
-            trace.record(tracingId, TracingAnnotations.ServerSend.text)
+            trace.addAnnotation(tracingId, TracingAnnotations.ServerSend.text)
           }
         })
       }

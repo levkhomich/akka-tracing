@@ -87,7 +87,7 @@ trait BaseTracingDirectives {
 
   private[this] def traceServerSend[T](tracingId: Long)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
     m.compose { v =>
-      trace.record(tracingId, TracingAnnotations.ServerSend.text)
+      trace.addAnnotation(tracingId, TracingAnnotations.ServerSend.text)
       v
     }
 
