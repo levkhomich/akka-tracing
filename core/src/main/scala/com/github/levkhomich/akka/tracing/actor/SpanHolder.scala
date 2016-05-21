@@ -25,12 +25,12 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.{ ActorLogging, Cancellable }
 import akka.stream.actor.{ ActorPublisher, ActorPublisherMessage }
 
-import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata, thrift }
+import com.github.levkhomich.akka.tracing.{ TracingAnnotation, TracingAnnotations, SpanMetadata, thrift }
 
 private[tracing] object SpanHolder {
   final case class Enqueue(tracingId: Long, cancelJob: Boolean)
 
-  final case class Sample(tracingId: Long, metadata: SpanMetadata,
+  final case class Sample(initialAnnotation: TracingAnnotation, tracingId: Long, metadata: SpanMetadata,
                           serviceName: String, rpcName: String, timestamp: Long)
   final case class Receive(tracingId: Long, serviceName: String, rpcName: String, timestamp: Long)
   final case class AddAnnotation(tracingId: Long, timestamp: Long, msg: String)
@@ -61,9 +61,9 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
   private[this] val microTimeAdjustment = System.currentTimeMillis * 1000 - System.nanoTime / 1000
 
   override def receive: Receive = {
-    case m @ Sample(tracingId, metadata, serviceName, rpcName, timestamp) =>
+    case m @ Sample(initialAnnotation, tracingId, metadata, serviceName, rpcName, timestamp) =>
       if (!spans.contains(tracingId)) {
-        val annotations = recvAnnotationList(tracingId, serviceName, timestamp)
+        val annotations = toAnnotationList(initialAnnotation, tracingId, serviceName, timestamp)
         createSpan(tracingId, metadata.spanId, metadata.parentId, metadata.traceId, rpcName, annotations)
       }
 
@@ -74,7 +74,7 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
     case Receive(tracingId, serviceName, rpcName, timestamp) =>
       spans.get(tracingId).foreach { span =>
         if (span.get_annotations_size() == 0) {
-          span.set_annotations(recvAnnotationList(tracingId, serviceName, timestamp))
+          span.set_annotations(toAnnotationList(TracingAnnotations.ServerReceived, tracingId, serviceName, timestamp))
         }
       }
 
@@ -141,9 +141,9 @@ private[tracing] class SpanHolder() extends ActorPublisher[thrift.Span] with Act
     endpoint
   }
 
-  private[this] def recvAnnotationList(tracingId: Long, serviceName: String, nanoTime: Long): util.ArrayList[thrift.Annotation] = {
+  private[this] def toAnnotationList(annotation: TracingAnnotation, tracingId: Long, serviceName: String, nanoTime: Long): util.ArrayList[thrift.Annotation] = {
     val endpoint = newEndpoint(tracingId, serviceName)
-    val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), TracingAnnotations.ServerReceived.text)
+    val serverRecvAnn = new thrift.Annotation(adjustedMicroTime(nanoTime), annotation.text)
     serverRecvAnn.set_host(endpoint)
     val annotations = new util.ArrayList[thrift.Annotation]()
     annotations.add(serverRecvAnn)

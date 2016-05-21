@@ -92,7 +92,8 @@ trait BaseTracingDirectives {
             // only requests with explicit tracing headers can be traced here, because we don't have
             // any clues about spanId generated for unmarshalled entity
             val tracingId = Random.nextLong()
-            trace.sample(tracingId, span.spanId, span.parentId, span.traceId, service, rpc, span.forceSampling)
+            trace.sample(TracingAnnotations.ServerReceived, tracingId, span.spanId,
+              span.parentId, span.traceId, service, rpc, span.forceSampling)
             addHttpAnnotations(tracingId, ctx.request)
             ctx.complete(value)(traceServerSend(tracingId))
 

@@ -38,7 +38,8 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
     SpanMetadata.extractSpan(headers, requireTraceId = false) match {
       case Right(None) =>
       case Right(Some(span)) =>
-        trace.sample(request.tracingId, span.spanId, span.parentId, span.traceId, serviceName, request.spanName, span.forceSampling)
+        trace.sample(TracingAnnotations.ServerReceived, request.tracingId, span.spanId,
+          span.parentId, span.traceId, serviceName, request.spanName, span.forceSampling)
       case Left(_) =>
         trace.sample(request.tracingId, serviceName, request.spanName)
     }
