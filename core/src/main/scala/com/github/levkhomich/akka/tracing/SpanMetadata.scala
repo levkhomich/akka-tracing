@@ -22,7 +22,19 @@ import scala.util.{ Random, Success, Failure, Try }
 
 import com.github.levkhomich.akka.tracing.http.TracingHeaders._
 
+/**
+ * Case class keeping tracing metadata related to a span.
+ * Mainly used in combination with trace.exportMetadata, trace.importMetadata and
+ * variety of sampling call. Can be used for interop with external systems using
+ * different instrumentation frameworks such as Brave or Finagle.
+ */
 final case class SpanMetadata(traceId: Long, spanId: Long, parentId: Option[Long], forceSampling: Boolean) {
+
+  /**
+   * Serializes metadata to its binary representation.
+   *
+   * @return metadata binary representation
+   */
   def toByteArray: Array[Byte] = {
     val bb = ByteBuffer.allocate(8 * 4)
     bb.putLong(spanId)
@@ -74,6 +86,12 @@ object SpanMetadata {
     new DataInputStream(new ByteArrayInputStream(bytes)).readLong
   }
 
+  /**
+   * Tries to deserialize SpanMetadata from its binary representation.
+   *
+   * @param data data to be deserialized
+   * @return Some(metadata) in case of successful deserialization and None otherwise
+   */
   def fromByteArray(data: Array[Byte]): Option[SpanMetadata] = {
     if (data == null || data.length != 32)
       None

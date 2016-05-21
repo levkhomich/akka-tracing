@@ -29,7 +29,7 @@ import org.apache.thrift.transport.{ TSocket, TFramedTransport }
 import com.github.levkhomich.akka.tracing.actor.{ SpanHolder, SpanSubmitter }
 
 /**
- * Tracer instance providing trace related methods.
+ * Akka extension providing tracing functionality.
  * @param system parent actor system
  */
 class TracingExtensionImpl(system: ActorSystem) extends Extension {
@@ -80,23 +80,26 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (!enabled.get()) enabled.set(system.settings.config.getBoolean(AkkaTracingEnabled))
 
   /**
-   * Attaches a string message to trace.
+   * Attaches text annotation to message's span.
+   *
    * @param ts traced message
-   * @param msg recorded string
+   * @param text annotation text
    */
-  def record(ts: BaseTracingSupport, msg: String): Unit =
-    addAnnotation(ts.tracingId, msg)
+  def record(ts: BaseTracingSupport, text: String): Unit =
+    addAnnotation(ts.tracingId, text)
 
   /**
-   * Attaches an exception's stack trace to trace.
+   * Attaches stack trace annotation to message's span.
+   *
    * @param ts traced message
-   * @param e recorded exception
+   * @param e exception to be added
    */
   def record(ts: BaseTracingSupport, e: Throwable): Unit =
     addAnnotation(ts.tracingId, getStackTrace(e))
 
   /**
-   * Attaches an annotation to trace.
+   * Attaches annotation to message's span.
+   *
    * @param ts traced message
    * @param annotation recorded annotation
    */
@@ -104,105 +107,129 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addAnnotation(ts.tracingId, annotation.text)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: String): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(value.getBytes), thrift.AnnotationType.STRING)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Int): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(4).putInt(0, value), thrift.AnnotationType.I32)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Long): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(8).putLong(0, value), thrift.AnnotationType.I64)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Boolean): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(Array[Byte](if (value) 1 else 0)), thrift.AnnotationType.BOOL)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Double): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(8).putDouble(0, value), thrift.AnnotationType.DOUBLE)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Short): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.allocate(2).putShort(0, value), thrift.AnnotationType.I16)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: Array[Byte]): Unit =
     addBinaryAnnotation(ts.tracingId, key, ByteBuffer.wrap(value), thrift.AnnotationType.BYTES)
 
   /**
-   * Records key-value pair and attaches it to trace's binary annotations.
+   * Attaches key-value annotation to message's span.
+   *
    * @param ts traced message
-   * @param key recorded key
-   * @param value recorded value
+   * @param key key
+   * @param value value
    */
   def recordKeyValue(ts: BaseTracingSupport, key: String, value: ByteBuffer): Unit =
     addBinaryAnnotation(ts.tracingId, key, value, thrift.AnnotationType.BYTES)
 
   /**
-   * Enables message tracing, names (rpc name is assumed to be message's class name)
-   * and samples it. After sampling any nth message (defined by akka.tracing.sample-rate setting)
-   * will be actually traced.
+   * Applies sampling to specified message. If message was sampled, starts a trace and
+   * adds ServerReceived annotation.
+   *
+   * Sampling rate is defined by akka.tracing.sample-rate setting.
+   *
    * @param ts traced message
    * @param service service name
    * @param force true if request should be traced ignoring akka.tracing.sample-rate setting
-   * @return Some(metadata) if a span was created or None otherwise
+   * @return Some(metadata) if span was created or None otherwise
    */
   def sample(ts: BaseTracingSupport, service: String, force: Boolean = false): Option[SpanMetadata] =
     sample(ts, Random.nextLong, None, Random.nextLong, service, force)
 
+  /**
+   * Applies sampling to specified message. If message was sampled, starts a trace and
+   * adds ClientSend annotation.
+   *
+   * Sampling rate is defined by akka.tracing.sample-rate setting.
+   *
+   * @param ts traced message
+   * @param service service name
+   * @param force true if request should be traced ignoring akka.tracing.sample-rate setting
+   * @return Some(metadata) if span was sampled or None otherwise
+   */
   def sampleClient(ts: BaseTracingSupport, service: String, force: Boolean = false): Option[SpanMetadata] =
     sample(TracingAnnotations.ClientSend, ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName, force = false)
 
   /**
-   * Enables message tracing, names (rpc name is assumed to be message's class name)
-   * and samples it. Message .
+   * Starts a trace and adds ClientSend annotation to it.
+   *
+   * This call ignores akka.tracing.sample-rate setting.
+   *
    * @param ts traced message
    * @param service service name
-   * @return Some(metadata) if a span was created or None otherwise
+   * @return Some(metadata) if span was sampled or None otherwise
    */
   @deprecated("Use sample(ts, service, force = true)", "0.5")
   def forcedSample(ts: BaseTracingSupport, service: String): Option[SpanMetadata] =
     sample(TracingAnnotations.ServerReceived, ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName, force = true)
 
   /**
-   * Marks request processing start.
+   * Marks request processing start. Sampling must be performed before this call.
+   *
    * @param ts traced message
    * @param service service name
    */
@@ -210,6 +237,14 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     if (isEnabled)
       holder ! Receive(ts.tracingId, service, ts.spanName, System.nanoTime)
 
+  /**
+   * Creates parent-child relationship between specified messages. Child message
+   * is sampled only if parent message was already sampled.
+   *
+   * @param ts child message
+   * @param parent parent message
+   * @return Some(metadata) if child span was sampled or None otherwise
+   */
   def createChild(ts: BaseTracingSupport, parent: BaseTracingSupport): Option[SpanMetadata] =
     if (isEnabled) {
       val childMetadata = getId(parent.tracingId).map(m =>
@@ -222,21 +257,41 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     } else
       None
 
+  /**
+   * Exports tracing metadata related to specified message.
+   *
+   * @param ts traced message
+   * @return Some(metadata) if span was found None if it was not sampled or was already flushed
+   */
   def exportMetadata(ts: BaseTracingSupport): Option[SpanMetadata] =
     getId(ts.tracingId)
 
+  /**
+   * Imports metadata to the system, allowing to continue tracing.
+   * This call ignores sampling policy.
+   *
+   * @param ts child message
+   * @param extMetadata metadata to be imported
+   * @param service service name
+   */
   def importMetadata(ts: BaseTracingSupport, extMetadata: SpanMetadata, service: String): Unit =
     if (isEnabled) {
       metadata.foreach(_.put(ts.tracingId, extMetadata))
       holder ! ImportMetadata(ts.tracingId, extMetadata, service, ts.spanName, System.nanoTime)
     }
 
+  /**
+   * Marks request processing finish by adding ServerSend annotation, flushes associated trace.
+   *
+   * @param ts traced message
+   */
   @deprecated("Use record(ts, TracingAnnotations.ServerSend) instead", "0.5")
   def finish(ts: BaseTracingSupport): Unit =
     record(ts, TracingAnnotations.ServerSend)
 
   /**
    * Flushes all tracing data related to request.
+   *
    * @param ts traced message
    */
   def flush(ts: BaseTracingSupport): Unit = {
@@ -244,6 +299,11 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       holder ! Enqueue(ts.tracingId, cancelJob = true)
   }
 
+  /**
+   * Submits specified spans skipping any content checks.
+   *
+   * @param spans spans to be sent
+   */
   def submitSpans(spans: TraversableOnce[thrift.Span]): Unit =
     if (isEnabled)
       holder ! SubmitSpans(spans)
@@ -291,6 +351,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
  * - akka.tracing.port - Scribe or Zipkin collector port (9410 by default)
  * - akka.tracing.sample-rate - trace sample rate, means that every nth message will be sampled
  * - akka.tracing.enabled - defaults to true, can be used to disable tracing
+ * - akka.tracing.max-spans-per-second - back pressure setting, allowing to discard any
+ *   span sampling above specified limit, defaults to 10000
  *
  */
 object TracingExtension extends ExtensionId[TracingExtensionImpl] with ExtensionIdProvider {

@@ -16,15 +16,14 @@
 
 package com.github.levkhomich.akka.tracing
 
-import akka.AroundReceiveOverrideHack
-
 import scala.language.implicitConversions
 
 import akka.actor.Actor
+import akka.AroundReceiveOverrideHack
 
 /**
- * Scala API: Mix in ActorTracing into your Actor to easily obtain a reference to a tracer,
- * which is available under the name "trace".
+ * Trait providing tracing capabilities to Actors.
+ * Use `trace` field to access them.
  *
  * {{{
  * class MyActor extends Actor with ActorTracing {

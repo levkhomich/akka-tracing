@@ -55,12 +55,13 @@ class ResponseTracingSupport[T](val msg: T) extends AnyVal {
 
   /**
    * Declares message as a response to another message.
-   * @param request parent message
+   * @param ts parent message
    * @return unchanged message
    */
-  def asResponseTo(request: BaseTracingSupport)(implicit trace: TracingExtensionImpl): T = {
-    trace.record(request, "response: " + msg)
-    trace.record(request, TracingAnnotations.ServerSend)
+  @deprecated("use trace.record(ts, TracingAnnotations.ServerSend) instead", "0.5")
+  def asResponseTo(ts: BaseTracingSupport)(implicit trace: TracingExtensionImpl): T = {
+    trace.record(ts, "response: " + msg)
+    trace.record(ts, TracingAnnotations.ServerSend)
     msg
   }
 }
