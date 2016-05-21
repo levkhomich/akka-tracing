@@ -17,11 +17,10 @@
 package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
-import java.util.concurrent.TimeoutException
-import scala.concurrent.Await
-import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS }
+import scala.concurrent.duration.MILLISECONDS
 import scala.util.Random
 
+import akka.actor._
 import akka.testkit.TestActorRef
 import akka.util.Timeout
 import org.specs2.matcher.MatchResult
@@ -35,6 +34,37 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
 
     "be obtainable using Akka Plugin API" in {
       TracingExtension(system) mustEqual TracingExtension.get(system)
+    }
+
+    "be disabled in case of wrong config" in {
+      testActorSystem(maxSpansPerSecond = 0) should throwA[IllegalArgumentException]
+      testActorSystem(maxSpansPerSecond = -1) should throwA[IllegalArgumentException]
+      testActorSystem(maxSpansPerSecond = -100) should throwA[IllegalArgumentException]
+      testActorSystem(maxSpansPerSecond = Int.MinValue) should throwA[IllegalArgumentException]
+      testActorSystem(sampleRate = -1) should throwA[IllegalArgumentException]
+      testActorSystem(sampleRate = -100) should throwA[IllegalArgumentException]
+      success
+    }
+
+    "enable only if host specified" in {
+      def expect(system: ActorSystem, enabled: Boolean): Unit = {
+        system.extension(TracingExtension).isEnabled shouldEqual enabled
+        system.shutdown()
+      }
+      expect(testActorSystem(tracingHost = None), enabled = false)
+      expect(testActorSystem(tracingHost = Some(DefaultTracingHost)), enabled = true)
+      success
+    }
+
+    "support `disabled` setting" in {
+      def test(enabled: java.lang.Boolean): Unit = {
+        val system = testActorSystem(settings = Map(TracingExtension.AkkaTracingEnabled -> enabled))
+        system.extension(TracingExtension).isEnabled shouldEqual enabled
+        system.shutdown()
+      }
+      test(true)
+      test(false)
+      success
     }
 
     "sample at specified rate" in {

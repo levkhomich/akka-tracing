@@ -37,7 +37,8 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
   import TracingExtension._
   import SpanHolder._
 
-  private[this] val enabled = new AtomicBoolean(system.settings.config.getBoolean(AkkaTracingEnabled))
+  private[this] val defaultEnabled = system.settings.config.getBoolean(AkkaTracingEnabled)
+  private[this] val enabled = new AtomicBoolean(false)
   private[this] val msgCounter = new AtomicLong()
   private[this] val sampleRate = system.settings.config.getInt(AkkaTracingSampleRate)
 
@@ -48,15 +49,17 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
 
   private[tracing] val holder = {
     val config = system.settings.config
+    if (config.hasPath(AkkaTracingHost) && defaultEnabled) {
+      val maxSpansPerSecond = config.getInt(AkkaTracingMaxSpansPerSecond)
+      require(maxSpansPerSecond > 0, s"invalid $AkkaTracingMaxSpansPerSecond = $maxSpansPerSecond (should be > 0)")
+      require(sampleRate > 0, s"invalid $AkkaTracingSampleRate = $sampleRate (should be > 0)")
+      enabled.set(defaultEnabled)
 
-    if (config.hasPath(AkkaTracingHost) && isEnabled) {
-      val transport = new TFramedTransport(
-        new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
-      )
       system.actorOf(Props({
         val holder = new SpanHolder()
-        val maxSpansPerSecond = config.getInt(AkkaTracingMaxSpansPerSecond)
-        require(maxSpansPerSecond > 0, s"invalid $AkkaTracingMaxSpansPerSecond = $maxSpansPerSecond (should be > 0)")
+        val transport = new TFramedTransport(
+          new TSocket(config.getString(AkkaTracingHost), config.getInt(AkkaTracingPort))
+        )
         val submitter = holder.context.actorOf(Props(classOf[SpanSubmitter], transport, maxSpansPerSecond), "spanSubmitter")
         ActorPublisher(holder.self).subscribe(ActorSubscriber(submitter))
         holder

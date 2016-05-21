@@ -16,9 +16,11 @@
 
 package com.github.levkhomich.akka.tracing.play
 
+import scala.collection.JavaConversions._
+import scala.collection.immutable.Set
 import scala.concurrent.{ Await, Future }
 import scala.util.Random
-import scala.collection.immutable.Set
+
 import play.api.{ GlobalSettings, Play }
 import play.api.http.Writeable
 import play.api.libs.iteratee.Enumerator
@@ -28,7 +30,6 @@ import org.specs2.matcher._
 
 import com.github.levkhomich.akka.tracing._
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
-import scala.collection.JavaConversions._
 
 class PlayTracingSpec extends PlaySpecification with TracingTestCommons with MockCollector with Results with ResultMatchers {
 
@@ -40,6 +41,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   implicit def trace: TracingExtensionImpl = TracingExtension(_root_.play.libs.Akka.system)
 
   val configuration = Map(
+    TracingExtension.AkkaTracingHost -> DefaultTracingHost,
     TracingExtension.AkkaTracingPort -> collectorPort
   )
   val routes: PartialFunction[(String, String), Handler] = {

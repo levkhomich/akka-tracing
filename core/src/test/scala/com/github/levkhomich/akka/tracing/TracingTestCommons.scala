@@ -30,6 +30,7 @@ final case class TestMessage(value: String) extends TracingSupport
 trait TracingTestCommons { this: Specification =>
 
   val SystemName = "AkkaTracingTestSystem"
+  val DefaultTracingHost = "localhost"
   val SomeValue = Random.nextLong().toString
 
   val ciEnvironment = "true".equals(System.getenv("CI"))
@@ -37,10 +38,12 @@ trait TracingTestCommons { this: Specification =>
   def nextRandomMessage: TestMessage =
     TestMessage(SomeValue)
 
-  def testConfig(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): Config =
+  def testConfig(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,
+                 tracingHost: Option[String] = Some(DefaultTracingHost)): Config =
     ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
       Map(
         TracingExtension.AkkaTracingSampleRate -> sampleRate,
+        TracingExtension.AkkaTracingMaxSpansPerSecond -> maxSpansPerSecond,
         TracingExtension.AkkaTracingPort -> (this match {
           case mc: MockCollector =>
             mc.collectorPort
@@ -49,11 +52,12 @@ trait TracingTestCommons { this: Specification =>
         }),
         "akka.test.default-timeout" -> "2000 ms",
         "akka.test.timefactor" -> (if (ciEnvironment) "4" else "1")
-      ) ++ settings
+      ) ++ settings ++ tracingHost.map(TracingExtension.AkkaTracingHost -> _).toMap
     ))
 
-  def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty): ActorSystem = {
-    val system = ActorSystem(SystemName, testConfig(sampleRate, settings))
+  def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,
+                      tracingHost: Option[String] = Some(DefaultTracingHost)): ActorSystem = {
+    val system = ActorSystem(SystemName, testConfig(sampleRate, settings, maxSpansPerSecond, tracingHost))
     // wait for system to boot
     Thread.sleep(50)
     system
