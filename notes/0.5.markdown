@@ -1,7 +1,24 @@
+New features:
+
+* Akka HTTP support
+* Spray client support
+* automatic tracing context propagation for messages serialized by Akka facilities
+* support for custom context propagation via tracing metadata API calls
+* `trace.flush` call forcing the extension to submit a span
+* `trace.sampleClient` call to initiate traces from client side
+
 Improvements:
 
-* span processing pipeline implementation now uses akka-stream underneath;
-* mutable fields were removed from `TracingSupport`;
-* spray integration: reject requests with broken tracing headers;
-* greatly improved test coverage and quality;
-* [bug fixes](https://github.com/levkhomich/akka-tracing/issues?labels=bug&milestone=5&page=1&state=closed).
+* greatly improved test coverage
+* better interoperability with [Brave](https://github.com/openzipkin/brave)
+* span processing pipeline implementation now uses akka-stream underneath
+* backpressure implementation for thrift transport
+* black lists for automatically tracked HTTP headers
+* mutable fields were removed from `TracingSupport`
+* spray integration: reject requests with broken tracing headers
+
+API changes:
+
+* `trace.forcedSample` was deprecated, use `trace.sample(force = true)` instead
+* `child.asChildOf(parent)` was deprecated, use `trace.createChild(parent, child)` instead
+* `trace.finish` was deprecated, use `trace.record(ts, TracingAnnotations.ServerSend)` instead
