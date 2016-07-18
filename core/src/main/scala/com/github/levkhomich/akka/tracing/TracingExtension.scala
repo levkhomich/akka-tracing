@@ -187,7 +187,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     addBinaryAnnotation(ts.tracingId, key, value, thrift.AnnotationType.BYTES)
 
   /**
-   * Applies sampling to specified message. If message was sampled, starts a trace and
+   * Applies sampling to specified message on server side. If message was sampled, starts a trace and
    * adds ServerReceived annotation.
    *
    * Sampling rate is defined by akka.tracing.sample-rate setting.
@@ -201,7 +201,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     sample(ts, Random.nextLong, None, Random.nextLong, service, force)
 
   /**
-   * Applies sampling to specified message. If message was sampled, starts a trace and
+   * Applies sampling to specified message on client side. If message was sampled, starts a trace and
    * adds ClientSend annotation.
    *
    * Sampling rate is defined by akka.tracing.sample-rate setting.
