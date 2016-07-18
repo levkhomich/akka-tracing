@@ -14,6 +14,13 @@ public abstract class TracingSupport implements BaseTracingSupport, Serializable
         return this.getClass().getSimpleName();
     }
 
+    @Override
+    public long tracingId() {
+        long a = System.identityHashCode(this);
+        long b = hashCode();
+        return a << 32 | b & 0xFFFFFFFFL;
+    }
+
     @Deprecated
     @Override
     public BaseTracingSupport asChildOf(BaseTracingSupport parent, TracingExtensionImpl tracer) {
