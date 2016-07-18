@@ -235,7 +235,7 @@ object Dependencies {
     val akkaTest     = "com.typesafe.akka"   %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka"   %% "akka-slf4j"          % AkkaVersion % "test"
-    val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit-experimental" % AkkaStreamVersion
+    val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit-experimental" % AkkaStreamVersion % "test"
     val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.1.3"     % "test"
   }
 
