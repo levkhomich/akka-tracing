@@ -20,8 +20,7 @@ import java.nio.ByteBuffer
 
 import akka.actor.ExtendedActorSystem
 import akka.serialization.{ JavaSerializer, Serializer }
-
-import com.github.levkhomich.akka.tracing.{ TracingExtension, BaseTracingSupport }
+import com.github.levkhomich.akka.tracing.{ BaseTracingSupport, TracingExtension }
 
 class BaseTracingSupportSerializer(system: ExtendedActorSystem) extends SerializerTracingSupport(system, new JavaSerializer(system))
 

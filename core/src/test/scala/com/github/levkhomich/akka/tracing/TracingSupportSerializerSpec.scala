@@ -27,7 +27,6 @@ import org.specs2.mutable.Specification
 class TracingSupportSerializerSpec extends Specification with TracingTestCommons with MockCollector {
 
   sequential
-
   "TracingSupportSerializer" should {
     val baseConfig = Map(
       "akka.actor.provider" -> "akka.remote.RemoteActorRefProvider",
