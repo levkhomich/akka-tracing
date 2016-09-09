@@ -324,7 +324,7 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       && (force || msgCounter.incrementAndGet() % sampleRate == 0)) {
       val m = SpanMetadata(traceId, spanId, parentId, forceSampling = true)
       metadata.foreach(_.put(tracingId, m))
-      holder ! Sample(TracingAnnotations.ServerReceived, tracingId, m, service, rpc, System.nanoTime)
+      holder ! Sample(initialAnnotation, tracingId, m, service, rpc, System.nanoTime)
       Some(m)
     } else
       None
