@@ -16,7 +16,7 @@ object AkkaTracingBuild extends Build {
     scalariformSettings ++
     Seq (
       organization := "com.github.levkhomich",
-      version := "0.5.1",
+      version := "0.5.2",
       homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
       startYear := Some(2014),
       licenses := Seq("Apache Public License 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
@@ -230,7 +230,7 @@ object Dependencies {
 
     val specs        = "org.specs2"          %% "specs2"              % "3.0-M2"    % "test"
     val finagle      = "com.twitter"         %% "finagle-core"        % "6.28.0"    % "test"
-    val braveCore    = "com.github.kristofa" %  "brave-core"          % "3.7.0"     % "test"
+    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "3.14.1"    % "test"
     val playTest     = "com.typesafe.play"   %% "play-test"           % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka"   %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion % "test"

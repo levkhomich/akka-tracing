@@ -18,7 +18,7 @@ package com.github.levkhomich.akka.tracing
 
 import scala.util.Random
 
-import com.github.kristofa.brave.SpanId
+import com.github.kristofa.brave.{ IdConversion, SpanId }
 import org.specs2.mutable.Specification
 
 class SpanMetadataSpec extends Specification with TracingTestCommons with NonJava6EnvironmentFilter {
@@ -54,7 +54,7 @@ class SpanMetadataSpec extends Specification with TracingTestCommons with NonJav
           failure(s"SpanId deserialization failed for value $x (was $actual instead of $expected)")
       }
 
-      checkValue("FFFFFFFFFFFFFFFF")
+      checkValue("ffffffffffffffff")
       checkValue("0")
       checkValue("00")
       checkValue("0000000000000000")
@@ -75,8 +75,37 @@ class SpanMetadataSpec extends Specification with TracingTestCommons with NonJav
       SpanMetadata.idFromString(null) must throwAn[NumberFormatException]
       SpanMetadata.idFromString("") must throwAn[NumberFormatException]
       SpanMetadata.idFromString("not a number") must throwAn[NumberFormatException]
-      SpanMetadata.idFromString("11111111111111111") must throwAn[NumberFormatException]
-      SpanMetadata.idFromString("11111111111111111") must throwAn[NumberFormatException]
+    }
+
+    "tolerate up to 128-bit span ids by dropping higher bits" in {
+      def checkValue(x: String): Unit = {
+        val actual = SpanMetadata.idFromString(x)
+        val expected = IdConversion.convertToLong(x)
+        if (actual != expected)
+          failure(s"SpanId deserialization failed for value $x (was $actual instead of $expected)")
+      }
+
+      checkValue("463ac35c9f6413ad48485a3953bb612412") should throwA[NumberFormatException]
+
+      checkValue("463ac35c9f6413ad48485a3953bb6124")
+      checkValue("463ac35c9f6413ad48485a3953")
+      checkValue("463ac35c9f6413ad48485")
+      checkValue("463ac35c9f6413ad")
+      checkValue("ffffffffffffffffffffffffffffffff")
+      checkValue("0")
+      checkValue("00")
+      checkValue("00000000000000000000000000000000")
+      checkValue("1")
+      checkValue("11")
+      checkValue("111")
+
+      for (_ <- 1L to IterationsCount)
+        checkValue {
+          val str = Random.nextLong().toString.replace("-", "")
+          str.substring(0, (Random.nextInt(15) + 1) min str.length)
+        }
+
+      success
     }
 
     "provide metadata [de]serialization support" in {
