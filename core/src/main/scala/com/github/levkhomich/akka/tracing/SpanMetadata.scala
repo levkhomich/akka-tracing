@@ -71,19 +71,25 @@ object SpanMetadata {
   }
 
   private[tracing] def idFromString(x: String): Long = {
-    if (x == null || x.length == 0 || x.length > 16)
-      throw new NumberFormatException("Invalid span id string: " + x)
-    val s =
-      if (x.length % 2 == 0) x
-      else "0" + x
-    val bytes = new Array[Byte](8)
-    val start = 7 - (s.length + 1) / 2
-    (s.length until 0 by -2).foreach {
-      i =>
-        val x = Integer.parseInt(s.substring(i - 2, i), 16).toByte
-        bytes.update(start + i / 2, x)
+    if (x == null || x.length == 0) {
+      throw new NumberFormatException("Empty span id")
+    } else if (x.length > 32) {
+      throw new NumberFormatException("Span id is too long: " + x)
+    } else if (x.length > 16) {
+      idFromString(x.takeRight(16))
+    } else {
+      val s =
+        if (x.length % 2 == 0) x
+        else "0" + x
+      val bytes = new Array[Byte](8)
+      val start = 7 - (s.length + 1) / 2
+      (s.length until 0 by -2).foreach {
+        i =>
+          val x = Integer.parseInt(s.substring(i - 2, i), 16).toByte
+          bytes.update(start + i / 2, x)
+      }
+      new DataInputStream(new ByteArrayInputStream(bytes)).readLong
     }
-    new DataInputStream(new ByteArrayInputStream(bytes)).readLong
   }
 
   /**
