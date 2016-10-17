@@ -16,17 +16,16 @@
 
 package com.github.levkhomich.akka.tracing.play
 
+import javax.inject.Inject
 import scala.collection.JavaConversions._
-import scala.collection.immutable.Set
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.Await
 import scala.util.Random
 
-import play.api.{ GlobalSettings, Play }
-import play.api.http.Writeable
-import play.api.libs.iteratee.Enumerator
+import akka.actor.ActorSystem
+import org.specs2.matcher._
+import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.mvc._
 import play.api.test._
-import org.specs2.matcher._
 
 import com.github.levkhomich.akka.tracing._
 import com.github.levkhomich.akka.tracing.http.TracingHeaders
@@ -35,77 +34,38 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
   sequential
 
-  val TestPath = "/request"
-  val TestErrorPath = "/error"
-  val npe = new NullPointerException
-  implicit def trace: TracingExtensionImpl = TracingExtension(_root_.play.libs.Akka.system)
+  implicit def trace(@Inject system: ActorSystem): TracingExtensionImpl = TracingExtension(system)
 
-  val configuration = Map(
+  val configuration: Map[String, Any] = Map(
     TracingExtension.AkkaTracingHost -> DefaultTracingHost,
     TracingExtension.AkkaTracingPort -> collectorPort
   )
+  val TestPath = "/request"
   val routes: PartialFunction[(String, String), Handler] = {
     case ("GET", TestPath) =>
-      Action {
-        Ok("response") as "text/plain"
-      }
-    case ("GET", TestErrorPath) =>
-      Action {
-        throw npe
-        Ok("response") as "text/plain"
-      }
+      Action(Ok("response") as "text/plain")
   }
 
-  def fakeApplication: FakeApplication = FakeApplication(
-    withRoutes = routes,
-    withGlobal = Some(new GlobalSettings with TracingSettings),
-    additionalConfiguration = configuration
-  )
+  def fakeApplication = GuiceApplicationBuilder().routes(routes).configure(configuration).build
 
-  def overriddenApplication(overriddenServiceName: String = "test", queryParams: Set[String] = Set.empty, headerKeys: Set[String] = Set.empty) = FakeApplication(
-    withRoutes = routes,
-    withGlobal = Some(new GlobalSettings with TracingSettings {
-      override lazy val serviceName = overriddenServiceName
-      override lazy val excludedQueryParams = queryParams
-      override lazy val excludedHeaders = headerKeys
-    }),
-    additionalConfiguration = configuration
-  )
-
-  def disabledLocalSamplingApplication: FakeApplication = FakeApplication(
-    withRoutes = routes,
-    withGlobal = Some(new GlobalSettings with TracingSettings),
-    additionalConfiguration = configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> Int.MaxValue)
-  )
+  def disabledLocalSamplingApplication = GuiceApplicationBuilder().routes(routes).
+    configure(configuration ++ Map(TracingExtension.AkkaTracingSampleRate -> Int.MaxValue)).build
 
   "Play tracing" should {
     "sample requests" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(app, FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       expectSpans(1)
     }
 
     "use play application name as the default end point name" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(app, FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
-      span.annotations.map(_.get_host().get_service_name()) must beEqualTo(_root_.play.libs.Akka.system.name).forall
-    }
-
-    "enable overriding the service name for the end point name" in new WithApplication(overriddenApplication(overriddenServiceName = "test service")) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      span.annotations.map(_.get_host().get_service_name()) must beEqualTo("test service").forall
-    }
-
-    "not allow to use RequestHeaders as child of other request" in new WithApplication(fakeApplication) {
-      val parent = new TracingSupport {}
-      val request = FakeRequest("GET", TestPath)
-      new PlayControllerTracing {
-        request.asChildOf(parent)
-      } must throwA[IllegalStateException]
+      private val expName = "application" // TODO: find a constant for it
+      span.annotations.map(_.get_host().get_service_name()) must beEqualTo(Seq(expName, expName))
     }
 
     "annotate sampled requests (general)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(app, FakeRequest("GET", TestPath)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.path", TestPath)
       checkBinaryAnnotation(span, "request.method", "GET")
@@ -114,41 +74,21 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "annotate sampled requests (query params, headers)" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
+      val result = route(app, FakeRequest("GET", TestPath + "?key=value",
+        FakeHeaders(Seq("Content-Type" -> "text/plain")), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       val span = receiveSpan()
       checkBinaryAnnotation(span, "request.headers.Content-Type", "text/plain")
       checkBinaryAnnotation(span, "request.query.key", "value")
-    }
-
-    "exclude specific query values from annotations when configured" in new WithApplication(overriddenApplication(queryParams = Set("excludedParam"))) {
-      val result = route(FakeRequest("GET", TestPath + "?key=value&excludedParam=value",
-        FakeHeaders(Seq("Content-Type" -> Seq("text/plain"))), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.query.key", "value")
-      checkAbsentBinaryAnnotation(span, "request.query.excludedParam")
-    }
-
-    "exclude specific header fields from annotations when configured" in new WithApplication(overriddenApplication(headerKeys = Set("Excluded"))) {
-      val result = route(FakeRequest("GET", TestPath,
-        FakeHeaders(Seq(
-          "Content-Type" -> Seq("text/plain"),
-          "Excluded" -> Seq("test"),
-          "Included" -> Seq("value")
-        )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      checkBinaryAnnotation(span, "request.headers.Included", "value")
-      checkAbsentBinaryAnnotation(span, "request.headers.Excluded")
     }
 
     "support trace propagation from external service" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
       val parentId = Random.nextLong
 
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
+      val result = route(app, FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(traceId)),
-          TracingHeaders.ParentSpanId -> Seq(SpanMetadata.idToString(parentId))
+          TracingHeaders.TraceId -> SpanMetadata.idToString(traceId),
+          TracingHeaders.ParentSpanId -> SpanMetadata.idToString(parentId)
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
@@ -156,19 +96,13 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
       span.get_trace_id mustEqual traceId
     }
 
-    "record server errors to traces" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestErrorPath)).map(Await.result(_, defaultAwaitTimeout.duration))
-      val span = receiveSpan()
-      checkAnnotation(span, TracingExtension.getStackTrace(npe))
-    }
-
     Seq("1", "true").foreach { value =>
       s"honour upstream's X-B3-Sampled: $value header" in new WithApplication(disabledLocalSamplingApplication) {
         val spanId = Random.nextLong
-        val result = route(FakeRequest("GET", TestPath + "?key=value",
+        val result = route(app, FakeRequest("GET", TestPath + "?key=value",
           FakeHeaders(Seq(
-            TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
-            TracingHeaders.Sampled -> Seq(value)
+            TracingHeaders.TraceId -> SpanMetadata.idToString(spanId),
+            TracingHeaders.Sampled -> value
           )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
         expectSpans(1)
       }
@@ -177,10 +111,10 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     Seq("0", "false").foreach { value =>
       s"honour upstream's X-B3-Sampled: $value header" in new WithApplication(fakeApplication) {
         val spanId = Random.nextLong
-        val result = route(FakeRequest("GET", TestPath + "?key=value",
+        val result = route(app, FakeRequest("GET", TestPath + "?key=value",
           FakeHeaders(Seq(
-            TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
-            TracingHeaders.Sampled -> Seq(value)
+            TracingHeaders.TraceId -> SpanMetadata.idToString(spanId),
+            TracingHeaders.Sampled -> value
           )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
         expectSpans(0)
       }
@@ -189,45 +123,45 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     Seq("1", "true").foreach { value =>
       s"honour upstream's X-B3-Sampled: $value header if X-B3-TraceId is not specified" in new WithApplication(disabledLocalSamplingApplication) {
         val spanId = Random.nextLong
-        val result = route(FakeRequest("GET", TestPath + "?key=value",
+        val result = route(app, FakeRequest("GET", TestPath + "?key=value",
           FakeHeaders(Seq(
-            TracingHeaders.Sampled -> Seq(value)
+            TracingHeaders.Sampled -> value
           )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
         expectSpans(1)
       }
     }
 
     "honour upstream's Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.Flags -> Seq("1")
+          TracingHeaders.Flags -> "1"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       expectSpans(1)
     }
 
     "user regular sampling if X-B3-Flags does not contain Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.Flags -> Seq("2")
+          TracingHeaders.Flags -> "2"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       expectSpans(0)
     }
 
     "ignore malformed X-B3-Flags header" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.Flags -> Seq("malformed")
+          TracingHeaders.Flags -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       expectSpans(0)
     }
 
     "ignore malformed X-B3-TraceId header" in new WithApplication(fakeApplication) {
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq("malformed")
+          TracingHeaders.TraceId -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       expectSpans(1)
@@ -236,10 +170,10 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     "ignore malformed X-B3-SpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(traceId)),
-          TracingHeaders.SpanId -> Seq("malformed")
+          TracingHeaders.TraceId -> SpanMetadata.idToString(traceId),
+          TracingHeaders.SpanId -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
@@ -249,10 +183,10 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     "ignore malformed X-B3-ParentSpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
-      val result = route(FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest("GET", TestPath,
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(traceId)),
-          TracingHeaders.ParentSpanId -> Seq("malformed")
+          TracingHeaders.TraceId -> SpanMetadata.idToString(traceId),
+          TracingHeaders.ParentSpanId -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
 
       val span = receiveSpan()
@@ -262,10 +196,10 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
     "ignore malformed X-B3-Sampled header" in new WithApplication(fakeApplication) {
       val spanId = Random.nextLong
-      val result = route(FakeRequest("GET", TestPath + "?key=value",
+      val result = route(app, FakeRequest("GET", TestPath + "?key=value",
         FakeHeaders(Seq(
-          TracingHeaders.TraceId -> Seq(SpanMetadata.idToString(spanId)),
-          TracingHeaders.Sampled -> Seq("malformed")
+          TracingHeaders.TraceId -> SpanMetadata.idToString(spanId),
+          TracingHeaders.Sampled -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
       expectSpans(1)
     }
@@ -274,23 +208,4 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
   step {
     collector.stop()
   }
-
-  // it seems that play-test doesn't call global.onRequestCompletion and global.onError
-  override def call[T](action: EssentialAction, rh: RequestHeader, body: T)(implicit w: Writeable[T]): Future[Result] = {
-    val rhWithCt = w.contentType.map(ct => rh.copy(
-      headers = FakeHeaders((rh.headers.toMap + ("Content-Type" -> Seq(ct))).toSeq)
-    )).getOrElse(rh)
-    val requestBody = Enumerator(body) &> w.toEnumeratee
-    val result = requestBody |>>> action(rhWithCt).recover {
-      case e =>
-        Play.current.global.onError(rh, e)
-        InternalServerError
-    }
-    result.onComplete {
-      case _ =>
-        Play.current.global.onRequestCompletion(rh)
-    }
-    result
-  }
-
 }

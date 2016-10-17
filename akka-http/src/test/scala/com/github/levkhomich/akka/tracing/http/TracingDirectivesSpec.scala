@@ -90,8 +90,9 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
     def testRejection(error: Exception, statusCode: StatusCode): MatchResult[_] = {
       implicit def um: Unmarshaller[HttpRequest, TestMessage] =
-        Unmarshaller { ctx => request: HttpRequest =>
-          Future.failed(error)
+        Unmarshaller { ctx =>
+          request: HttpRequest =>
+            Future.failed(error)
         }
       val route =
         handleRejections(RejectionHandler.default) {

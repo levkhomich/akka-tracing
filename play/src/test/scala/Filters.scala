@@ -14,21 +14,10 @@
  * limitations under the License.
  */
 
-package com.github.levkhomich.akka.tracing.play
-
 import javax.inject.Inject
 
-import akka.actor.ActorSystem
-import play.api.mvc._
+import play.api.http.DefaultHttpFilters
 
-import com.github.levkhomich.akka.tracing.{ TracingExtension, TracingExtensionImpl }
+import com.github.levkhomich.akka.tracing.play.TracingFilter
 
-trait PlayControllerTracing {
-  @Inject private[this] var system: ActorSystem = null
-
-  protected implicit def requestHeader2TracingSupport(headers: RequestHeader): PlayRequestTracingSupport =
-    new PlayRequestTracingSupport(headers)
-
-  protected implicit def trace: TracingExtensionImpl = TracingExtension(system)
-
-}
+class Filters @Inject() (tracing: TracingFilter) extends DefaultHttpFilters(tracing)

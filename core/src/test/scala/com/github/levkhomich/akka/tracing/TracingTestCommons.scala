@@ -16,8 +16,8 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.concurrent.TimeoutException
-import scala.concurrent.duration.{ FiniteDuration, SECONDS }
+import scala.concurrent.{ Await, TimeoutException }
+import scala.concurrent.duration._
 import scala.util.Random
 
 import akka.actor.ActorSystem
@@ -64,8 +64,7 @@ trait TracingTestCommons { this: Specification =>
   }
 
   def terminateActorSystem(system: ActorSystem): MatchResult[_] = {
-    system.shutdown()
-    system.awaitTermination(FiniteDuration(5, SECONDS)) must not(throwA[TimeoutException])
+    Await.result(system.terminate(), 5.seconds) must not(throwA[TimeoutException])
   }
 
   def generateTraces(count: Int, trace: TracingExtensionImpl): Unit = {

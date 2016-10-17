@@ -16,21 +16,43 @@
 
 package com.github.levkhomich.akka.tracing.play
 
-import scala.concurrent.Future
+import javax.inject.Inject
+import scala.concurrent.ExecutionContext
 
-import play.api.GlobalSettings
-import play.api.libs.iteratee.Iteratee
+import akka.actor.ActorSystem
+import akka.util.ByteString
+import play.api.libs.streams.Accumulator
 import play.api.mvc._
 
-import com.github.levkhomich.akka.tracing.{ TracingAnnotations, SpanMetadata }
+import com.github.levkhomich.akka.tracing.{ SpanMetadata, TracingAnnotations }
 
-trait TracingSettings extends GlobalSettings with PlayControllerTracing {
-
-  lazy val serviceName = play.libs.Akka.system.name
-
+class TracingFilter @Inject() (system: ActorSystem)(implicit ec: ExecutionContext) extends EssentialFilter with PlayControllerTracing {
   lazy val excludedQueryParams = Set.empty[String]
-
   lazy val excludedHeaders = Set.empty[String]
+
+  def apply(next: EssentialAction) = new TracedAction(next) {
+    override def apply(request: RequestHeader) = {
+      super.apply(request)
+      next(request).map { result =>
+        trace.record(request, TracingAnnotations.ServerSend)
+        result
+      }
+    }
+  }
+
+  protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
+    override def apply(request: RequestHeader): Accumulator[ByteString, Result] = {
+      if (requestTraced(request)) {
+        sample(request)
+        addHttpAnnotations(request)
+      }
+      delegateAction(request)
+    }
+
+    override def tagRequest(request: RequestHeader): RequestHeader = {
+      request
+    }
+  }
 
   protected def sample(request: RequestHeader): Unit = {
     def headers(name: String): Option[String] =
@@ -39,9 +61,9 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
       case Right(None) =>
       case Right(Some(span)) =>
         trace.sample(TracingAnnotations.ServerReceived, request.tracingId, span.spanId,
-          span.parentId, span.traceId, serviceName, request.spanName, span.forceSampling)
+          span.parentId, span.traceId, system.name, request.spanName, span.forceSampling)
       case Left(_) =>
-        trace.sample(request.tracingId, serviceName, request.spanName)
+        trace.sample(request.tracingId, system.name, request.spanName)
     }
   }
 
@@ -71,39 +93,4 @@ trait TracingSettings extends GlobalSettings with PlayControllerTracing {
 
   protected def requestTraced(request: RequestHeader): Boolean =
     !request.path.startsWith("/assets")
-
-  protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
-    override def apply(request: RequestHeader): Iteratee[Array[Byte], Result] = {
-      if (requestTraced(request)) {
-        sample(request)
-        addHttpAnnotations(request)
-      }
-      delegateAction(request)
-    }
-
-    override def tagRequest(request: RequestHeader): RequestHeader = {
-      request
-    }
-  }
-
-  override def onRouteRequest(request: RequestHeader): Option[Handler] =
-    super.onRouteRequest(request).map {
-      case alreadyTraced: TracedAction =>
-        alreadyTraced
-      case action: EssentialAction =>
-        new TracedAction(action)
-      case handler =>
-        handler
-    }
-
-  override def onRequestCompletion(request: RequestHeader): Unit = {
-    trace.record(request, TracingAnnotations.ServerSend)
-    super.onRequestCompletion(request)
-  }
-
-  override def onError(request: RequestHeader, ex: Throwable): Future[Result] = {
-    trace.record(request, ex)
-    super.onError(request, ex)
-  }
-
 }

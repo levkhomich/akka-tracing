@@ -11,6 +11,8 @@ import com.github.levkhomich.akka.tracing._
 
 class TracedAskSupportSpec extends Specification with TracingTestCommons with TracingTestActorSystem with MockCollector {
 
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   sequential
 
   "TracedAskSupport" should {

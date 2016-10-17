@@ -21,7 +21,7 @@ import scala.util.Random
 import com.github.kristofa.brave.SpanId
 import org.specs2.mutable.Specification
 
-class SpanMetadataSpec extends Specification with TracingTestCommons with NonJava6EnvironmentFilter {
+class SpanMetadataSpec extends Specification with TracingTestCommons {
 
   sequential
 
@@ -95,7 +95,7 @@ class SpanMetadataSpec extends Specification with TracingTestCommons with NonJav
       success
     }
 
-    "provide serialization interop with Brave" inNonJava6Environment {
+    "provide serialization interop with Brave" in {
       def check(original: SpanMetadata): Unit = {
         val serialized = original.toByteArray
         val braveSerialized = new SpanId(
@@ -113,7 +113,7 @@ class SpanMetadataSpec extends Specification with TracingTestCommons with NonJav
       success
     }
 
-    "provide deserialization interop with Brave" inNonJava6Environment {
+    "provide deserialization interop with Brave" in {
       def check(original: SpanMetadata): Unit = {
         val brave = new SpanId(
           original.traceId,

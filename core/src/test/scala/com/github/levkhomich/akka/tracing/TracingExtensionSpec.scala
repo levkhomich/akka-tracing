@@ -17,7 +17,6 @@
 package com.github.levkhomich.akka.tracing
 
 import java.nio.ByteBuffer
-
 import scala.concurrent.duration.MILLISECONDS
 import scala.util.Random
 
@@ -50,7 +49,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
     "be enabled only if host specified" in {
       def expect(system: ActorSystem, enabled: Boolean): Unit = {
         system.extension(TracingExtension).isEnabled shouldEqual enabled
-        system.shutdown()
+        terminateActorSystem(system)
       }
       expect(testActorSystem(tracingHost = None), enabled = false)
       expect(testActorSystem(tracingHost = Some(DefaultTracingHost)), enabled = true)
@@ -61,7 +60,7 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       def test(enabled: java.lang.Boolean): Unit = {
         val system = testActorSystem(settings = Map(TracingExtension.AkkaTracingEnabled -> enabled))
         system.extension(TracingExtension).isEnabled shouldEqual enabled
-        system.shutdown()
+        terminateActorSystem(system)
       }
       test(true)
       test(false)
