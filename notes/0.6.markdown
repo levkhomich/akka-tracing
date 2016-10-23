@@ -1,0 +1,5 @@
+Compatibility changes:
+
+* core now depends on Akka 2.4
+* Java 6/7, Scala 2.10 and Spray are not supported anymore
+* Play tooling was upgraded for version 2.5
