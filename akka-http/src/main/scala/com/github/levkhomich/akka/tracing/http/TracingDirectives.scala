@@ -27,7 +27,36 @@ import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
 
 import com.github.levkhomich.akka.tracing._
 
+import scala.concurrent.ExecutionContext
+
 trait BaseTracingDirectives {
+
+  /**
+    * Completes the request using the given function. The input to the function is
+    * produced with the in-scope entity unmarshaller and the result value of the
+    * function is marshalled with the in-scope marshaller. Unmarshalled entity is
+    * sampled for tracing and can be used thereafter to add trace annotations.
+    * RPC name is set to unmarshalled entity simple class name.
+    * After marshalling step, trace is automatically closed and sent to collector service.
+    * tracedHandleWith can be a convenient method combining entity with complete.
+    *
+    * @param service service name to be added to trace
+    */
+  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)
+                                              (implicit um: FromRequestUnmarshaller[A],
+                                               m: ToResponseMarshaller[B],
+                                               ec: ExecutionContext): Route = {
+    tracedEntity(service)(um).tapply {
+      case Tuple1(ts) =>
+        StandardRoute { ctx =>
+          val completeFut = ctx.complete(ToResponseMarshallable(f(ts)))
+          completeFut onComplete {
+            _ => trace.record(ts, TracingAnnotations.ServerSend.text)
+          }
+          completeFut
+        }
+    }
+  }
 
   protected def trace: TracingExtensionImpl
 
@@ -45,25 +74,6 @@ trait BaseTracingDirectives {
             provide(value)
           case Left(malformedHeaderName) =>
             reject(MalformedHeaderRejection(malformedHeaderName, "invalid value"))
-        }
-    }
-
-  /**
-   * Completes the request using the given function. The input to the function is
-   * produced with the in-scope entity unmarshaller and the result value of the
-   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
-   * sampled for tracing and can be used thereafter to add trace annotations.
-   * RPC name is set to unmarshalled entity simple class name.
-   * After marshalling step, trace is automatically closed and sent to collector service.
-   * tracedHandleWith can be a convenient method combining entity with complete.
-   *
-   * @param service service name to be added to trace
-   */
-  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
-    tracedEntity(service)(um).tapply {
-      case Tuple1(ts) =>
-        StandardRoute { ctx =>
-          ctx.complete(ToResponseMarshallable(f(ts))(traceServerSend(ts.tracingId)))
         }
     }
 
@@ -85,12 +95,6 @@ trait BaseTracingDirectives {
     }
   }
 
-  private[this] def traceServerSend[T](tracingId: Long)(implicit m: ToResponseMarshaller[T]): ToResponseMarshaller[T] =
-    m.compose { v =>
-      trace.addAnnotation(tracingId, TracingAnnotations.ServerSend.text)
-      v
-    }
-
 }
 
 trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTracing =>
@@ -105,7 +109,9 @@ trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTr
    * and sent to collector service. tracedHandleWith can be a convenient method
    * combining entity with complete.
    */
-  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B]): Route =
+  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A],
+                                                          m: ToResponseMarshaller[B],
+                                                          executionContext: ExecutionContext): Route =
     tracedHandleWith(self.path.name)(f)
 
 }
