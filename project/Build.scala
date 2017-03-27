@@ -7,6 +7,8 @@ import org.scoverage.coveralls.CoverallsPlugin.CoverallsKeys._
 import com.typesafe.sbt.SbtScalariform._
 import scalariform.formatter.preferences._
 
+import sbtdoge.CrossPerProjectPlugin
+
 object AkkaTracingBuild extends Build {
 
   lazy val commonSettings =
@@ -29,6 +31,7 @@ object AkkaTracingBuild extends Build {
   lazy val compilationSettings =
     Seq(
       scalaVersion := "2.11.8",
+      crossScalaVersions := Seq("2.11.8", "2.12.1"),
       javacOptions ++= Seq(
         "-Xlint:all"
       ),
@@ -106,7 +109,7 @@ object AkkaTracingBuild extends Build {
         packagedArtifacts := Map.empty,
         previousArtifact := None
       )
-  ).aggregate(core, play, akkaHttp)
+  ).aggregate(core, play, akkaHttp).enablePlugins(CrossPerProjectPlugin)
 
   val passTestDeps = "test->test;compile->compile"
 
@@ -137,10 +140,11 @@ object AkkaTracingBuild extends Build {
       commonSettings ++
       Seq(
         name := "Akka Tracing: Play",
+        crossScalaVersions := Seq("2.11.8"),
         resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
         libraryDependencies ++=
           Dependencies.play ++
-          Dependencies.test(scalaVersion.value),
+          Dependencies.testPlay(scalaVersion.value),
         previousArtifact := None,
         resolvers in GlobalScope += Resolver.typesafeRepo("releases")
       )
@@ -164,29 +168,30 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.5.9"
-  val AkkaVersion = "2.4.11"
+  val PlayVersion = "2.5.13"
+  val AkkaVersion = "2.4.17"
+  val AkkaHttpVersion = "10.0.5"
 
   object Compile {
-    val akkaActor    = "com.typesafe.akka" %% "akka-actor"             % AkkaVersion
-    val akkaAgent    = "com.typesafe.akka" %% "akka-agent"             % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream"            % AkkaVersion
-    val akkaHttp     = "com.typesafe.akka" %% "akka-http-experimental" % AkkaVersion
-    val play         = "com.typesafe.play" %% "play"                   % PlayVersion
-    val config       = "com.typesafe"      %  "config"                 % "1.3.1"
-    val libThrift    = "org.apache.thrift" %  "libthrift"              % "0.9.3"
+    val akkaActor    = "com.typesafe.akka" %% "akka-actor"  % AkkaVersion
+    val akkaAgent    = "com.typesafe.akka" %% "akka-agent"  % AkkaVersion
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream" % AkkaVersion
+    val akkaHttp     = "com.typesafe.akka" %% "akka-http"   % AkkaHttpVersion
+    val play         = "com.typesafe.play" %% "play"        % PlayVersion
+    val config       = "com.typesafe"      %  "config"      % "1.3.1"
+    val libThrift    = "org.apache.thrift" %  "libthrift"   % "0.10.0"
   }
 
   object Test {
-    val specs        = "org.specs2"          %% "specs2"              % "3.7"       % "test"
-    val finagle      = "com.twitter"         %% "finagle-core"        % "6.28.0"    % "test"
-    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "3.14.1"    % "test"
+    val specs        = "org.specs2"          %% "specs2-core"         % "3.8.9"     % "test"
+    val finagle      = "com.twitter"         %% "finagle-core"        % "6.43.0"    % "test"
+    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "4.0.6"     % "test"
     val playSpecs2   = "com.typesafe.play"   %% "play-specs2"         % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka"   %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka"   %% "akka-slf4j"          % AkkaVersion % "test"
-    val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit"   % AkkaVersion % "test"
-    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.1.7"     % "test"
+    val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit"   % AkkaHttpVersion % "test"
+    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.2.2"     % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)
@@ -195,6 +200,9 @@ object Dependencies {
   val thrift = Seq(Compile.libThrift)
 
   def test(scalaVersion: String): Seq[ModuleID] =
-    Seq(Test.specs, Test.finagle, Test.braveCore, Test.playSpecs2, Test.akkaTest,
+    Seq(Test.specs, Test.finagle, Test.braveCore, Test.akkaTest,
       Test.akkaHttpTest, Test.akkaRemote, Test.akkaSlf4j, Test.logback)
+
+  def testPlay(scalaVersion: String): Seq[ModuleID] =
+    test(scalaVersion) :+ Test.playSpecs2
 }
