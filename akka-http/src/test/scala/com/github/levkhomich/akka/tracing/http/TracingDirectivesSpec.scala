@@ -1,19 +1,20 @@
 package com.github.levkhomich.akka.tracing.http
 
-import com.typesafe.config.Config
+import java.util.concurrent.TimeUnit
 
-import scala.concurrent.Future
-import scala.util.Random
-
-import akka.http.scaladsl.model.headers.{ `Content-Encoding`, HttpEncodings, RawHeader }
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{ HttpEncodings, RawHeader, `Content-Encoding` }
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.RejectionHandler
 import akka.http.scaladsl.unmarshalling.Unmarshaller
+import com.github.levkhomich.akka.tracing._
+import com.typesafe.config.Config
 import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 
-import com.github.levkhomich.akka.tracing._
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ Future, Promise }
+import scala.util.Random
 
 class TracingDirectivesSpec extends Specification with TracingTestCommons
     with BaseTracingDirectives with MockCollector with Specs2FrameworkInterface {
@@ -28,6 +29,30 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
         response.status mustEqual StatusCodes.OK
         val span = receiveSpan()
         success
+      }
+    }
+
+    "send trace to server only after response future has completed" in {
+      val traceKey = "traced-after-future-completed"
+      val traceValue = "OK"
+      val tracedHandledWithResponseFuture =
+        handleRejections(RejectionHandler.default) {
+          get {
+            tracedHandleWith(serviceName) { r: TestMessage =>
+              val computationPromise = Promise[HttpResponse]
+              system.scheduler.scheduleOnce(delay = FiniteDuration(10, TimeUnit.MILLISECONDS)) {
+                trace.recordKeyValue(r, traceKey, traceValue)
+                computationPromise.success(HttpResponse(StatusCodes.OK))
+              }
+              computationPromise.future
+            }
+          }
+        }
+
+      Get(testPath) ~> tracedHandledWithResponseFuture ~> check {
+        response.status mustEqual StatusCodes.OK
+        val span = receiveSpan()
+        checkBinaryAnnotation(span, traceKey, traceValue)
       }
     }
 
