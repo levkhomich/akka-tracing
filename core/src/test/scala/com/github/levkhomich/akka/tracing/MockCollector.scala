@@ -27,11 +27,11 @@ import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{ TFramedTransport, TServerSocket, TMemoryBuffer }
 import org.apache.thrift.server.{ TThreadPoolServer, TServer }
 import org.specs2.matcher.MatchResult
-import org.specs2.mutable.Specification
+import org.specs2.mutable.SpecificationLike
 
 import com.github.levkhomich.akka.tracing.thrift.{ ResultCode, LogEntry }
 
-trait MockCollector { this: Specification with TracingTestCommons =>
+trait MockCollector { this: SpecificationLike with TracingTestCommons =>
 
   private[this] var socket = new ServerSocket(0)
   val collectorPort = socket.getLocalPort

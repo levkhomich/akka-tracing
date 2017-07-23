@@ -3,7 +3,7 @@ import Keys._
 import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import org.scoverage.coveralls.CoverallsPlugin
-import org.scoverage.coveralls.CoverallsPlugin.CoverallsKeys._
+import org.scoverage.coveralls.Imports.CoverallsKeys._
 import com.typesafe.sbt.SbtScalariform._
 import scalariform.formatter.preferences._
 
@@ -30,7 +30,8 @@ object AkkaTracingBuild extends Build {
 
   lazy val compilationSettings =
     Seq(
-      scalaVersion := "2.11.8",
+      scalaVersion := "2.11.11",
+      crossScalaVersions := Seq("2.12.2", scalaVersion.value),
       crossScalaVersions := Seq("2.11.8", "2.12.1"),
       javacOptions ++= Seq(
         "-Xlint:all"
@@ -52,6 +53,7 @@ object AkkaTracingBuild extends Build {
     CoverallsPlugin.projectSettings ++
     mimaDefaultSettings ++
     Seq(
+      fork in Test := true,
       // TODO: check why %% doesn't work
       previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4"),
       scalacOptions in Test ++= Seq("-Yrangepos")
@@ -103,8 +105,8 @@ object AkkaTracingBuild extends Build {
         publish := (),
         publishLocal := (),
         // aggregation is performed by coverageAggregate, so we can skip regular one
-        aggregate in coveralls := false,
-        childCoberturaFiles := Seq.empty,
+//        aggregate in coveralls := false,
+//        childCoberturaFiles := Seq.empty,
         // workaround for sbt-pgp
         packagedArtifacts := Map.empty,
         previousArtifact := None
@@ -168,30 +170,30 @@ object AkkaTracingBuild extends Build {
 
 object Dependencies {
 
-  val PlayVersion = "2.5.13"
-  val AkkaVersion = "2.4.17"
-  val AkkaHttpVersion = "10.0.5"
+  val PlayVersion = "2.6.2"
+  val AkkaVersion = "2.5.3"
+  val AkkaHttpVersion = "10.0.9"
 
   object Compile {
-    val akkaActor    = "com.typesafe.akka" %% "akka-actor"  % AkkaVersion
-    val akkaAgent    = "com.typesafe.akka" %% "akka-agent"  % AkkaVersion
-    val akkaStream   = "com.typesafe.akka" %% "akka-stream" % AkkaVersion
-    val akkaHttp     = "com.typesafe.akka" %% "akka-http"   % AkkaHttpVersion
-    val play         = "com.typesafe.play" %% "play"        % PlayVersion
-    val config       = "com.typesafe"      %  "config"      % "1.3.1"
-    val libThrift    = "org.apache.thrift" %  "libthrift"   % "0.10.0"
+    val akkaActor    = "com.typesafe.akka" %% "akka-actor"             % AkkaVersion
+    val akkaAgent    = "com.typesafe.akka" %% "akka-agent"             % AkkaVersion
+    val akkaStream   = "com.typesafe.akka" %% "akka-stream"            % AkkaVersion
+    val akkaHttp     = "com.typesafe.akka" %% "akka-http"              % AkkaHttpVersion
+    val play         = "com.typesafe.play" %% "play"                   % PlayVersion
+    val config       = "com.typesafe"      %  "config"                 % "1.3.1"
+    val libThrift    = "org.apache.thrift" %  "libthrift"              % "0.10.0"
   }
 
   object Test {
-    val specs        = "org.specs2"          %% "specs2-core"         % "3.8.9"     % "test"
-    val finagle      = "com.twitter"         %% "finagle-core"        % "6.43.0"    % "test"
-    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "4.0.6"     % "test"
+    val specs        = "org.specs2"          %% "specs2-core"              % "3.9.4"       % "test"
+    val finagle      = "com.twitter"         %% "finagle-core"        % "6.45.0"    % "test"
+    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "3.14.1"    % "test"
     val playSpecs2   = "com.typesafe.play"   %% "play-specs2"         % PlayVersion % "test"
     val akkaTest     = "com.typesafe.akka"   %% "akka-testkit"        % AkkaVersion % "test"
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion % "test"
     val akkaSlf4j    = "com.typesafe.akka"   %% "akka-slf4j"          % AkkaVersion % "test"
     val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit"   % AkkaHttpVersion % "test"
-    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.2.2"     % "test"
+    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.2.3"     % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)

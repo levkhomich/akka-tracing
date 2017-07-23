@@ -23,11 +23,11 @@ import scala.util.Random
 import akka.actor.ActorSystem
 import com.typesafe.config.{ Config, ConfigFactory }
 import org.specs2.matcher.MatchResult
-import org.specs2.mutable.Specification
+import org.specs2.mutable.SpecificationLike
 
 final case class TestMessage(value: String) extends TracingSupport
 
-trait TracingTestCommons { this: Specification =>
+trait TracingTestCommons { this: SpecificationLike =>
 
   val SystemName = "AkkaTracingTestSystem"
   val DefaultTracingHost = "localhost"
@@ -87,7 +87,7 @@ trait TracingTestCommons { this: Specification =>
 
 }
 
-trait TracingTestActorSystem { this: TracingTestCommons with Specification =>
+trait TracingTestActorSystem { this: TracingTestCommons with SpecificationLike =>
 
   val sampleRate = 1
 

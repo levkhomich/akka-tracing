@@ -4,7 +4,7 @@ sudo: required
 language: scala
 
 scala:
-  - 2.11.8
+  - 2.11.11
 
 jdk:
   - oraclejdk8
@@ -29,4 +29,7 @@ before_install:
   - sudo make install
   - cd -
 
-after_success: "project/submit_coveralls_once.sh"
+script:
+  - sbt clean coverage test coverageReport && sbt coverageAggregate
+after_success:
+  - sbt coveralls
