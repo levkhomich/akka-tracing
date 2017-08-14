@@ -1,3 +1,6 @@
+dist: trusty
+sudo: required
+
 language: scala
 
 scala:
@@ -17,10 +20,13 @@ cache:
   - $HOME/.sbt
 
 before_install:
-  - sudo add-apt-repository -y ppa:wnoronha/thrift
   - sudo apt-get update -qq
-  - sudo apt-get install -qq thrift-compiler
-  - sudo hostname "$(hostname | cut -c1-63)"
-  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
+  - sudo apt-get install -qq libboost-dev libboost-test-dev libboost-program-options-dev libevent-dev automake libtool flex bison pkg-config g++ libssl-dev
+  - wget https://archive.apache.org/dist/thrift/0.10.0/thrift-0.10.0.tar.gz
+  - tar xfz thrift-0.10.0.tar.gz
+  - cd thrift-0.10.0
+  - ./configure --disable-plugin --disable-tutorial --disable-tests --disable-coverage --without-c_glib --without-erlang --without-nodejs --without-php --without-python --without-ruby --without-go
+  - sudo make install
+  - cd -
 
 after_success: "project/submit_coveralls_once.sh"
