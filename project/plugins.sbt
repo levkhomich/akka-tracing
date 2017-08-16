@@ -1,7 +1,5 @@
 resolvers += Classpaths.sbtPluginReleases
 
-//addSbtPlugin("com.twitter" %% "scrooge-sbt-plugin" % "3.14.1")
-
 addSbtPlugin("com.eed3si9n" % "sbt-doge" % "0.1.5")
 
 addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.0")
