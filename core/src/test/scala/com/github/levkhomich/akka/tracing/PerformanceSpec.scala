@@ -60,10 +60,8 @@ class PerformanceSpec extends Specification with TracingTestCommons
       val actualCount = getSpanCount
 
       val spansPerSecond = actualCount * 1000 / processingTime
-      println(
-        s"benchmark result: $spansPerSecond SPS, " +
-          s"${100 - actualCount * 100 / expectedCount}% dropped by backpressure"
-      )
+      println(s"benchmark result: $spansPerSecond SPS, " +
+        s"${100 - actualCount * 100 / expectedCount}% dropped by backpressure")
 
       spansPerSecond * sampleRate must beGreaterThanOrEqualTo(ExpectedMPS.toLong)
     }
@@ -87,9 +85,7 @@ class PerformanceSpec extends Specification with TracingTestCommons
         case ((zt, zf), (t, f)) => (zt + t) -> (zf + f)
       }
 
-      println(
-        s"benchmark result: ${time / ExpectedMPS} ns metadata availability, $failures retries"
-      )
+      println(s"benchmark result: ${time / ExpectedMPS} ns metadata availability, $failures retries")
 
       failures mustEqual 0
     }

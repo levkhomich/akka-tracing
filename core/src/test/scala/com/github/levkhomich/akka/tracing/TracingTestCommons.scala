@@ -41,7 +41,7 @@ trait TracingTestCommons { this: SpecificationLike =>
   def testConfig(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,
                  tracingHost: Option[String] = Some(DefaultTracingHost)): Config =
     ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
-      Map(
+      settings ++ tracingHost.map(TracingExtension.AkkaTracingHost -> _).toMap ++ Map(
         TracingExtension.AkkaTracingSampleRate -> sampleRate,
         TracingExtension.AkkaTracingMaxSpansPerSecond -> maxSpansPerSecond,
         TracingExtension.AkkaTracingPort -> (this match {
@@ -52,7 +52,7 @@ trait TracingTestCommons { this: SpecificationLike =>
         }),
         "akka.test.default-timeout" -> "2000 ms",
         "akka.test.timefactor" -> (if (ciEnvironment) "4" else "1")
-      ) ++ settings ++ tracingHost.map(TracingExtension.AkkaTracingHost -> _).toMap
+      )
     ))
 
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,

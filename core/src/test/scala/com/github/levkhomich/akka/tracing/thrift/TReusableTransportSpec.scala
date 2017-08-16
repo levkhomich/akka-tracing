@@ -33,7 +33,7 @@ class TReusableTransportSpec extends Specification {
     val WriteBatchSize = 73
     val ReadBatchSize = 91
     val dataset = new Array[Byte](DatasetSize)
-    (0 until DatasetSize).foreach(dataset(_) = Random.nextInt.toByte)
+    (0 until DatasetSize).foreach(dataset(_)= Random.nextInt.toByte)
 
     "not support open() and close()" in {
       transport.open() must throwA[UnsupportedOperationException]

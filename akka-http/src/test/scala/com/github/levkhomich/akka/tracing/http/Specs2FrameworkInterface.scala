@@ -29,12 +29,11 @@ trait Specs2FrameworkInterface extends RouteTest with TestFrameworkInterface { t
   }
 
   implicit def um: FromRequestUnmarshaller[TestMessage] =
-    Unmarshaller { implicit ctx =>
-      request: HttpRequest =>
-        import scala.concurrent.duration._
-        request.entity.toStrict(FiniteDuration(100, MILLISECONDS)).map { v =>
-          TestMessage(v.toString)
-        }
+    Unmarshaller { implicit ctx => request: HttpRequest =>
+      import scala.concurrent.duration._
+      request.entity.toStrict(FiniteDuration(100, MILLISECONDS)).map { v =>
+        TestMessage(v.toString)
+      }
     }
 
 }

@@ -61,7 +61,7 @@ class TracingFilter @Inject() (system: ActorSystem)(implicit ec: ExecutionContex
       case Right(None) =>
       case Right(Some(span)) =>
         trace.sample(TracingAnnotations.ServerReceived, request.tracingId, span.spanId,
-          span.parentId, span.traceId, system.name, request.spanName, span.forceSampling)
+                     span.parentId, span.traceId, system.name, request.spanName, span.forceSampling)
       case Left(_) =>
         trace.sample(request.tracingId, system.name, request.spanName)
     }

@@ -68,7 +68,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     }
 
     "annotate sampled requests (query params, headers)" in {
-      Get(Uri.from(path = testPath, queryString = Some("key=value"))).withHeaders(
+      Get(Uri.from(path        = testPath, queryString = Some("key=value"))).withHeaders(
         `Content-Encoding`(HttpEncodings.identity)
       ) ~> tracedHandleWithRoute ~> check {
           response.status mustEqual StatusCodes.OK
@@ -115,9 +115,8 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
 
     def testRejection(error: Exception, statusCode: StatusCode): MatchResult[_] = {
       implicit def um: Unmarshaller[HttpRequest, TestMessage] =
-        Unmarshaller { ctx =>
-          request: HttpRequest =>
-            Future.failed(error)
+        Unmarshaller { ctx => request: HttpRequest =>
+          Future.failed(error)
         }
       val route =
         handleRejections(RejectionHandler.default) {

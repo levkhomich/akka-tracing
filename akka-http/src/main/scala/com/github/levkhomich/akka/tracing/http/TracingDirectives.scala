@@ -32,20 +32,17 @@ import scala.concurrent.ExecutionContext
 trait BaseTracingDirectives {
 
   /**
-    * Completes the request using the given function. The input to the function is
-    * produced with the in-scope entity unmarshaller and the result value of the
-    * function is marshalled with the in-scope marshaller. Unmarshalled entity is
-    * sampled for tracing and can be used thereafter to add trace annotations.
-    * RPC name is set to unmarshalled entity simple class name.
-    * After marshalling step, trace is automatically closed and sent to collector service.
-    * tracedHandleWith can be a convenient method combining entity with complete.
-    *
-    * @param service service name to be added to trace
-    */
-  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)
-                                              (implicit um: FromRequestUnmarshaller[A],
-                                               m: ToResponseMarshaller[B],
-                                               ec: ExecutionContext): Route = {
+   * Completes the request using the given function. The input to the function is
+   * produced with the in-scope entity unmarshaller and the result value of the
+   * function is marshalled with the in-scope marshaller. Unmarshalled entity is
+   * sampled for tracing and can be used thereafter to add trace annotations.
+   * RPC name is set to unmarshalled entity simple class name.
+   * After marshalling step, trace is automatically closed and sent to collector service.
+   * tracedHandleWith can be a convenient method combining entity with complete.
+   *
+   * @param service service name to be added to trace
+   */
+  def tracedHandleWith[A <: TracingSupport, B](service: String)(f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B], ec: ExecutionContext): Route = {
     tracedEntity(service)(um).tapply {
       case Tuple1(ts) =>
         StandardRoute { ctx =>
@@ -109,9 +106,7 @@ trait TracingDirectives extends BaseTracingDirectives { this: Actor with ActorTr
    * and sent to collector service. tracedHandleWith can be a convenient method
    * combining entity with complete.
    */
-  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A],
-                                                          m: ToResponseMarshaller[B],
-                                                          executionContext: ExecutionContext): Route =
+  def tracedHandleWith[A <: TracingSupport, B](f: A => B)(implicit um: FromRequestUnmarshaller[A], m: ToResponseMarshaller[B], executionContext: ExecutionContext): Route =
     tracedHandleWith(self.path.name)(f)
 
 }

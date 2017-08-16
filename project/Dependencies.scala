@@ -6,6 +6,7 @@ object Dependencies {
   val AkkaVersion = "2.4.17"
   val AkkaHttpVersion = "10.0.5"
 
+  // format: OFF
   object Compile {
     val akkaActor    = "com.typesafe.akka" %% "akka-actor"  % AkkaVersion
     val akkaAgent    = "com.typesafe.akka" %% "akka-agent"  % AkkaVersion
@@ -35,7 +36,7 @@ object Dependencies {
 
   def test(scalaVersion: String): Seq[ModuleID] =
     Seq(Test.specs, Test.finagle, Test.braveCore, Test.akkaTest,
-      Test.akkaHttpTest, Test.akkaRemote, Test.akkaSlf4j, Test.logback)
+        Test.akkaHttpTest, Test.akkaRemote, Test.akkaSlf4j, Test.logback)
 
   def testPlay(scalaVersion: String): Seq[ModuleID] =
     test(scalaVersion) :+ Test.playSpecs2

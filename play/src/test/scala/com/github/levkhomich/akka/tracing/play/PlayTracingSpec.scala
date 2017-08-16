@@ -38,8 +38,7 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
 
   val configuration: Map[String, Any] = Map(
     TracingExtension.AkkaTracingHost -> DefaultTracingHost,
-    TracingExtension.AkkaTracingPort -> collectorPort
-  )
+    TracingExtension.AkkaTracingPort -> collectorPort)
   val TestPath = "/request"
   val routes: PartialFunction[(String, String), Handler] = {
     case ("GET", TestPath) =>
@@ -132,7 +131,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "honour upstream's Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.Flags -> "1"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -141,7 +142,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "user regular sampling if X-B3-Flags does not contain Debug flag" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.Flags -> "2"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -150,7 +153,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "ignore malformed X-B3-Flags header" in new WithApplication(disabledLocalSamplingApplication) {
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.Flags -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -159,7 +164,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     }
 
     "ignore malformed X-B3-TraceId header" in new WithApplication(fakeApplication) {
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> "malformed"
         )), AnyContentAsEmpty)).map(Await.result(_, defaultAwaitTimeout.duration))
@@ -170,7 +177,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     "ignore malformed X-B3-SpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> SpanMetadata.idToString(traceId),
           TracingHeaders.SpanId -> "malformed"
@@ -183,7 +192,9 @@ class PlayTracingSpec extends PlaySpecification with TracingTestCommons with Moc
     "ignore malformed X-B3-ParentSpanId header" in new WithApplication(fakeApplication) {
       val traceId = Random.nextLong
 
-      val result = route(app, FakeRequest("GET", TestPath,
+      val result = route(app, FakeRequest(
+        "GET",
+        TestPath,
         FakeHeaders(Seq(
           TracingHeaders.TraceId -> SpanMetadata.idToString(traceId),
           TracingHeaders.ParentSpanId -> "malformed"

@@ -49,7 +49,7 @@ lazy val `akka-tracing-http` = (project in file("akka-http")).settings(commonSet
   libraryDependencies ++= Dependencies.http ++ Dependencies.test(scalaVersion.value)
 ).dependsOn(`akka-tracing-core` % passTestDeps)
 
-lazy val commonSettings = projectInfo ++ compilationSettings ++ testSettings ++ publicationSettings ++ scalariformSettings
+lazy val commonSettings = projectInfo ++ compilationSettings ++ testSettings ++ publicationSettings
 
 lazy val compilationSettings =
   Seq(
@@ -95,9 +95,10 @@ lazy val publicationSettings = Seq(
   com.typesafe.sbt.SbtScalariform.ScalariformKeys.preferences := {
     import scalariform.formatter.preferences._
     FormattingPreferences()
+      .setPreference(AlignArguments, true)
       .setPreference(AlignParameters, true)
+      .setPreference(DanglingCloseParenthesis, Preserve)
       .setPreference(DoubleIndentClassDeclaration, true)
-      .setPreference(PreserveDanglingCloseParenthesis, true)
       .setPreference(PreserveSpaceBeforeArguments, true)
   }
 )
