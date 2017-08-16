@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import org.scoverage.coveralls.CoverallsPlugin
 import sbtdoge.CrossPerProjectPlugin
@@ -26,7 +25,7 @@ lazy val root = (project in file(".")).settings(commonSettings).settings(
   publishLocal := (),
   // workaround for sbt-pgp
   packagedArtifacts := Map.empty,
-  previousArtifact := None
+  mimaPreviousArtifacts := Set.empty
 ).aggregate(`akka-tracing-core`, `akka-tracing-play`, `akka-tracing-http`).enablePlugins(CrossPerProjectPlugin)
 
 lazy val `akka-tracing-core` = (project in file("core")).settings(commonSettings).settings(
@@ -42,7 +41,7 @@ lazy val `akka-tracing-core` = (project in file("core")).settings(commonSettings
 lazy val `akka-tracing-play` = (project in file("play")).settings(commonSettings).settings(
   crossScalaVersions := Seq("2.11.11"),
   libraryDependencies ++= Dependencies.play ++ Dependencies.testPlay(scalaVersion.value),
-  previousArtifact := None
+  mimaPreviousArtifacts := Set.empty
 ).dependsOn(`akka-tracing-core` % passTestDeps)
 
 lazy val `akka-tracing-http` = (project in file("akka-http")).settings(commonSettings).settings(
@@ -78,14 +77,14 @@ lazy val testSettings =
   CoverallsPlugin.projectSettings ++
     mimaDefaultSettings ++
     Seq(
-      previousArtifact := Some(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4"),
+      mimaPreviousArtifacts := Set(organization.value % (moduleName.value + '_' + scalaBinaryVersion.value) % "0.4"),
       scalacOptions in Test ++= Seq("-Yrangepos")
     )
 
 lazy val publicationSettings = Seq(
   publishMavenStyle := true,
-  publishTo <<= version { v =>
-    if (v.endsWith("SNAPSHOT"))
+  publishTo := {
+    if (version.value.endsWith("SNAPSHOT"))
       Some(Resolver.sonatypeRepo("snapshots"))
     else
       Some("releases" at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
