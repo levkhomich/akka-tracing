@@ -7,7 +7,7 @@ import sbtdoge.CrossPerProjectPlugin
 
 lazy val projectInfo = Seq (
   organization := "com.github.levkhomich",
-  version := "0.6.1-SNAPSHOT",
+  version := "0.6.1",
   homepage := Some(url("https://github.com/levkhomich/akka-tracing")),
   scmInfo := Some(ScmInfo(
     url("https://github.com/levkhomich/akka-tracing.git"),
