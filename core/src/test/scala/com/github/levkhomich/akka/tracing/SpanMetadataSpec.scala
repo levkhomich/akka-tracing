@@ -127,8 +127,7 @@ class SpanMetadataSpec extends Specification with TracingTestCommons {
     "provide serialization interop with Brave" in {
       def check(original: SpanMetadata): Unit = {
         val serialized = original.toByteArray
-        val brave = new SpanId(original.traceId, original.parentId.getOrElse(original.spanId), original.spanId, original.flags)
-        serialized shouldEqual brave.bytes()
+        serialized shouldEqual asBraveSpan(original).bytes()
       }
       for {
         traceId <- LongValues
@@ -141,8 +140,7 @@ class SpanMetadataSpec extends Specification with TracingTestCommons {
 
     "provide deserialization interop with Brave" in {
       def check(original: SpanMetadata): Unit = {
-        val brave = new SpanId(original.traceId, original.parentId.getOrElse(original.spanId), original.spanId, original.flags)
-        SpanMetadata.fromByteArray(brave.bytes()) match {
+        SpanMetadata.fromByteArray(asBraveSpan(original).bytes()) match {
           case None => failure
           case Some(metadata) =>
             metadata shouldEqual original
@@ -169,4 +167,12 @@ class SpanMetadataSpec extends Specification with TracingTestCommons {
     }
   }
 
+  def asBraveSpan(meta: SpanMetadata): SpanId = {
+    SpanId.builder
+      .traceId(meta.traceId)
+      .parentId(meta.parentId.map(l => l: java.lang.Long).orNull)
+      .spanId(meta.spanId)
+      .flags(meta.flags)
+      .build()
+  }
 }

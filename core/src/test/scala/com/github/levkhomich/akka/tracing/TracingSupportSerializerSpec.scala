@@ -16,7 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
-import scala.concurrent._
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 
 import akka.actor.{ Props, Actor }
@@ -30,22 +30,19 @@ class TracingSupportSerializerSpec extends Specification with TracingTestCommons
   "TracingSupportSerializer" should {
     val baseConfig = Map(
       "akka.actor.provider" -> "akka.remote.RemoteActorRefProvider",
-      "akka.remote.enabled-transports" -> scala.collection.JavaConversions.seqAsJavaList(Seq(
-        "akka.remote.netty.tcp"
-      )),
+      "akka.remote.enabled-transports" -> Seq("akka.remote.netty.tcp").asJava,
       "akka.remote.netty.tcp.hostname" -> "localhost"
     )
 
     lazy val system1 = testActorSystem(1, baseConfig +
       ("akka.remote.netty.tcp.port" -> (2552: java.lang.Integer)))
-    lazy val trace1 = TracingExtension(system1)
 
     lazy val system2 = testActorSystem(1, baseConfig +
       ("akka.remote.netty.tcp.port" -> (2553: java.lang.Integer)))
     lazy val trace2 = TracingExtension(system2)
 
     "instrument actor receive" in {
-      val actor1 = TestActorRef.create(system1, Props[Actor1], "actor1")
+      TestActorRef.create(system1, Props[Actor1], "actor1")
       val actor2 = TestActorRef.create(system2, Props[Actor2], "actor2")
 
       expectSpans(0)
@@ -80,7 +77,6 @@ class Actor2 extends Actor with ActorTracing {
   def receive: Receive = {
     case r: TracingSupport =>
       import akka.pattern.ask
-      import context.dispatcher
       implicit val timeout = Timeout(5, SECONDS)
       val selection =
         context.actorSelection(s"akka.tcp://AkkaTracingTestSystem@localhost:2552/user/actor1")

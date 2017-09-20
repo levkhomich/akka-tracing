@@ -27,7 +27,7 @@ class TracingDirectivesSpec extends Specification with TracingTestCommons
     "sample requests" in {
       Get(testPath) ~> tracedHandleWithRoute ~> check {
         response.status mustEqual StatusCodes.OK
-        val span = receiveSpan()
+        receiveSpan()
         success
       }
     }

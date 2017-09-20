@@ -186,7 +186,8 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
         override def receive: Receive = {
           case msg @ TestMessage(content) =>
             trace.sample(msg, "test")
-            sender ! None.asResponseTo(msg)
+            trace.record(msg, TracingAnnotations.ServerSend)
+            sender ! None
         }
       })
       val messageCount = 100

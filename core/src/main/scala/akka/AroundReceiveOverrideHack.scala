@@ -1,7 +1,6 @@
 package akka
 
 import akka.actor.Actor
-import akka.actor.Actor.Receive
 
 trait AroundReceiveOverrideHack extends Actor {
   override protected[akka] def aroundReceive(receive: Receive, msg: Any): Unit = {

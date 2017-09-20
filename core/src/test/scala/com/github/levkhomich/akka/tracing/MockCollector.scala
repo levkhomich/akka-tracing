@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.xml.bind.DatatypeConverter
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{ TFramedTransport, TServerSocket, TMemoryBuffer }
@@ -95,7 +95,7 @@ trait MockCollector { this: SpecificationLike with TracingTestCommons =>
     while (results.size < 1 && System.currentTimeMillis - start < MaxAwaitTimeout) {
       Thread.sleep(AwaitStep)
     }
-    val spans = results.map(e => decodeSpan(e.message))
+    val spans = results.asScala.map(e => decodeSpan(e.message))
     results.clear()
     spans.size mustEqual 1
     spans.head
@@ -103,7 +103,7 @@ trait MockCollector { this: SpecificationLike with TracingTestCommons =>
 
   def receiveSpans(): List[thrift.Span] = {
     Thread.sleep(AwaitTimeout)
-    val spans = results.map(e => decodeSpan(e.message))
+    val spans = results.asScala.map(e => decodeSpan(e.message))
     results.clear()
     spans.toList
   }
@@ -148,7 +148,7 @@ trait MockCollector { this: SpecificationLike with TracingTestCommons =>
   }
 
   private[this] def checkBinaryAnnotationInt[T](span: thrift.Span, key: String, expValue: T)(f: Array[Byte] => T): MatchResult[Any] = {
-    span.binary_annotations.find(_.get_key == key) match {
+    span.binary_annotations.asScala.find(_.get_key == key) match {
       case Some(ba) =>
         val actualValue = f(ba.get_value)
         actualValue mustEqual expValue
@@ -190,24 +190,24 @@ trait MockCollector { this: SpecificationLike with TracingTestCommons =>
   }
 
   def checkAbsentBinaryAnnotation(span: thrift.Span, key: String): MatchResult[Any] = {
-    span.binary_annotations.find(_.get_key == key) must beNone
+    span.binary_annotations.asScala.find(_.get_key == key) must beNone
   }
 
   def checkAnnotation(span: thrift.Span, expValue: String): MatchResult[Any] = {
-    span.annotations.exists(_.get_value == expValue) mustEqual true
+    span.annotations.asScala.exists(_.get_value == expValue) mustEqual true
   }
 
   def printAnnotations(span: thrift.Span): Unit = {
     if (span.get_binary_annotations_size > 0) {
       println("Binary annotations:")
-      span.binary_annotations.foreach { ba =>
+      span.binary_annotations.asScala.foreach { ba =>
         val actualValue = new String(ba.get_value, "UTF-8")
         println(ba.get_key + " -> " + actualValue)
       }
     }
     if (span.get_annotations_size > 0) {
       println("Annotations:")
-      span.annotations.foreach { a =>
+      span.annotations.asScala.foreach { a =>
         println(a.get_value)
       }
     }

@@ -16,6 +16,7 @@
 
 package com.github.levkhomich.akka.tracing
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration._
 import scala.util.Random
@@ -40,7 +41,7 @@ trait TracingTestCommons { this: SpecificationLike =>
 
   def testConfig(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,
                  tracingHost: Option[String] = Some(DefaultTracingHost)): Config =
-    ConfigFactory.parseMap(scala.collection.JavaConversions.mapAsJavaMap(
+    ConfigFactory.parseMap((
       settings ++ tracingHost.map(TracingExtension.AkkaTracingHost -> _).toMap ++ Map(
         TracingExtension.AkkaTracingSampleRate -> sampleRate,
         TracingExtension.AkkaTracingMaxSpansPerSecond -> maxSpansPerSecond,
@@ -53,7 +54,7 @@ trait TracingTestCommons { this: SpecificationLike =>
         "akka.test.default-timeout" -> "2000 ms",
         "akka.test.timefactor" -> (if (ciEnvironment) "4" else "1")
       )
-    ))
+    ).asJava)
 
   def testActorSystem(sampleRate: Int = 1, settings: Map[String, AnyRef] = Map.empty, maxSpansPerSecond: Long = 10000L,
                       tracingHost: Option[String] = Some(DefaultTracingHost)): ActorSystem = {

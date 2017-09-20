@@ -96,7 +96,6 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
   }
 
   private[this] def send(): Unit = {
-    import scala.collection.JavaConversions._
     val spanCount = logEntries.size
     if (spanCount > 0) {
       val startTime = System.nanoTime
@@ -106,7 +105,7 @@ private[tracing] class SpanSubmitter(transport: TTransport, maxSpansPerSecond: I
           TracingExtension(context.system).markCollectorAsAvailable()
           log.info("Successfully connected to Zipkin collector.")
         }
-        client.Log(logEntries)
+        client.Log(collection.JavaConverters.bufferAsJavaListConverter(logEntries).asJava)
       } match {
         case Success(thrift.ResultCode.OK) =>
           updateSubmitDurationStats(spanCount, System.nanoTime - startTime)

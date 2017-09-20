@@ -61,7 +61,6 @@ lazy val compilationSettings =
       "-unchecked",
       "-feature",
       "-language:_",
-      "-Xcheckinit",
       "-Xlint",
       "-Xlog-reflective-calls"
     ),
