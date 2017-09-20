@@ -1,0 +1,5 @@
+Compatibility changes:
+
+* core now depends on Akka 2.5
+* Play instrumentation was updated to 2.6
+* removed methods deprecated in version 0.5: `msg.asChildOf`, `msg.asResponseTo`, `trace.finish`, `trace.forcedSample`
