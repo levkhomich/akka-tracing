@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies {
 
-  val PlayVersion = "2.5.15"
-  val AkkaVersion = "2.4.20"
+  val PlayVersion = "2.6.5"
+  val AkkaVersion = "2.5.4"
   val AkkaHttpVersion = "10.0.10"
 
   // format: OFF
