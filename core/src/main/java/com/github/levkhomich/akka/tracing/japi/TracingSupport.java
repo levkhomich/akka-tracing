@@ -21,10 +21,4 @@ public abstract class TracingSupport implements BaseTracingSupport, Serializable
         return a << 32 | b & 0xFFFFFFFFL;
     }
 
-    @Deprecated
-    @Override
-    public BaseTracingSupport asChildOf(BaseTracingSupport parent, TracingExtensionImpl tracer) {
-        tracer.createChild(this, parent);
-        return this;
-    }
 }

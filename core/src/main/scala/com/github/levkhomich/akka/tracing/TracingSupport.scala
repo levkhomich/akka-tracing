@@ -26,13 +26,6 @@ trait BaseTracingSupport extends Any {
 
   protected[tracing] def spanName: String
 
-  /**
-   * Declares a message as child of another message.
-   * @param parent parent message
-   * @return child message with required tracing headers
-   */
-  @deprecated("use trace.createChild instead", "0.5")
-  def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport
 }
 
 /**
@@ -43,26 +36,4 @@ trait TracingSupport extends BaseTracingSupport with Serializable {
   override def spanName: String =
     this.getClass.getSimpleName
 
-  @deprecated("use trace.createChild instead", "0.5")
-  override def asChildOf(parent: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): this.type = {
-    tracer.createChild(this, parent)
-    this
-  }
-
 }
-
-class ResponseTracingSupport[T](val msg: T) extends AnyVal {
-
-  /**
-   * Declares message as a response to another message.
-   * @param ts parent message
-   * @return unchanged message
-   */
-  @deprecated("use trace.record(ts, TracingAnnotations.ServerSend) instead", "0.5")
-  def asResponseTo(ts: BaseTracingSupport)(implicit trace: TracingExtensionImpl): T = {
-    trace.record(ts, "response: " + msg)
-    trace.record(ts, TracingAnnotations.ServerSend)
-    msg
-  }
-}
-

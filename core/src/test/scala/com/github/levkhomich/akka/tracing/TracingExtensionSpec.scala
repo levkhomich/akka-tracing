@@ -180,24 +180,6 @@ class TracingExtensionSpec extends Specification with TracingTestCommons with Tr
       childSpan.trace_id must beEqualTo(parentSpan.get_trace_id)
     }
 
-    "finish corresponding traces after calling asResponseTo" in {
-      import akka.pattern.ask
-      val testActor = TestActorRef(new ActorTracing {
-        override def receive: Receive = {
-          case msg @ TestMessage(content) =>
-            trace.sample(msg, "test")
-            trace.record(msg, TracingAnnotations.ServerSend)
-            sender ! None
-        }
-      })
-      val messageCount = 100
-      implicit val timeout = Timeout(100, MILLISECONDS)
-      for (_ <- 0 until messageCount) {
-        testActor ? nextRandomMessage
-      }
-      expectSpans(messageCount)
-    }
-
     s"return span metadata after sampling" in {
       val msg = nextRandomMessage
       val metadata = trace.sample(msg, "test", force = true).get

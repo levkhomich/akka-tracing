@@ -39,8 +39,5 @@ class PlayRequestTracingSupport(val headers: RequestHeader) extends AnyVal with 
     headers.method + " " + route
   }
 
-  override def asChildOf(ts: BaseTracingSupport)(implicit tracer: TracingExtensionImpl): BaseTracingSupport =
-    throw new IllegalStateException()
-
 }
 

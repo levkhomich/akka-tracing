@@ -38,9 +38,6 @@ trait ActorTracing extends AroundReceiveOverrideHack { self: Actor =>
   protected def serviceName: String =
     this.getClass.getSimpleName
 
-  implicit def any2response[T](msg: T): ResponseTracingSupport[T] =
-    new ResponseTracingSupport(msg)
-
   implicit lazy val trace: TracingExtensionImpl =
     TracingExtension(context.system)
 

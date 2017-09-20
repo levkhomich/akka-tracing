@@ -69,7 +69,8 @@ class Actor1 extends Actor with ActorTracing {
   def receive: Receive = {
     case r: TracingSupport =>
       trace.record(r, "child annotation")
-      sender() ! TestMessage("parent").asResponseTo(r)
+      trace.record(r, TracingAnnotations.ServerSend)
+      sender() ! TestMessage("parent")
   }
 }
 

@@ -213,19 +213,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
     sample(TracingAnnotations.ClientSend, ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName, force = false)
 
   /**
-   * Starts a trace and adds ClientSend annotation to it.
-   *
-   * This call ignores akka.tracing.sample-rate setting.
-   *
-   * @param ts traced message
-   * @param service service name
-   * @return Some(metadata) if span was sampled or None otherwise
-   */
-  @deprecated("Use sample(ts, service, force = true)", "0.5")
-  def forcedSample(ts: BaseTracingSupport, service: String): Option[SpanMetadata] =
-    sample(TracingAnnotations.ServerReceived, ts.tracingId, Random.nextLong, None, Random.nextLong, service, ts.spanName, force = true)
-
-  /**
    * Marks request processing start. Sampling must be performed before this call.
    *
    * @param ts traced message
@@ -277,15 +264,6 @@ class TracingExtensionImpl(system: ActorSystem) extends Extension {
       metadata.foreach(_.put(ts.tracingId, extMetadata))
       holder ! ImportMetadata(ts.tracingId, extMetadata, service, ts.spanName, System.nanoTime)
     }
-
-  /**
-   * Marks request processing finish by adding ServerSend annotation, flushes associated trace.
-   *
-   * @param ts traced message
-   */
-  @deprecated("Use record(ts, TracingAnnotations.ServerSend) instead", "0.5")
-  def finish(ts: BaseTracingSupport): Unit =
-    record(ts, TracingAnnotations.ServerSend)
 
   /**
    * Flushes all tracing data related to request.
