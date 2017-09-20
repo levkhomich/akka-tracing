@@ -3,7 +3,6 @@ import Keys._
 
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import org.scoverage.coveralls.CoverallsPlugin
-import sbtdoge.CrossPerProjectPlugin
 
 lazy val projectInfo = Seq (
   organization := "com.github.levkhomich",
@@ -26,7 +25,7 @@ lazy val root = (project in file(".")).settings(commonSettings).settings(
   // workaround for sbt-pgp
   packagedArtifacts := Map.empty,
   mimaPreviousArtifacts := Set.empty
-).aggregate(`akka-tracing-core`, `akka-tracing-play`, `akka-tracing-http`).enablePlugins(CrossPerProjectPlugin)
+).aggregate(`akka-tracing-core`, `akka-tracing-play`, `akka-tracing-http`)
 
 lazy val `akka-tracing-core` = (project in file("core")).settings(commonSettings).settings(
   libraryDependencies ++= Dependencies.thrift ++ Dependencies.akka ++ Dependencies.test(scalaVersion.value),
@@ -39,7 +38,6 @@ lazy val `akka-tracing-core` = (project in file("core")).settings(commonSettings
 )
 
 lazy val `akka-tracing-play` = (project in file("play")).settings(commonSettings).settings(
-  crossScalaVersions := Seq("2.11.11"),
   libraryDependencies ++= Dependencies.play ++ Dependencies.testPlay(scalaVersion.value),
   mimaPreviousArtifacts := Set.empty
 ).dependsOn(`akka-tracing-core` % passTestDeps)
