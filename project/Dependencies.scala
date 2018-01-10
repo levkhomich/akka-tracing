@@ -2,9 +2,9 @@ import sbt._
 
 object Dependencies {
 
-  val PlayVersion = "2.6.5"
-  val AkkaVersion = "2.5.4"
-  val AkkaHttpVersion = "10.0.10"
+  val PlayVersion = "2.6.10"
+  val AkkaVersion = "2.5.8"
+  val AkkaHttpVersion = "10.0.11"
 
   // format: OFF
   object Compile {
@@ -18,7 +18,7 @@ object Dependencies {
   }
 
   object Test {
-    val specs        = "org.specs2"          %% "specs2-core"         % "3.9.5"         % "test"
+    val specs        = "org.specs2"          %% "specs2-core"         % "4.0.2"         % "test"
     val finagle      = "com.twitter"         %% "finagle-core"        % "7.1.0"         % "test"
     val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "4.3.0"         % "test"
     val playSpecs2   = "com.typesafe.play"   %% "play-specs2"         % PlayVersion     % "test"
@@ -26,7 +26,7 @@ object Dependencies {
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion     % "test"
     val akkaSlf4j    = "com.typesafe.akka"   %% "akka-slf4j"          % AkkaVersion     % "test"
     val akkaHttpTest = "com.typesafe.akka"   %% "akka-http-testkit"   % AkkaHttpVersion % "test"
-    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.2.2"         % "test"
+    val logback      = "ch.qos.logback"      %  "logback-classic"     % "1.2.3"         % "test"
   }
 
   val akka = Seq(Compile.akkaActor, Compile.akkaAgent, Compile.akkaStream, Compile.config)

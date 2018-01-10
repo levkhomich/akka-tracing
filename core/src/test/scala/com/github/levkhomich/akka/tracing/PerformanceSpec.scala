@@ -22,7 +22,7 @@ import scala.util.Random
 import org.specs2.mutable.Specification
 
 class PerformanceSpec extends Specification with TracingTestCommons
-    with NonCIEnvironmentFilter with TracingTestActorSystem with MockCollector {
+  with NonCIEnvironmentFilter with TracingTestActorSystem with MockCollector {
 
   override val sampleRate = 10
 

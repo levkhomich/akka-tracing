@@ -17,7 +17,7 @@ import scala.concurrent.{ Future, Promise }
 import scala.util.Random
 
 class TracingDirectivesSpec extends Specification with TracingTestCommons
-    with BaseTracingDirectives with MockCollector with Specs2FrameworkInterface {
+  with BaseTracingDirectives with MockCollector with Specs2FrameworkInterface {
 
   sequential
 

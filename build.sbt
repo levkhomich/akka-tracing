@@ -50,8 +50,8 @@ lazy val commonSettings = projectInfo ++ compilationSettings ++ testSettings ++ 
 
 lazy val compilationSettings =
   Seq(
-    scalaVersion := "2.11.11",
-    crossScalaVersions := Seq("2.11.11", "2.12.3"),
+    scalaVersion := "2.11.12",
+    crossScalaVersions := Seq(scalaVersion.value, "2.12.4"),
     scalacOptions ++= Seq(
       "-target:jvm-1.8",
       "-encoding", "utf8",
@@ -94,7 +94,7 @@ lazy val publicationSettings = Seq(
       .setPreference(AlignArguments, true)
       .setPreference(AlignParameters, true)
       .setPreference(DanglingCloseParenthesis, Preserve)
-      .setPreference(DoubleIndentClassDeclaration, true)
+      .setPreference(DoubleIndentConstructorArguments, true)
       .setPreference(PreserveSpaceBeforeArguments, true)
   }
 )
