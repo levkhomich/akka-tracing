@@ -8,7 +8,7 @@ import org.specs2.mutable.Specification
 import com.github.levkhomich.akka.tracing._
 
 class ForcedSamplingSpec extends Specification with TracingTestCommons
-    with BaseTracingDirectives with MockCollector with Specs2FrameworkInterface {
+  with BaseTracingDirectives with MockCollector with Specs2FrameworkInterface {
 
   import ForcedSamplingSpec._
 
