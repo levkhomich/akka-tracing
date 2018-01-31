@@ -17,40 +17,27 @@
 package com.github.levkhomich.akka.tracing.play
 
 import javax.inject.Inject
-import scala.concurrent.ExecutionContext
 
 import akka.actor.ActorSystem
-import akka.util.ByteString
-import play.api.libs.streams.Accumulator
+import akka.stream.Materializer
+import com.github.levkhomich.akka.tracing.{ SpanMetadata, TracingAnnotations }
 import play.api.mvc._
 
-import com.github.levkhomich.akka.tracing.{ SpanMetadata, TracingAnnotations }
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
-class TracingFilter @Inject() (system: ActorSystem)(implicit ec: ExecutionContext) extends EssentialFilter with PlayControllerTracing {
+class TracingFilter @Inject() (system: ActorSystem)(implicit val mat: Materializer) extends Filter with PlayControllerTracing {
   lazy val excludedQueryParams = Set.empty[String]
   lazy val excludedHeaders = Set.empty[String]
 
-  def apply(next: EssentialAction) = new TracedAction(next) {
-    override def apply(request: RequestHeader) = {
-      super.apply(request)
-      next(request).map { result =>
-        trace.record(request, TracingAnnotations.ServerSend)
-        result
-      }
+  def apply(nextFilter: RequestHeader => Future[Result])(request: RequestHeader): Future[Result] = {
+    if (requestTraced(request)) {
+      sample(request)
+      addHttpAnnotations(request)
     }
-  }
-
-  protected class TracedAction(delegateAction: EssentialAction) extends EssentialAction with RequestTaggingHandler {
-    override def apply(request: RequestHeader): Accumulator[ByteString, Result] = {
-      if (requestTraced(request)) {
-        sample(request)
-        addHttpAnnotations(request)
-      }
-      delegateAction(request)
-    }
-
-    override def tagRequest(request: RequestHeader): RequestHeader = {
-      request
+    nextFilter(request).map { result =>
+      trace.record(request, TracingAnnotations.ServerSend)
+      result
     }
   }
 
