@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies {
 
-  val PlayVersion = "2.6.10"
-  val AkkaVersion = "2.5.8"
+  val PlayVersion = "2.6.11"
+  val AkkaVersion = "2.5.9"
   val AkkaHttpVersion = "10.0.11"
 
   // format: OFF
@@ -13,14 +13,14 @@ object Dependencies {
     val akkaStream   = "com.typesafe.akka" %% "akka-stream" % AkkaVersion
     val akkaHttp     = "com.typesafe.akka" %% "akka-http"   % AkkaHttpVersion
     val play         = "com.typesafe.play" %% "play"        % PlayVersion
-    val config       = "com.typesafe"      %  "config"      % "1.3.1"
-    val libThrift    = "org.apache.thrift" %  "libthrift"   % "0.10.0"
+    val config       = "com.typesafe"      %  "config"      % "1.3.2"
+    val libThrift    = "org.apache.thrift" %  "libthrift"   % "0.11.0"
   }
 
   object Test {
     val specs        = "org.specs2"          %% "specs2-core"         % "4.0.2"         % "test"
     val finagle      = "com.twitter"         %% "finagle-core"        % "7.1.0"         % "test"
-    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "4.3.0"         % "test"
+    val braveCore    = "io.zipkin.brave"     %  "brave-core"          % "4.13.4"        % "test"
     val playSpecs2   = "com.typesafe.play"   %% "play-specs2"         % PlayVersion     % "test"
     val akkaTest     = "com.typesafe.akka"   %% "akka-testkit"        % AkkaVersion     % "test"
     val akkaRemote   = "com.typesafe.akka"   %% "akka-remote"         % AkkaVersion     % "test"
